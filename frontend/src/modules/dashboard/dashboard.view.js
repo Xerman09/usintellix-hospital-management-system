@@ -59,6 +59,7 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Fees</span>
             <div class="dropdown-content">
+                <a data-tab="inpatient_billing">Inpatient Master Folio &amp; Cashier</a>
                 <a data-tab="fee_sheet" class="patient-dependent-nav">Fee Sheet</a>
                 <a data-tab="payment">Payment</a>
                 <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>
@@ -86,6 +87,7 @@ function staffNavLinks(role)
                 ${["admin", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="icu_report">ICU Report</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="lab_worklist">Lab Worklist</a>` : ""}
                 ${["admin", "doctor", "clinician", "nurse", "lab_technician"].includes(role) ? `<a data-tab="blood_bank">Blood Bank & Donors</a>` : ""}
+                ${["admin", "doctor", "clinician", "nurse", "dietitian"].includes(role) ? `<a data-tab="dietary">Dietary &amp; Nutrition Services</a>` : ""}
                 ${role === "admin" ? `<a data-tab="lab_report">Lab Report</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_worklist">Radiology Worklist</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_report">Radiology Report</a>` : ""}

@@ -462,6 +462,9 @@ import { WorkforceGovernanceView } from "../workforce-governance/workforce-gover
 import { initWorkforceGovernance } from "../workforce-governance/workforce-governance.js?v=3";
 import { SafeHarborView } from "../safe-harbor/safe-harbor.view.js?v=5";
 import { initSafeHarbor } from "../safe-harbor/safe-harbor.js?v=5";
+import { BloodBankView, initBloodBank } from "../blood-bank/blood-bank.js";
+import { DietaryView, initDietary } from "../dietary/dietary.js";
+import { InpatientBillingView, initInpatientBilling } from "../inpatient-billing/inpatient-billing.js";
 
 function renderPlaceholderTab(title) {
     return `
@@ -1706,6 +1709,16 @@ export function Dashboard()
             tabManager.openTab(tabId, 'ICU Flowsheet', () => {
                 setTimeout(initIcu, 0);
                 return IcuView();
+            }, activate);
+        } else if (tabId === 'dietary' || tabId === 'nutrition') {
+            tabManager.openTab(tabId, 'Dietary & Nutrition Services', () => {
+                setTimeout(initDietary, 0);
+                return DietaryView();
+            }, activate);
+        } else if (tabId === 'inpatient_billing' || tabId === 'inpatient_folios' || tabId === 'master_folio') {
+            tabManager.openTab(tabId, 'Inpatient Master Folio & Cashier', () => {
+                setTimeout(initInpatientBilling, 0);
+                return InpatientBillingView();
             }, activate);
         } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
             tabManager.openTab(tabId, 'Blood Bank & Donors', () => {

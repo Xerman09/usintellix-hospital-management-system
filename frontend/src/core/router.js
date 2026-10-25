@@ -1,5 +1,6 @@
 import { BloodBankView, initBloodBank } from "../modules/blood-bank/blood-bank.js";
 import { DietaryView, initDietary } from "../modules/dietary/dietary.js";
+import { InpatientBillingView, initInpatientBilling } from "../modules/inpatient-billing/inpatient-billing.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -137,6 +138,22 @@ const routes = {
     "/nutrition": {
         view: DietaryView,
         afterRender: initDietary
+    },
+    "/inpatient-billing": {
+        view: InpatientBillingView,
+        afterRender: initInpatientBilling
+    },
+    "/inpatient_billing": {
+        view: InpatientBillingView,
+        afterRender: initInpatientBilling
+    },
+    "/inpatient-folios": {
+        view: InpatientBillingView,
+        afterRender: initInpatientBilling
+    },
+    "/master-folio": {
+        view: InpatientBillingView,
+        afterRender: initInpatientBilling
     }
 };
 
