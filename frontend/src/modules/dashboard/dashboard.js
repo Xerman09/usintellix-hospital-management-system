@@ -342,6 +342,7 @@ import { initEquipmentAssets } from "../equipment-assets/equipment-assets.js";
 import { EquipmentAssetsView } from "../equipment-assets/equipment-assets.view.js";
 import { initClinicSchedules } from "../clinic-schedules/clinic-schedules.js";
 import { ClinicSchedulesView } from "../clinic-schedules/clinic-schedules.view.js";
+import { initDutyRosters, DutyRostersView } from "../duty-rosters/duty-rosters.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1865,6 +1866,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Biomedical & Equipment Assets', () => {
                 setTimeout(() => initEquipmentAssets(user), 0);
                 return EquipmentAssetsView(user);
+            }, activate);
+        } else if (tabId === 'duty_rosters' || tabId === 'doctor_on_call' || tabId === 'on_call_roster') {
+            tabManager.openTab(tabId, title || 'Doctor On-Call & Duty Rosters', () => {
+                setTimeout(() => initDutyRosters(), 0);
+                return DutyRostersView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

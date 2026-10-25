@@ -9,6 +9,7 @@ import { ArAgingView, initArAging } from "../modules/ar-aging/ar-aging.js";
 import { TariffMasterView, initTariffMaster } from "../modules/tariff-master/tariff-master.js";
 import { DoctorCommissionsView, initDoctorCommissions } from "../modules/doctor-commissions/doctor-commissions.js";
 import { StaffCredentialsView, initStaffCredentials } from "../modules/staff-credentials/staff-credentials.js";
+import { DutyRostersView, initDutyRosters } from "../modules/duty-rosters/duty-rosters.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -314,6 +315,30 @@ const routes = {
     "/credentials-registry": {
         view: StaffCredentialsView,
         afterRender: initStaffCredentials
+    },
+    "/duty-rosters": {
+        view: DutyRostersView,
+        afterRender: initDutyRosters
+    },
+    "/duty_rosters": {
+        view: DutyRostersView,
+        afterRender: initDutyRosters
+    },
+    "/doctor-on-call": {
+        view: DutyRostersView,
+        afterRender: initDutyRosters
+    },
+    "/doctor_on_call": {
+        view: DutyRostersView,
+        afterRender: initDutyRosters
+    },
+    "/on-call-roster": {
+        view: DutyRostersView,
+        afterRender: initDutyRosters
+    },
+    "/physician-rosters": {
+        view: DutyRostersView,
+        afterRender: initDutyRosters
     }
 };
 

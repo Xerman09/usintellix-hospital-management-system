@@ -31,6 +31,7 @@ function staffNavLinks(role)
                 <a data-tab="department_org">Department Org Mapping</a>
                 <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                 <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
+                <a data-tab="duty_rosters">Doctor On-Call &amp; Duty Rosters</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -182,6 +183,7 @@ function staffNavLinks(role)
                         <a data-tab="department_org">Department Org Mapping</a>
                         <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                         <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
+                <a data-tab="duty_rosters">Doctor On-Call &amp; Duty Rosters</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
