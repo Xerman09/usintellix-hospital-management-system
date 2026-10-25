@@ -275,4 +275,83 @@ class DietaryController
             return Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
+
+    public function batchPrepCensus(Request $request): Response
+    {
+        try {
+            $mealDate = $request->query('meal_date') ?: date('Y-m-d');
+            $mealType = $request->query('meal_type');
+            $ward = $request->query('ward');
+
+            $census = $this->service->getKitchenBatchPrepCensus($mealDate, $mealType, $ward);
+            return Response::json(['success' => true, 'data' => $census]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function traySlips(Request $request): Response
+    {
+        try {
+            $filters = [
+                'meal_date' => $request->query('meal_date') ?: date('Y-m-d'),
+                'meal_type' => $request->query('meal_type'),
+                'tray_id' => $request->query('tray_id'),
+                'diet_category' => $request->query('diet_category'),
+                'has_food_allergies' => $request->query('has_food_allergies'),
+                'ward' => $request->query('ward'),
+                'search' => $request->query('q') ?? $request->query('search')
+            ];
+
+            $slips = $this->service->getBedsideTraySlips($filters);
+            return Response::json(['success' => true, 'data' => $slips, 'total' => count($slips)]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function batchUpdateTrays(Request $request): Response
+    {
+        try {
+            $data = $request->json();
+            $trayIds = (array)($data['tray_ids'] ?? []);
+            $status = trim($data['status'] ?? '');
+            $notes = !empty($data['notes']) ? trim($data['notes']) : null;
+
+            $actor = $request->user();
+            $actorName = $actor ? trim(($actor['first_name'] ?? '') . ' ' . ($actor['last_name'] ?? '')) : 'Kitchen Supervisor';
+            if (empty(trim($actorName))) {
+                $actorName = 'Kitchen Supervisor';
+            }
+
+            if (empty($trayIds) || empty($status)) {
+                return Response::json(['success' => false, 'message' => 'Tray IDs and target status are required.'], 400);
+            }
+
+            $res = $this->service->batchUpdateTrayStatus($trayIds, $status, $actorName, $notes);
+            return Response::json([
+                'success' => true,
+                'message' => "Successfully updated {$res['updated_count']} meal trays to status '{$status}'.",
+                'data' => $res
+            ]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function seedCensus(Request $request): Response
+    {
+        try {
+            $data = $request->json();
+            $targetDate = !empty($data['target_date']) ? $data['target_date'] : date('Y-m-d');
+            $res = $this->service->seedHospitalCensusDemoData($targetDate);
+            return Response::json([
+                'success' => true,
+                'message' => $res['message'] ?? 'Hospital census demo data seeded.',
+                'data' => $res
+            ]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
 }

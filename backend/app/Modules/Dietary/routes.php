@@ -22,6 +22,12 @@ $router->get('/dietary/trays', [DietaryController::class, 'trays'], $dietView);
 $router->get('/dietary/trays/detail', [DietaryController::class, 'trayDetail'], $dietView);
 $router->post('/dietary/trays/status', [DietaryController::class, 'updateTray'], $dietKitchen);
 
+// Kitchen Batch Prep Census & Bedside Tray Slips
+$router->get('/dietary/kitchen/batch-prep', [DietaryController::class, 'batchPrepCensus'], $dietView);
+$router->get('/dietary/kitchen/tray-slips', [DietaryController::class, 'traySlips'], $dietView);
+$router->post('/dietary/kitchen/batch-update-status', [DietaryController::class, 'batchUpdateTrays'], $dietKitchen);
+$router->post('/dietary/kitchen/seed-census', [DietaryController::class, 'seedCensus'], $dietKitchen);
+
 // Patient Meal Ordering & Diet Plan Lockout Engine
 $router->get('/dietary/patient-menu', [DietaryController::class, 'patientMenu'], $dietView);
 $router->get('/dietary/meal-orders', [DietaryController::class, 'listMealOrders'], $dietView);

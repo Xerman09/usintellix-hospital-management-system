@@ -4,11 +4,12 @@ import { showToast } from "../../core/toast.js";
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let state = {
-    view: "prescriptions", // "prescriptions" | "orders" | "kitchen" | "npo_watchlist" | "guidelines"
+    view: "batch_prep", // "batch_prep" | "kitchen" | "orders" | "prescriptions" | "npo_watchlist" | "guidelines"
     diet_category: "",
     status: "active",
     meal_date: new Date().toISOString().slice(0, 10),
     meal_type: "",
+    ward: "",
     has_food_allergies: "",
     q: ""
 };
@@ -27,6 +28,30 @@ export async function initDietary() {
 async function load(quiet = false) {
     const root = document.getElementById("dietaryRoot");
     if (!root) return;
+
+    if (state.view === "batch_prep") {
+        const q = new URLSearchParams(Object.entries({
+            meal_date: state.meal_date,
+            meal_type: state.meal_type,
+            ward: state.ward || ""
+        }).filter(([, v]) => v));
+
+        const [censusRes, statsRes] = await Promise.all([
+            api(`/dietary/kitchen/batch-prep?${q}`).catch(() => null),
+            api(`/dietary/stats`).catch(() => null)
+        ]);
+
+        if (!censusRes?.success) {
+            if (!quiet) root.innerHTML = `<div class="diet-empty">${esc(censusRes?.message || "Failed to compile kitchen batch prep census.")}</div>`;
+            return;
+        }
+
+        data = {
+            census: censusRes.data || {},
+            stats: statsRes?.data || {}
+        };
+        return render(root);
+    }
 
     if (state.view === "orders") {
         const q = new URLSearchParams(Object.entries({
@@ -106,6 +131,7 @@ async function load(quiet = false) {
 }
 
 function render(root) {
+    const isBatchPrep = state.view === "batch_prep";
     const isRx = state.view === "prescriptions";
     const isOrders = state.view === "orders";
     const isKitchen = state.view === "kitchen";
@@ -119,18 +145,20 @@ function render(root) {
         <div class="diet-head">
             <div>
                 <h1>Dietary &amp; Nutrition Services</h1>
-                <div class="diet-sub">Clinical diet prescriptions, daily breakfast/lunch/dinner ordering with automated prohibited food lockouts, and kitchen tray allergy safety alerts.</div>
+                <div class="diet-sub">Hospital kitchen census compilation, clinical diet batch prep lists, bedside meal tray delivery slips with allergy warnings, and automated diet lockouts.</div>
             </div>
             <div style="display:flex;gap:8px;">
+                ${isBatchPrep ? `<button type="button" class="diet-btn blue" id="batchPrintSlipsHeadBtn">🖨️ Batch Print Tray Slips</button>` : ""}
                 ${isOrders ? `<button type="button" class="diet-btn blue" id="dietOrderMealBtn">🍽️ Place Bedside Meal Order (Auto Lockouts)</button>` : ""}
-                ${!isOrders ? `<button type="button" class="diet-btn blue" id="dietPrescribeBtn">+ Prescribe Clinical Diet</button>` : ""}
+                ${!isOrders && !isBatchPrep ? `<button type="button" class="diet-btn blue" id="dietPrescribeBtn">+ Prescribe Clinical Diet</button>` : ""}
             </div>
         </div>
 
         <div class="diet-nav-tabs">
-            ${tab("prescriptions", "Clinical Diet Orders")}
+            ${tab("batch_prep", "📋 Kitchen Supervisor Census & Batch Prep")}
+            ${tab("kitchen", "Tray Assembly & Delivery")}
             ${tab("orders", "Patient Meal Ordering & Lockouts")}
-            ${tab("kitchen", "Kitchen Tray Assembly & Allergies")}
+            ${tab("prescriptions", "Clinical Diet Orders")}
             ${tab("npo_watchlist", `NPO Fasting Watchlist ${s.npo_fasting_patients ? `(${s.npo_fasting_patients})` : ""}`)}
             ${tab("guidelines", "Diet & Dysphagia Guidelines")}
         </div>
@@ -139,6 +167,32 @@ function render(root) {
 
         ${!isGuides ? `
             <div class="diet-tools">
+                ${isBatchPrep ? `
+                    <label style="font-size:12.5px;font-weight:700;">Date:</label>
+                    <input type="date" id="dietMealDate" value="${esc(state.meal_date)}">
+
+                    <select id="dietMealType">
+                        <option value="">All Services (Breakfast, Lunch, Dinner)</option>
+                        <option value="breakfast" ${state.meal_type === "breakfast" ? "selected" : ""}>Breakfast</option>
+                        <option value="lunch" ${state.meal_type === "lunch" ? "selected" : ""}>Lunch</option>
+                        <option value="dinner" ${state.meal_type === "dinner" ? "selected" : ""}>Dinner</option>
+                    </select>
+
+                    <select id="dietFilterWard">
+                        <option value="">All Hospital Wards / Units</option>
+                        <option value="ICU" ${state.ward === "ICU" ? "selected" : ""}>Intensive Care Unit (ICU)</option>
+                        <option value="SURG" ${state.ward === "SURG" ? "selected" : ""}>Surgical Inpatient Ward</option>
+                        <option value="MED" ${state.ward === "MED" ? "selected" : ""}>Medical Inpatient Ward</option>
+                        <option value="PED" ${state.ward === "PED" ? "selected" : ""}>Pediatric Care Unit</option>
+                        <option value="ISOL" ${state.ward === "ISOL" ? "selected" : ""}>Isolation Negative Pressure</option>
+                    </select>
+
+                    <button type="button" class="diet-btn blue" id="batchPrintSlipsBtn">🖨️ Batch Print Delivery Slips</button>
+                    <button type="button" class="diet-btn" id="batchAdvancePrepBtn">⚡ Start Kitchen Prep</button>
+                    <button type="button" class="diet-btn" id="batchAssembleClearBtn">✓ Batch Assemble &amp; Clear</button>
+                    <button type="button" class="diet-btn" id="seedDemoCensusBtn" title="Seed realistic hospital census demo counts">🌱 Seed Demo Census</button>
+                ` : ""}
+
                 ${isRx ? `
                     <select id="dietFilterCat">
                         <option value="">All Diet Categories</option>
@@ -190,11 +244,11 @@ function render(root) {
                     </select>
                 ` : ""}
 
-                <input type="search" id="dietSearch" value="${esc(state.q)}" placeholder="${isOrders ? "Search order #, patient name, bed..." : isKitchen ? "Search tray #, patient, room/bed..." : "Search prescription #, patient name, room..."}">
+                ${!isBatchPrep ? `<input type="search" id="dietSearch" value="${esc(state.q)}" placeholder="${isOrders ? "Search order #, patient name, bed..." : isKitchen ? "Search tray #, patient, room/bed..." : "Search prescription #, patient name, room..."}">` : ""}
             </div>
         ` : ""}
 
-        ${isRx ? renderPrescriptionsList(data.prescriptions) : isOrders ? renderMealOrdersList(data.orders) : isKitchen ? renderKitchenTraysList(data.trays) : isNpo ? renderNpoWatchlist(data.prescriptions) : renderGuidelinesView()}
+        ${isBatchPrep ? renderBatchPrepView(data.census, s) : isRx ? renderPrescriptionsList(data.prescriptions) : isOrders ? renderMealOrdersList(data.orders) : isKitchen ? renderKitchenTraysList(data.trays) : isNpo ? renderNpoWatchlist(data.prescriptions) : renderGuidelinesView()}
     `;
 
     // Tab buttons
@@ -212,7 +266,109 @@ function render(root) {
     if (root.querySelector("#dietFilterStatus")) root.querySelector("#dietFilterStatus").onchange = (e) => { state.status = e.target.value; load(); };
     if (root.querySelector("#dietMealDate")) root.querySelector("#dietMealDate").onchange = (e) => { state.meal_date = e.target.value; load(); };
     if (root.querySelector("#dietMealType")) root.querySelector("#dietMealType").onchange = (e) => { state.meal_type = e.target.value; load(); };
+    if (root.querySelector("#dietFilterWard")) root.querySelector("#dietFilterWard").onchange = (e) => { state.ward = e.target.value; load(); };
     if (root.querySelector("#dietFilterAllergy")) root.querySelector("#dietFilterAllergy").onchange = (e) => { state.has_food_allergies = e.target.value; load(); };
+
+    // Batch Prep Actions
+    if (root.querySelector("#batchPrintSlipsBtn")) {
+        root.querySelector("#batchPrintSlipsBtn").onclick = async () => {
+            const q = new URLSearchParams(Object.entries({
+                meal_date: state.meal_date,
+                meal_type: state.meal_type,
+                ward: state.ward || ""
+            }).filter(([, v]) => v));
+
+            const res = await api(`/dietary/kitchen/tray-slips?${q}`).catch(() => null);
+            if (!res?.success || !res?.data?.length) {
+                return showToast("No tray slips found for selected meal and ward filters.", "info");
+            }
+            openTraySlipsPrintModal(res.data, `Hospital Bedside Meal Tray Delivery Slips (${res.data.length} Slips)`);
+        };
+    }
+    if (root.querySelector("#batchPrintSlipsHeadBtn")) {
+        root.querySelector("#batchPrintSlipsHeadBtn").onclick = () => {
+            if (root.querySelector("#batchPrintSlipsBtn")) root.querySelector("#batchPrintSlipsBtn").click();
+        };
+    }
+    if (root.querySelector("#batchPrintSlipsTopBtn")) {
+        root.querySelector("#batchPrintSlipsTopBtn").onclick = () => {
+            if (root.querySelector("#batchPrintSlipsBtn")) root.querySelector("#batchPrintSlipsBtn").click();
+        };
+    }
+
+    if (root.querySelector("#batchAdvancePrepBtn")) {
+        root.querySelector("#batchAdvancePrepBtn").onclick = async () => {
+            const q = new URLSearchParams(Object.entries({
+                meal_date: state.meal_date,
+                meal_type: state.meal_type,
+                ward: state.ward || ""
+            }).filter(([, v]) => v));
+            const slipsRes = await api(`/dietary/kitchen/tray-slips?${q}`).catch(() => null);
+            const scheduledIds = (slipsRes?.data || []).filter(t => t.status === "scheduled").map(t => t.tray_id);
+            if (!scheduledIds.length) {
+                return showToast("No scheduled trays currently pending kitchen prep.", "info");
+            }
+            if (confirm(`Advance ${scheduledIds.length} scheduled trays to Kitchen Prep station?`)) {
+                const res = await api("/dietary/kitchen/batch-update-status", {
+                    method: "POST",
+                    body: JSON.stringify({ tray_ids: scheduledIds, status: "prep_in_kitchen", notes: "Batch started by supervisor" })
+                });
+                if (res?.success) {
+                    showToast(res.message, "success");
+                    load();
+                } else {
+                    showToast(res?.message || "Batch update failed.", "error");
+                }
+            }
+        };
+    }
+    if (root.querySelector("#batchAdvancePrepTopBtn")) {
+        root.querySelector("#batchAdvancePrepTopBtn").onclick = () => {
+            if (root.querySelector("#batchAdvancePrepBtn")) root.querySelector("#batchAdvancePrepBtn").click();
+        };
+    }
+
+    if (root.querySelector("#batchAssembleClearBtn")) {
+        root.querySelector("#batchAssembleClearBtn").onclick = async () => {
+            const q = new URLSearchParams(Object.entries({
+                meal_date: state.meal_date,
+                meal_type: state.meal_type,
+                ward: state.ward || ""
+            }).filter(([, v]) => v));
+            const slipsRes = await api(`/dietary/kitchen/tray-slips?${q}`).catch(() => null);
+            const prepIds = (slipsRes?.data || []).filter(t => t.status === "prep_in_kitchen").map(t => t.tray_id);
+            if (!prepIds.length) {
+                return showToast("No trays currently in kitchen prep to assemble.", "info");
+            }
+            if (confirm(`Assemble ${prepIds.length} trays and certify kitchen allergen clearance?`)) {
+                const res = await api("/dietary/kitchen/batch-update-status", {
+                    method: "POST",
+                    body: JSON.stringify({ tray_ids: prepIds, status: "tray_assembled", notes: "Supervisor batch assembly and allergy clearance certification" })
+                });
+                if (res?.success) {
+                    showToast(res.message, "success");
+                    load();
+                } else {
+                    showToast(res?.message || "Batch assemble failed.", "error");
+                }
+            }
+        };
+    }
+
+    if (root.querySelector("#seedDemoCensusBtn")) {
+        root.querySelector("#seedDemoCensusBtn").onclick = async () => {
+            const res = await api("/dietary/kitchen/seed-census", {
+                method: "POST",
+                body: JSON.stringify({ target_date: state.meal_date })
+            });
+            if (res?.success) {
+                showToast(res.message || "Hospital census demo data loaded.", "success");
+                load();
+            } else {
+                showToast(res?.message || "Failed to seed demo census.", "error");
+            }
+        };
+    }
 
     let t = null;
     const searchInput = root.querySelector("#dietSearch");
@@ -227,6 +383,26 @@ function render(root) {
     }
 
     root.onclick = async (e) => {
+        const printSlipBtn = e.target.closest("[data-print-slip]");
+        if (printSlipBtn) {
+            openSingleTraySlip(Number(printSlipBtn.dataset.printSlip));
+            return;
+        }
+
+        const printWardBtn = e.target.closest("[data-print-ward-slips]");
+        if (printWardBtn) {
+            openWardTraySlips(printWardBtn.dataset.printWardSlips);
+            return;
+        }
+
+        const filterDietBtn = e.target.closest("[data-filter-diet]");
+        if (filterDietBtn) {
+            state.diet_category = filterDietBtn.dataset.filterDiet;
+            state.view = "kitchen";
+            load();
+            return;
+        }
+
         const viewRxBtn = e.target.closest("[data-view-rx]");
         if (viewRxBtn) {
             openDietDetailModal(Number(viewRxBtn.dataset.viewRx));
@@ -487,6 +663,7 @@ function kitchenTrayCard(tray) {
             ${tray.kitchen_prep_notes ? `<div style="font-size:12px;color:var(--text-muted);margin:4px 0;"><b>Prep Notes:</b> ${esc(tray.kitchen_prep_notes)}</div>` : ""}
 
             <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
+                <button type="button" class="diet-btn sm" data-print-slip="${tray.id}">🏷️ Print Tray Slip</button>
                 ${tray.status === "scheduled" ? `<button type="button" class="diet-btn sm" data-prep-tray="${tray.id}">🍳 Start Kitchen Prep</button>` : ""}
                 ${tray.status === "prep_in_kitchen" ? `<button type="button" class="diet-btn sm blue" data-assemble-tray="${tray.id}">✓ Assemble Tray &amp; Sign Allergy Check</button>` : ""}
                 ${tray.status === "tray_assembled" ? `<button type="button" class="diet-btn sm blue" data-deliver-tray="${tray.id}">🚚 Deliver to Bedside</button>` : ""}
@@ -546,6 +723,263 @@ function renderGuidelinesView() {
                     <li><b>Clear Liquids:</b> Up to 2 hours prior to induction per ASA guidelines.</li>
                     <li><b>Safety Lock:</b> Kitchen trays automatically suppressed while NPO active.</li>
                 </ul>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Kitchen Supervisor Dashboard & Batch Prep View
+ */
+function renderBatchPrepView(census, s) {
+    if (!census) return `<div class="diet-empty">No census compiled. Click "🌱 Seed Demo Census" or select another date.</div>`;
+
+    const sm = census.summary || {};
+    const diets = census.diet_counts || [];
+    const textures = census.texture_counts || [];
+    const liquids = census.liquid_counts || [];
+    const allergies = census.allergy_summary || {};
+    const wards = census.ward_distribution || [];
+    const prepItems = census.production_prep_list || [];
+
+    return `
+        <!-- Supervisor Census KPI Overview -->
+        <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:16px;margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border-color);padding-bottom:12px;margin-bottom:12px;">
+                <div>
+                    <h2 style="margin:0;font-size:18px;color:#1e3a8a;">Hospital-Wide Kitchen Census &amp; Meal Batch Compilation</h2>
+                    <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">
+                        Date: <b>${esc(census.meal_date)}</b> · Service: <b style="text-transform:uppercase;color:#b45309;">${esc(census.meal_type)}</b> · Ward Filter: <b>${esc(census.ward_filter.toUpperCase())}</b>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="diet-btn blue" id="batchPrintSlipsTopBtn">🖨️ Batch Print Delivery Slips</button>
+                    <button type="button" class="diet-btn" id="batchAdvancePrepTopBtn">⚡ Start Kitchen Prep</button>
+                </div>
+            </div>
+
+            <div class="diet-counts" style="margin-bottom:0;">
+                <div style="background:#f0fdf4;border-color:#bbf7d0;"><b style="color:#16a34a;">${sm.total_scheduled_trays || 0}</b>Total Inpatient Trays</div>
+                <div class="good"><b>${sm.meals_to_cook_and_prep || 0}</b>Active Meals to Cook &amp; Plate</div>
+                <div class="${sm.npo_fasting_locked ? 'bad' : ''}"><b>${sm.npo_fasting_locked || 0}</b>Strict NPO Fasting (Locked)</div>
+                <div class="${sm.trays_with_food_allergies ? 'warn' : ''}"><b>${sm.trays_with_food_allergies || 0}</b>Trays With Food Allergies</div>
+                <div><b>${sm.in_kitchen_prep || 0}</b>Currently In Kitchen Prep</div>
+                <div><b>${sm.trays_assembled || 0}</b>Assembled &amp; Ready</div>
+                <div class="good"><b>${sm.trays_delivered || 0}</b>Delivered to Bedside</div>
+            </div>
+        </div>
+
+        <!-- 1. HOSPITAL-WIDE MEAL COUNTS COMPILATION (e.g. 90 Regular, 45 Diabetic, 30 Renal, 12 NPO) -->
+        <div style="margin-bottom:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <h3 style="margin:0;font-size:16px;">1. Hospital-Wide Meal Counts by Clinical Diet Category</h3>
+                <span style="font-size:12px;color:var(--text-muted);">Total Inpatients: <b>${sm.total_scheduled_trays || 0}</b></span>
+            </div>
+
+            <div class="diet-census-grid">
+                ${diets.map(d => `
+                    <div class="diet-census-card ${d.category === 'npo' ? 'npo' : ''}" style="border-top: 4px solid ${d.color};">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <span class="diet-census-num" style="color:${d.color};">${d.count}</span>
+                            <span style="font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;">${d.code}</span>
+                        </div>
+                        <div class="diet-census-label">${esc(d.label)}</div>
+                        <div class="diet-census-desc">${esc(d.description)}</div>
+                        <div class="diet-census-progress">
+                            <div class="diet-census-bar" style="width:${d.percentage}%;background:${d.color};"></div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;display:flex;justify-content:space-between;">
+                            <span>${d.percentage}% of census</span>
+                            <a href="javascript:void(0)" data-filter-diet="${d.category}" style="color:${d.color};font-weight:700;text-decoration:none;">View Trays &rarr;</a>
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+
+        <!-- 2. DYSPHAGIA CONSISTENCY BALANCE (IDDSI) -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:12px;margin-bottom:18px;">
+            <div class="diet-card">
+                <h4 style="margin:0 0 8px;font-size:14px;color:#1e40af;">Texture Consistencies (IDDSI Framework)</h4>
+                <div style="display:grid;gap:6px;">
+                    ${textures.map(tx => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border-color);">
+                            <span><b>${esc(tx.label)}</b></span>
+                            <span style="font-weight:700;font-family:monospace;background:#f1f5f9;padding:2px 8px;border-radius:4px;">${tx.count} trays (${tx.percentage}%)</span>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+
+            <div class="diet-card">
+                <h4 style="margin:0 0 8px;font-size:14px;color:#0d9488;">Liquid Consistencies (IDDSI Viscosity)</h4>
+                <div style="display:grid;gap:6px;">
+                    ${liquids.map(lq => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border-color);">
+                            <span><b>${esc(lq.label)}</b></span>
+                            <span style="font-weight:700;font-family:monospace;background:#f1f5f9;padding:2px 8px;border-radius:4px;">${lq.count} trays (${lq.percentage}%)</span>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. FOOD ALLERGY VIGILANCE & HAZARD TABLE -->
+        <div style="margin-bottom:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <h3 style="margin:0;font-size:16px;color:#991b1b;">2. Food Allergy Vigilance &amp; Cross-Contamination Warning Log</h3>
+                <span class="diet-badge bad">${allergies.total_allergy_trays || 0} Allergy-Flagged Trays</span>
+            </div>
+
+            ${allergies.total_allergy_trays > 0 ? `
+                <div style="background:#fef2f2;border:1px solid #f87171;border-radius:8px;padding:12px;margin-bottom:10px;">
+                    <div style="font-size:12.5px;font-weight:800;color:#991b1b;margin-bottom:6px;">
+                        🚨 TOP DETECTED ALLERGENS ON TODAY'S TRAYS:
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                        ${(allergies.top_allergens || []).map(al => `
+                            <span style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;padding:3px 9px;border-radius:12px;font-size:12px;font-weight:700;">
+                                ⚠️ ${esc(al.allergen)}: <b>${al.count}</b>
+                            </span>
+                        `).join("")}
+                    </div>
+                </div>
+
+                <div class="diet-card" style="padding:0;overflow:hidden;">
+                    <table class="diet-table">
+                        <thead>
+                            <tr>
+                                <th>Tray #</th>
+                                <th>Patient Name (MRN)</th>
+                                <th>Location</th>
+                                <th>Prescribed Diet</th>
+                                <th>Documented Food Allergies</th>
+                                <th>Kitchen Clearance</th>
+                                <th style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(allergies.allergy_trays || []).map(alt => `
+                                <tr>
+                                    <td style="font-family:monospace;font-weight:700;color:#2563eb;">${esc(alt.tray_number)}</td>
+                                    <td><b>${esc(alt.patient_name)}</b> (${esc(alt.patient_mrn)})</td>
+                                    <td><b style="color:#1d4ed8;">${esc(alt.ward_room_bed)}</b></td>
+                                    <td><span class="diet-badge">${esc(alt.diet_category.toUpperCase())}</span></td>
+                                    <td><b style="color:#dc2626;">${esc(alt.allergy_alerts)}</b></td>
+                                    <td>
+                                        ${alt.cleared_by_kitchen ? `<span style="color:#059669;font-weight:700;">✓ Cleared by Chef</span>` : `<span style="color:#dc2626;font-weight:700;">⚠️ Needs Clearance</span>`}
+                                    </td>
+                                    <td style="text-align:right;">
+                                        <button type="button" class="diet-btn sm" data-print-slip="${alt.tray_id}">🏷️ Slip</button>
+                                    </td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            ` : `
+                <div class="diet-empty" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534;">
+                    <b>✓ No Documented Food Allergies for This Meal Service:</b> Standard preparation protocol applies.
+                </div>
+            `}
+        </div>
+
+        <!-- 4. WARD & NURSING UNIT DISTRIBUTION MATRIX -->
+        <div style="margin-bottom:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <h3 style="margin:0;font-size:16px;">3. Nursing Unit / Ward Tray Cart Distribution</h3>
+                <span style="font-size:12px;color:var(--text-muted);">${wards.length} Inpatient Units</span>
+            </div>
+
+            <div class="diet-card" style="padding:0;overflow:hidden;">
+                <table class="diet-table">
+                    <thead>
+                        <tr>
+                            <th>Nursing Unit / Floor</th>
+                            <th style="text-align:center;">Total Trays</th>
+                            <th style="text-align:center;">Regular</th>
+                            <th style="text-align:center;">Diabetic</th>
+                            <th style="text-align:center;">Renal</th>
+                            <th style="text-align:center;">Cardiac</th>
+                            <th style="text-align:center;">NPO (Locked)</th>
+                            <th style="text-align:center;">Allergies</th>
+                            <th style="text-align:right;">Ward Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${wards.length ? wards.map(w => `
+                            <tr>
+                                <td><b>${esc(w.ward_name)}</b></td>
+                                <td style="text-align:center;font-weight:800;color:#1e40af;">${w.total_trays}</td>
+                                <td style="text-align:center;">${w.regular_count}</td>
+                                <td style="text-align:center;">${w.diabetic_count}</td>
+                                <td style="text-align:center;">${w.renal_count}</td>
+                                <td style="text-align:center;">${w.cardiac_count}</td>
+                                <td style="text-align:center;color:${w.npo_count ? '#dc2626' : 'inherit'};font-weight:${w.npo_count ? '700' : 'normal'};">${w.npo_count}</td>
+                                <td style="text-align:center;color:${w.allergy_count ? '#dc2626' : 'inherit'};font-weight:${w.allergy_count ? '700' : 'normal'};">${w.allergy_count}</td>
+                                <td style="text-align:right;">
+                                    <button type="button" class="diet-btn sm" data-print-ward-slips="${esc(w.ward_name)}">🖨️ Print Ward Slips</button>
+                                </td>
+                            </tr>
+                        `).join("") : `
+                            <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:16px;">No ward census data available.</td></tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. KITCHEN BATCH COOKING PRODUCTION PREP SHEET -->
+        <div style="margin-bottom:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <h3 style="margin:0;font-size:16px;color:#1e3a8a;">4. Kitchen Batch Cooking &amp; Production Prep Sheet</h3>
+                    <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">
+                        Compiled kitchen portion requirements for confirmed patient meal orders.
+                    </div>
+                </div>
+            </div>
+
+            <div class="diet-card" style="padding:0;overflow:hidden;">
+                ${prepItems.length ? `
+                    <table class="diet-table">
+                        <thead>
+                            <tr>
+                                <th>Item Code</th>
+                                <th>Dish / Menu Item</th>
+                                <th>Category</th>
+                                <th>IDDSI Texture</th>
+                                <th style="text-align:center;background:#fef3c7;color:#92400e;">Batch Portions to Cook</th>
+                                <th style="text-align:right;">Total Calories</th>
+                                <th>Allergen Safeguards</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${prepItems.map(pi => `
+                                <tr>
+                                    <td style="font-family:monospace;font-weight:700;color:#2563eb;">${esc(pi.item_code || "FOOD")}</td>
+                                    <td><b>${esc(pi.item_name)}</b></td>
+                                    <td><span class="diet-tag-sm">${esc(pi.item_category)}</span></td>
+                                    <td><span class="diet-badge">${esc(pi.texture_level)}</span></td>
+                                    <td style="text-align:center;font-weight:900;font-size:15px;background:#fffbeb;color:#b45309;">
+                                        ${pi.batch_portions} portions
+                                    </td>
+                                    <td style="text-align:right;font-family:monospace;">${pi.total_calories || 0} kcal</td>
+                                    <td>
+                                        ${pi.contains_peanuts ? `<span style="color:#dc2626;font-size:11px;font-weight:700;">Contains Peanuts!</span>` : ""}
+                                        ${pi.contains_shellfish ? `<span style="color:#dc2626;font-size:11px;font-weight:700;">Contains Shellfish!</span>` : ""}
+                                        ${pi.contains_milk ? `<span style="color:#d97706;font-size:11px;font-weight:700;">Contains Dairy</span>` : ""}
+                                        ${!pi.contains_peanuts && !pi.contains_shellfish && !pi.contains_milk ? `<span style="color:#16a34a;font-size:11px;font-weight:700;">✓ Allergen Safe</span>` : ""}
+                                    </td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                ` : `
+                    <div class="diet-empty" style="padding:20px;">
+                        No custom bedside meal orders submitted yet for this meal. The kitchen will prepare standard balanced hospital plates based on the diet counts compiled above (${sm.meals_to_cook_and_prep || 0} total active meals).
+                    </div>
+                `}
             </div>
         </div>
     `;
@@ -1219,6 +1653,260 @@ async function openDietDetailModal(prescriptionId) {
     ov.querySelector("#rxModalCloseBtn").onclick = close;
 }
 
+/**
+ * Open Single Tray Delivery Slip Modal
+ */
+async function openSingleTraySlip(trayId) {
+    const res = await api(`/dietary/kitchen/tray-slips?tray_id=${trayId}`).catch(() => null);
+    if (!res?.success || !res?.data?.length) {
+        return showToast("Could not load bedside tray slip.", "error");
+    }
+    openTraySlipsPrintModal(res.data, `Bedside Meal Tray Slip — ${res.data[0].tray_number}`);
+}
+
+/**
+ * Open Ward-Wide Tray Delivery Slips for Batch Printing
+ */
+async function openWardTraySlips(wardName) {
+    const q = new URLSearchParams(Object.entries({
+        meal_date: state.meal_date,
+        meal_type: state.meal_type,
+        ward: wardName
+    }).filter(([, v]) => v));
+
+    const res = await api(`/dietary/kitchen/tray-slips?${q}`).catch(() => null);
+    if (!res?.success || !res?.data?.length) {
+        return showToast(`No tray slips found for unit "${wardName}".`, "info");
+    }
+    openTraySlipsPrintModal(res.data, `${wardName} — Bedside Meal Tray Delivery Slips (${res.data.length} Slips)`);
+}
+
+/**
+ * Open Modal Displaying Printable Bedside Meal Tray Delivery Slips
+ */
+function openTraySlipsPrintModal(slips, title) {
+    if (!slips || !slips.length) {
+        return showToast("No slips to display.", "info");
+    }
+
+    const ov = document.createElement("div");
+    ov.className = "diet-modal-ov";
+    ov.innerHTML = `
+        <div class="diet-modal" style="max-width:880px;width:95%;">
+            <div class="diet-modal-head diet-no-print">
+                <div>
+                    <h3 style="margin:0;">🖨️ ${esc(title || "Bedside Meal Tray Delivery Slips")}</h3>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                        Showing ${slips.length} patient tray delivery slips. Formatted for thermal 4"x6" / half-sheet bed cards with allergy warning banners.
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="diet-btn blue" id="triggerPrintBtn">🖨️ Print Slips (Browser)</button>
+                    <button type="button" class="diet-close" id="slipsCloseBtn">&times;</button>
+                </div>
+            </div>
+
+            <div class="diet-no-print" style="background:#eff6ff;border:1px solid #bfdbfe;padding:8px 12px;border-radius:6px;font-size:12px;color:#1e40af;margin-bottom:12px;">
+                <b>💡 Printing Instructions:</b> Click <b>"Print Slips"</b> to launch the print dialog. Each slip automatically page-breaks cleanly onto its own card. High-risk food allergy banners and strict diet categories are clearly marked for patient bedside verification.
+            </div>
+
+            <div id="printableSlipsContainer">
+                ${slips.map(renderTraySlipHtml).join("")}
+            </div>
+
+            <div class="diet-no-print" style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;border-top:1px solid var(--border-color);padding-top:10px;">
+                <button type="button" class="diet-btn" id="slipsCloseBottomBtn">Close</button>
+                <button type="button" class="diet-btn blue" id="triggerPrintBottomBtn">🖨️ Print Slips Now</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#slipsCloseBtn").onclick = close;
+    ov.querySelector("#slipsCloseBottomBtn").onclick = close;
+
+    const doPrint = () => {
+        window.print();
+    };
+    ov.querySelector("#triggerPrintBtn").onclick = doPrint;
+    ov.querySelector("#triggerPrintBottomBtn").onclick = doPrint;
+}
+
+/**
+ * Render HTML for an Individual Bedside Meal Tray Delivery Slip
+ */
+function renderTraySlipHtml(slip) {
+    const isNpo = slip.is_npo;
+    const hasAllergies = slip.has_food_allergies;
+
+    return `
+        <div class="diet-tray-slip ${hasAllergies ? 'has-allergy' : ''}">
+            <!-- Slip Header -->
+            <div class="diet-slip-header">
+                <div class="diet-slip-org">
+                    <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:#1e3a8a;">USINTELLIX HEALTHCARE SYSTEM</div>
+                    <div style="font-size:15px;font-weight:900;letter-spacing:0.5px;color:#0f172a;">BEDSIDE MEAL TRAY DELIVERY SLIP</div>
+                    <div style="font-size:11px;color:#64748b;">Clinical Dietary &amp; Nutrition Services</div>
+                </div>
+                <div class="diet-slip-meta" style="text-align:right;">
+                    <div style="font-family:monospace;font-size:15px;font-weight:800;color:#2563eb;">${esc(slip.tray_number)}</div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;margin-top:2px;">
+                        🍽️ ${esc(slip.meal_type_display.toUpperCase())} SERVICE · ${esc(slip.meal_date)}
+                    </div>
+                    <div style="font-size:10px;color:#94a3b8;font-family:monospace;">BARCODE: ${esc(slip.barcode_string)}</div>
+                </div>
+            </div>
+
+            <!-- Patient Identification Block (Prominent) -->
+            <div class="diet-slip-patient-box">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;">
+                    <div>
+                        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:700;">Patient Full Name / MRN</div>
+                        <div style="font-size:18px;font-weight:900;color:#0f172a;letter-spacing:-0.2px;">
+                            ${esc(slip.patient_name.toUpperCase())}
+                        </div>
+                        <div style="font-size:12px;font-weight:700;color:#334155;margin-top:2px;">
+                            MRN: <span style="font-family:monospace;">${esc(slip.patient_mrn)}</span> · DOB: ${esc(slip.patient_dob || "N/A")} ${slip.patient_age !== null ? `(${slip.patient_age} yrs)` : ""} · Sex: ${esc(slip.patient_gender || "N/A")}
+                        </div>
+                    </div>
+                    <div style="text-align:right;background:#eff6ff;border:2px solid #3b82f6;border-radius:8px;padding:6px 14px;">
+                        <div style="font-size:10px;text-transform:uppercase;font-weight:800;color:#1e40af;">BEDSIDE LOCATION</div>
+                        <div style="font-size:16px;font-weight:900;color:#1e3a8a;">
+                            ${esc(slip.ward_room_bed)}
+                        </div>
+                        <div style="font-size:10.5px;color:#3b82f6;font-weight:700;">Admission: ${esc(slip.admission_number)}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diet Category Clinical Banner -->
+            <div class="diet-slip-banner ${isNpo ? 'npo' : slip.diet_category}">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+                    <div>
+                        <span style="font-size:10.5px;letter-spacing:1px;font-weight:800;opacity:0.9;">PRESCRIBED CLINICAL DIET:</span>
+                        <div style="font-size:15px;font-weight:900;letter-spacing:0.3px;">
+                            ${esc(slip.diet_category_display)}
+                        </div>
+                    </div>
+                    <div style="text-align:right;font-size:11.5px;font-weight:700;">
+                        <div>Texture: <b>${esc(slip.texture_display)}</b></div>
+                        <div>Liquids: <b>${esc(slip.liquid_display)}</b></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOD ALLERGY WARNING BANNER -->
+            ${hasAllergies ? `
+                <div class="diet-slip-allergy-alert">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:22px;">⚠️</span>
+                        <div>
+                            <div style="font-size:11.5px;font-weight:900;letter-spacing:0.8px;text-transform:uppercase;color:#7f1d1d;">
+                                CRITICAL PATIENT FOOD ALLERGY WARNING — STRICT CONTAMINATION PREVENTION
+                            </div>
+                            <div style="font-size:13.5px;font-weight:800;color:#991b1b;margin-top:1px;">
+                                ${esc(slip.allergy_alerts)}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:4px;font-size:10.5px;color:#7f1d1d;font-weight:600;">
+                        Notice to Kitchen &amp; Nursing: Tray must NOT contain any traces of above allergens. Kitchen allergen barrier certified.
+                    </div>
+                </div>
+            ` : `
+                <div class="diet-slip-allergy-ok">
+                    ✓ NO DOCUMENTED FOOD ALLERGIES ON RECORD FOR THIS PATIENT
+                </div>
+            `}
+
+            <!-- Tray Contents / Line Items Table -->
+            <div class="diet-slip-contents">
+                ${isNpo ? `
+                    <div style="background:#fee2e2;border:2px dashed #dc2626;padding:16px;text-align:center;border-radius:6px;color:#991b1b;margin-bottom:10px;">
+                        <div style="font-size:18px;font-weight:900;">⛔ STRICT NPO: DO NOT DELIVER FOOD OR FLUIDS</div>
+                        <div style="font-size:12.5px;font-weight:700;margin-top:4px;">Patient is under STRICT NPO (Nil Per Os) fasting orders for pre-op / procedural hold.</div>
+                        <div style="font-size:11px;margin-top:2px;color:#7f1d1d;">Suppressed at kitchen level. Keep water pitcher away from bedside.</div>
+                    </div>
+                ` : `
+                    <table class="diet-slip-table">
+                        <thead>
+                            <tr>
+                                <th style="width:55%;">Dish / Food Item on Tray</th>
+                                <th style="width:15%;text-align:center;">Qty</th>
+                                <th style="width:15%;text-align:right;">Calories</th>
+                                <th style="width:15%;text-align:right;">Sodium</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${slip.items.length ? slip.items.map(it => `
+                                <tr>
+                                    <td>
+                                        <b>${esc(it.item_name)}</b>
+                                        ${it.item_category ? `<span class="diet-tag-sm">${esc(it.item_category)}</span>` : ""}
+                                    </td>
+                                    <td style="text-align:center;font-weight:700;">${it.quantity}x</td>
+                                    <td style="text-align:right;font-family:monospace;">${it.calories || 0} kcal</td>
+                                    <td style="text-align:right;font-family:monospace;">${it.sodium_mg || 0} mg</td>
+                                </tr>
+                            `).join("") : `
+                                <tr>
+                                    <td colspan="4" style="text-align:center;color:#64748b;font-style:italic;padding:8px;">Standard compliant tray preparation for ${esc(slip.diet_category_display)}</td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+
+                    <!-- Nutritional Totals Gauge -->
+                    <div class="diet-slip-totals-bar">
+                        <div><b>Nutritional Totals:</b></div>
+                        <div>Calories: <b>${slip.nutritional_totals?.calories || 0} kcal</b></div>
+                        <div>Sodium: <b>${slip.nutritional_totals?.sodium_mg || 0} mg</b></div>
+                        <div>Carbs: <b>${slip.nutritional_totals?.carbs_g || 0} g</b></div>
+                        <div>Protein: <b>${slip.nutritional_totals?.protein_g || 0} g</b></div>
+                        <div>Potassium: <b>${slip.nutritional_totals?.potassium_mg || 0} mg</b></div>
+                    </div>
+                `}
+            </div>
+
+            <!-- Physician Order & Special Instructions -->
+            <div class="diet-slip-instructions">
+                <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                    <div>
+                        <b>Prescribing Physician:</b> ${esc(slip.prescribing_doctor_name || "Staff Physician")} · Rx #: <span style="font-family:monospace;">${esc(slip.prescription_number)}</span>
+                        ${slip.clinical_indication ? `<div><b>Indication:</b> ${esc(slip.clinical_indication)}</div>` : ""}
+                    </div>
+                    <div style="text-align:right;">
+                        ${slip.special_instructions ? `<div><b>Special Notes:</b> <span style="color:#b45309;font-weight:700;">${esc(slip.special_instructions)}</span></div>` : ""}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Triple Verification & Sign-Off Block -->
+            <div class="diet-slip-signoff">
+                <div class="diet-sign-col">
+                    <div class="sign-title">1. Kitchen Prep &amp; Allergy Clearance</div>
+                    <div class="sign-line">Cook/Chef: <b>${esc(slip.prepared_by || "____________________")}</b></div>
+                    <div class="sign-line">Allergen Zone: [ ${slip.allergy_cleared_by_kitchen ? '✓' : '  '} ] Cleared</div>
+                    <div class="sign-line">Time: ___________________</div>
+                </div>
+                <div class="diet-sign-col">
+                    <div class="sign-title">2. Tray Cart Assembly &amp; Temp Check</div>
+                    <div class="sign-line">Tray Checker: ____________________</div>
+                    <div class="sign-line">Temp: Hot &ge; 60°C / Cold &le; 4°C: [  ]</div>
+                    <div class="sign-line">Cart Number: _________________</div>
+                </div>
+                <div class="diet-sign-col">
+                    <div class="sign-title">3. Bedside 2-Identifier Delivery Check</div>
+                    <div class="sign-line">Delivered by: <b>${esc(slip.delivered_by || "____________________")}</b></div>
+                    <div class="sign-line">Wristband ID Checked: [  ] Verified</div>
+                    <div class="sign-line">Delivery Time: _________________</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function ensureCss() {
     if (document.getElementById("dietaryStyles")) return;
     const style = document.createElement("style");
@@ -1253,6 +1941,23 @@ function ensureCss() {
         .diet-badge.good { background: #dcfce7; color: #15803d; }
         .diet-badge.warn { background: #fef3c7; color: #b45309; }
         .diet-badge.bad { background: #fee2e2; color: #b91c1c; }
+        .diet-tag-sm { display: inline-block; font-size: 10px; text-transform: uppercase; background: #e2e8f0; color: #334155; padding: 1px 5px; border-radius: 3px; font-weight: 700; margin-left: 4px; }
+        
+        /* Census Grid & Progress */
+        .diet-census-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        .diet-census-card { border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface); padding: 12px; position: relative; overflow: hidden; }
+        .diet-census-card.npo { border-color: #ef4444; background: #fff5f5; }
+        .diet-census-num { font-size: 26px; font-weight: 900; line-height: 1; }
+        .diet-census-label { font-size: 13px; font-weight: 700; margin: 4px 0 2px; }
+        .diet-census-desc { font-size: 11px; color: var(--text-muted); }
+        .diet-census-progress { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .diet-census-bar { height: 100%; border-radius: 3px; }
+        
+        .diet-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .diet-table th { background: var(--bg-muted, #f8fafc); padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-weight: 700; }
+        .diet-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+
+        /* Modal Overlay */
         .diet-modal-ov { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
         .diet-modal { background: var(--bg-surface, #fff); border-radius: 12px; width: 100%; max-width: 740px; max-height: 90vh; overflow-y: auto; padding: 16px 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .diet-modal-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 12px; }
@@ -1262,6 +1967,76 @@ function ensureCss() {
         .diet-modal-body input[type=text], .diet-modal-body input[type=date], .diet-modal-body input[type=number], .diet-modal-body select { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
         .diet-modal-body fieldset { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-top: 8px; }
         .diet-modal-body legend { font-weight: 700; font-size: 12.5px; padding: 0 4px; }
+
+        /* Bedside Tray Slip Styling */
+        .diet-tray-slip { border: 2px solid #1e293b; border-radius: 8px; padding: 16px; background: #fff; color: #0f172a; margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .diet-tray-slip.has-allergy { border: 3px solid #dc2626 !important; }
+        .diet-slip-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
+        .diet-slip-patient-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; background: #f8fafc; }
+        .diet-slip-banner { padding: 8px 12px; border-radius: 6px; color: #fff; margin-bottom: 10px; }
+        .diet-slip-banner.regular { background: #059669; }
+        .diet-slip-banner.diabetic { background: #2563eb; }
+        .diet-slip-banner.renal { background: #7c3aed; }
+        .diet-slip-banner.low_sodium { background: #db2777; }
+        .diet-slip-banner.pureed_soft { background: #d97706; }
+        .diet-slip-banner.clear_liquid { background: #0891b2; }
+        .diet-slip-banner.full_liquid { background: #0d9488; }
+        .diet-slip-banner.npo { background: #dc2626; }
+        .diet-slip-banner.enteral_tube { background: #475569; }
+        .diet-slip-banner.low_fat { background: #4f46e5; }
+        .diet-slip-banner.high_protein { background: #ea580c; }
+        .diet-slip-banner.custom { background: #4b5563; }
+        
+        .diet-slip-allergy-alert { background: #fef2f2; border: 2px solid #dc2626; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; color: #991b1b; }
+        .diet-slip-allergy-ok { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 6px 10px; font-size: 11.5px; font-weight: 700; color: #166534; margin-bottom: 10px; }
+        .diet-slip-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
+        .diet-slip-table th { background: #f1f5f9; border-bottom: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
+        .diet-slip-table td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; }
+        .diet-slip-totals-bar { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 11.5px; display: flex; gap: 12px; flex-wrap: wrap; margin: 6px 0 10px; }
+        .diet-slip-instructions { border-top: 1px dashed #cbd5e1; padding-top: 6px; font-size: 11.5px; margin-bottom: 10px; color: #334155; }
+        .diet-slip-signoff { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 2px solid #0f172a; padding-top: 8px; font-size: 10.5px; }
+        .diet-sign-col { border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; background: #f8fafc; }
+        .sign-title { font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+        .sign-line { margin-top: 3px; color: #475569; }
+
+        /* Print Media Styles */
+        @media print {
+            body * { visibility: hidden !important; }
+            #printableSlipsContainer, #printableSlipsContainer * { visibility: visible !important; }
+            #printableSlipsContainer {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .diet-tray-slip {
+                page-break-after: always !important;
+                break-after: page !important;
+                border: 2px solid #000 !important;
+                margin: 0 0 20px 0 !important;
+                padding: 16px !important;
+                box-shadow: none !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .diet-modal-ov {
+                position: static !important;
+                background: none !important;
+                padding: 0 !important;
+            }
+            .diet-modal {
+                max-width: 100% !important;
+                max-height: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            .diet-no-print {
+                display: none !important;
+            }
+        }
     `;
     document.head.appendChild(style);
 }
