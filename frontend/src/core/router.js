@@ -4,6 +4,7 @@ import { InpatientBillingView, initInpatientBilling } from "../modules/inpatient
 import { SplitCashieringView, initSplitCashiering } from "../modules/split-cashiering/split-cashiering.js";
 import { ClaimDenialsView, initClaimDenials } from "../modules/claim-denials/claim-denials.js";
 import { PatientDepositsView, initPatientDeposits } from "../modules/patient-deposits/patient-deposits.js";
+import { RefundAuthorizationView, initRefundAuthorization } from "../modules/refund-authorization/refund-authorization.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -209,6 +210,26 @@ const routes = {
     "/deposit-refunds": {
         view: PatientDepositsView,
         afterRender: initPatientDeposits
+    },
+    "/refund-authorization": {
+        view: RefundAuthorizationView,
+        afterRender: initRefundAuthorization
+    },
+    "/refund_authorization": {
+        view: RefundAuthorizationView,
+        afterRender: initRefundAuthorization
+    },
+    "/refund-requests": {
+        view: RefundAuthorizationView,
+        afterRender: initRefundAuthorization
+    },
+    "/refund_requests": {
+        view: RefundAuthorizationView,
+        afterRender: initRefundAuthorization
+    },
+    "/refund-pipeline": {
+        view: RefundAuthorizationView,
+        afterRender: initRefundAuthorization
     }
 };
 

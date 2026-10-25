@@ -468,6 +468,7 @@ import { InpatientBillingView, initInpatientBilling } from "../inpatient-billing
 import { SplitCashieringView, initSplitCashiering } from "../split-cashiering/split-cashiering.js";
 import { ClaimDenialsView, initClaimDenials } from "../claim-denials/claim-denials.js";
 import { PatientDepositsView, initPatientDeposits } from "../patient-deposits/patient-deposits.js";
+import { RefundAuthorizationView, initRefundAuthorization } from "../refund-authorization/refund-authorization.js";
 
 function renderPlaceholderTab(title) {
     return `
@@ -1734,9 +1735,14 @@ export function Dashboard()
                 return ClaimDenialsView();
             }, activate);
         } else if (tabId === 'patient_deposits' || tabId === 'advance_deposits' || tabId === 'deposits_ledger' || tabId === 'deposit_refunds') {
-            tabManager.openTab(tabId, 'Advance Deposits & Refunds', () => {
+            tabManager.openTab(tabId, 'Advance Deposits & Drawdowns', () => {
                 setTimeout(initPatientDeposits, 0);
                 return PatientDepositsView();
+            }, activate);
+        } else if (tabId === 'refund_authorization' || tabId === 'refund_requests' || tabId === 'refund_pipeline') {
+            tabManager.openTab(tabId, 'Refund Authorization Pipeline', () => {
+                setTimeout(initRefundAuthorization, 0);
+                return RefundAuthorizationView();
             }, activate);
         } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
             tabManager.openTab(tabId, 'Blood Bank & Donors', () => {

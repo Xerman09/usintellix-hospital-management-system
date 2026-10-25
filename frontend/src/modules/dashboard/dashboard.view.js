@@ -61,7 +61,8 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <a data-tab="inpatient_billing">Inpatient Master Folio &amp; Cashier</a>
                 <a data-tab="split_cashiering">Split-Tender Cashiering</a>
-                <a data-tab="patient_deposits">Advance Deposits &amp; Refunds</a>
+                <a data-tab="patient_deposits">Advance Deposits &amp; Drawdowns</a>
+                <a data-tab="refund_authorization">Refund Authorization Pipeline</a>
                 <a data-tab="fee_sheet" class="patient-dependent-nav">Fee Sheet</a>
                 <a data-tab="payment">Payment</a>
                 <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>

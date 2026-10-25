@@ -83,6 +83,9 @@ function renderLedgerView(root) {
                     <button class="pd-btn pd-btn-secondary" id="pdBtnNavAdmissions">
                         🛏️ Admitted Patients Directory
                     </button>
+                    <button class="pd-btn pd-btn-secondary" id="pdBtnNavRefundPipeline" title="Multi-Level Refund Authorization Pipeline">
+                        ⚖️ Refund Pipeline
+                    </button>
                     <button class="pd-btn pd-btn-primary" id="pdBtnNewDeposit">
                         + Record Advance Deposit
                     </button>
@@ -365,6 +368,10 @@ function bindLedgerEvents(root) {
     root.querySelector("#pdBtnNavAdmissions")?.addEventListener("click", () => {
         state.view = "admissions";
         loadData();
+    });
+
+    root.querySelector("#pdBtnNavRefundPipeline")?.addEventListener("click", () => {
+        window.location.hash = "#/refund-authorization";
     });
 
     root.querySelector("#pdBtnNewDeposit")?.addEventListener("click", () => {
