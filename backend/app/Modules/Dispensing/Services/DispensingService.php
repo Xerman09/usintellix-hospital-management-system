@@ -237,15 +237,31 @@ class DispensingService
         $refillOpen = $head['refill_until'] !== null && $head['refill_until'] >= $today;
 
         // Usable stock of these medicines at every active location.
+        //
+        // A lot under an active recall is NOT usable. dispense() already refuses
+        // one (isLotRecalled), but only once the whole dispensing is submitted,
+        // so without the exclusion below a recalled lot is offered in the picker,
+        // chosen, filled in, and only rejected at the end. Recalled lots are left
+        // out here for the same reason quarantined and near-expiry ones are, and
+        // the ones withheld come back as $recalledLots so the screen can say why
+        // the stock it can see is smaller than the shelf.
+        PharmacyBatchRecallService::ensureTableExists($db);
+
         $drugIds = array_values(array_unique(array_filter(array_column($slip['items'], 'drug_id'))));
         $lots = [];
+        $recalledLots = [];
         if ($drugIds) {
+            $recalledSql = "SELECT 1 FROM pharmacy_batch_recalls r
+                             WHERE r.drug_id = l.drug_id AND r.lot_number = l.lot_number
+                               AND r.status IN ('active', 'quarantined')";
+
             $stmt = $db->prepare(
                 "SELECT l.id, l.drug_id, l.warehouse_id, l.lot_number, l.expires_date, l.quantity_on_hand, w.name AS warehouse_name
                  FROM drug_inventory_lots l
                  JOIN warehouses w ON w.id = l.warehouse_id AND w.deleted_at IS NULL AND w.is_active = 1
                  WHERE l.deleted_at IS NULL AND l.is_active = 1 AND l.is_quarantined = 0 AND l.quantity_on_hand > 0
                    AND (l.expires_date IS NULL OR l.expires_date > DATE_ADD(:today, INTERVAL 60 DAY))
+                   AND NOT EXISTS ({$recalledSql})
                    AND l.drug_id IN (" . implode(',', array_map('intval', $drugIds)) . ")
                  ORDER BY l.expires_date IS NULL, l.expires_date, l.id"
             );
@@ -254,6 +270,33 @@ class DispensingService
                 $lots[(int) $l['drug_id']][] = [
                     'id' => (int) $l['id'], 'warehouse_id' => (int) $l['warehouse_id'], 'warehouse_name' => $l['warehouse_name'],
                     'lot_number' => $l['lot_number'], 'expires_date' => $l['expires_date'], 'quantity' => (float) $l['quantity_on_hand']
+                ];
+            }
+
+            // The lots just withheld, so the pharmacist is told rather than left
+            // wondering where the stock went. Not dispensable: no lot id is given.
+            $stmt = $db->prepare(
+                "SELECT l.drug_id, l.lot_number, l.expires_date, l.quantity_on_hand, w.name AS warehouse_name,
+                        r.recall_number, r.recall_class, r.reason
+                 FROM drug_inventory_lots l
+                 JOIN warehouses w ON w.id = l.warehouse_id AND w.deleted_at IS NULL AND w.is_active = 1
+                 JOIN pharmacy_batch_recalls r ON r.drug_id = l.drug_id AND r.lot_number = l.lot_number
+                      AND r.status IN ('active', 'quarantined')
+                 WHERE l.deleted_at IS NULL AND l.is_active = 1 AND l.quantity_on_hand > 0
+                   AND l.drug_id IN (" . implode(',', array_map('intval', $drugIds)) . ")
+                 ORDER BY l.drug_id, l.lot_number"
+            );
+            $stmt->execute();
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) {
+                $recalledLots[(int) $l['drug_id']][] = [
+                    'lot_number' => $l['lot_number'],
+                    'warehouse_name' => $l['warehouse_name'],
+                    'expires_date' => $l['expires_date'],
+                    'quantity' => (float) $l['quantity_on_hand'],
+                    'recall_number' => $l['recall_number'],
+                    'recall_class' => $l['recall_class'],
+                    'reason' => $l['reason'],
+                    'withheld_reason' => 'recall'
                 ];
             }
         }
@@ -268,7 +311,7 @@ class DispensingService
             }
         }
 
-        $items = array_map(function ($item) use ($fills, $lots, $requests, $active, $firstFillOpen, $refillOpen, $prices, $highAlert) {
+        $items = array_map(function ($item) use ($fills, $lots, $recalledLots, $requests, $active, $firstFillOpen, $refillOpen, $prices, $highAlert) {
             $prescribed = self::parseQuantity($item['quantity'], $item['drug_unit_name']);
             $state = self::lineState($prescribed, (int) ($item['refills'] ?? 0), $fills[$item['id']] ?? []);
             $catalog = $item['drug_id'] !== null;
@@ -291,6 +334,8 @@ class DispensingService
                 'can_refill' => $catalog && $active && $state['current_complete'] && $state['refills_remaining'] > 0 && $refillOpen,
                 'refill_request' => $requests[$item['id']] ?? null,
                 'lots' => $catalog ? ($lots[$item['drug_id']] ?? []) : [],
+                // Lots on the shelf that may NOT be given: under active recall.
+                'recalled_lots' => $catalog ? ($recalledLots[$item['drug_id']] ?? []) : [],
                 'unit_price' => $catalog && isset($prices[$item['drug_id']]) ? $prices[$item['drug_id']] : null,
                 'is_high_alert' => $catalog && !empty($highAlert[$item['drug_id']])
             ];

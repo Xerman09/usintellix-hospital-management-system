@@ -18,6 +18,7 @@ import { CMEView, initCME } from "../modules/cme/cme.js";
 import { LifeSupportView, initLifeSupport } from "../modules/life-support/life-support.js";
 import { PerformanceEvaluationsView, initPerformanceEvaluations } from "../modules/performance-evaluations/performance-evaluations.js";
 import { SupplyCatalogView, initSupplyCatalog } from "../modules/supply-catalog/supply-catalog.js";
+import { GoodsReceiptView, initGoodsReceipt } from "../modules/goods-receipt/goods-receipt.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -507,6 +508,30 @@ const routes = {
     "/medical-supplies": {
         view: SupplyCatalogView,
         afterRender: initSupplyCatalog
+    },
+    "/goods-receipt": {
+        view: GoodsReceiptView,
+        afterRender: initGoodsReceipt
+    },
+    "/goods-receipt-notes": {
+        view: GoodsReceiptView,
+        afterRender: initGoodsReceipt
+    },
+    "/goods_receipt": {
+        view: GoodsReceiptView,
+        afterRender: initGoodsReceipt
+    },
+    "/grn": {
+        view: GoodsReceiptView,
+        afterRender: initGoodsReceipt
+    },
+    "/receiving-dock": {
+        view: GoodsReceiptView,
+        afterRender: initGoodsReceipt
+    },
+    "/dock-inspection": {
+        view: GoodsReceiptView,
+        afterRender: initGoodsReceipt
     }
 };
 

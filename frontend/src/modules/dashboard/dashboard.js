@@ -351,6 +351,7 @@ import { initCME, CMEView } from "../cme/cme.js";
 import { initLifeSupport, LifeSupportView } from "../life-support/life-support.js";
 import { initPerformanceEvaluations, PerformanceEvaluationsView } from "../performance-evaluations/performance-evaluations.js";
 import { initSupplyCatalog, SupplyCatalogView } from "../supply-catalog/supply-catalog.js";
+import { initGoodsReceipt, GoodsReceiptView } from "../goods-receipt/goods-receipt.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1919,6 +1920,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Non-Pharma Supply Catalog', () => {
                 setTimeout(() => initSupplyCatalog(), 0);
                 return SupplyCatalogView();
+            }, activate);
+        } else if (tabId === 'goods_receipt' || tabId === 'goods-receipt' || tabId === 'grn' || tabId === 'receiving_dock' || tabId === 'dock_inspection' || tabId === 'goods_receipt_notes') {
+            tabManager.openTab(tabId, title || 'Goods Receipt Notes (GRN)', () => {
+                setTimeout(() => initGoodsReceipt(), 0);
+                return GoodsReceiptView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

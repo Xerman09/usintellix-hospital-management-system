@@ -40,6 +40,7 @@ function staffNavLinks(role)
                 <a data-tab="life_support">Life Support Clinical Certifications</a>
                 <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
                 <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
+                <a data-tab="goods_receipt">Goods Receipt Notes (GRN)</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -134,6 +135,7 @@ function staffNavLinks(role)
                 <a data-tab="pharmacy_requisitions">Purchase Requests</a>
                 <a data-tab="pharmacy_purchase_orders">Purchase Orders</a>
                 <a data-tab="pharmacy_receiving">Receiving</a>
+                <a data-tab="goods_receipt">Goods Receipt Notes (GRN)</a>
                 <a data-tab="pharmacy_supplier_invoices">Supplier Invoices</a>
                 <a data-tab="pharmacy_supplier_returns">Supplier Returns</a>
                 ${["admin", "accountant"].includes(role) ? `<a data-tab="pharmacy_payables">Accounts Payable</a>` : ""}
@@ -201,6 +203,7 @@ function staffNavLinks(role)
                 <a data-tab="life_support">Life Support Clinical Certifications</a>
                 <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
                 <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
+                <a data-tab="goods_receipt">Goods Receipt Notes (GRN)</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
