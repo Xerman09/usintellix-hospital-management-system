@@ -8,11 +8,14 @@
 import { api } from "../../core/api.js";
 
 let state = {
-    activeTab: "circulating", // 'circulating' | 'master_catalog' | 'autoclave_batches' | 'machines_registry' | 'audit_log'
+    activeTab: "circulating", // 'circulating' | 'ot_dispatches' | 'returns_and_incidents' | 'autoclave_batches' | 'machines_registry' | 'master_catalog' | 'audit_log'
     statusFilter: "",
     specialtyFilter: "",
     batchStatusFilter: "",
     machineFilter: "",
+    dispatchStatusFilter: "",
+    incidentStatusFilter: "",
+    orSuiteFilter: "",
     searchQuery: "",
     page: 1,
     perPage: 15
@@ -24,6 +27,11 @@ let cache = {
     masterTrays: { total: 0, records: [] },
     batches: { total: 0, records: [] },
     machines: [],
+    dispatches: { total: 0, records: [] },
+    returns: { total: 0, records: [] },
+    incidents: { total: 0, records: [] },
+    availableTrays: [],
+    orSuitesAndCases: { or_suites: [], surgical_cases: [] },
     metadata: {
         specialties: {},
         categories: {},
@@ -52,24 +60,30 @@ export function CSSDView() {
                         <span style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Surgical Infection Control &amp; CSSD</span>
                         <span style="color: #64748b; font-size: 13px;">Central Sterile Supply Department</span>
                     </div>
-                    <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">Surgical Instrument Sets &amp; Autoclave Batch Validation</h1>
-                    <p style="margin: 0; color: #64748b; font-size: 14px;">Master surgical tray piece manifests, autoclave parametric validation (134°C, 2.2 bar, 18 min), biological spore testing (*G. stearothermophilus*), and thermal barcode label printing.</p>
+                    <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">Surgical Instrument Sets, Autoclave Batches &amp; OT Distribution</h1>
+                    <p style="margin: 0; color: #64748b; font-size: 14px;">Master piece manifests, autoclave parametric validation (134°C, 2.2 bar, 18 min), biological spore testing (*G. stearothermophilus*), OT distribution handover, and missing tool / RSI incident tracking.</p>
                 </div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button id="btnDispatchModal" style="background: #e11d48; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(225,29,72,0.25);">
+                        <i class="fas fa-truck-ramp-box"></i> Dispatch to OR Suite
+                    </button>
+                    <button id="btnScanReturnModal" style="background: #d97706; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(217,119,6,0.25);">
+                        <i class="fas fa-barcode"></i> Scan Dirty Tray Return
+                    </button>
                     <button id="btnNewBatchModal" style="background: #0d9488; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(13,148,136,0.25);">
-                        <i class="fas fa-fire-burner"></i> Start Autoclave Cycle (Create Batch)
+                        <i class="fas fa-fire-burner"></i> Start Autoclave Cycle
                     </button>
                     <button id="btnNewPhysicalTrayModal" style="background: #4f46e5; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(79,70,229,0.25);">
-                        <i class="fas fa-barcode"></i> Instantiate Physical Tray
+                        <i class="fas fa-qrcode"></i> Instantiate Tray
                     </button>
                     <button id="btnNewMasterTrayModal" style="background: #0284c7; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(2,132,199,0.25);">
-                        <i class="fas fa-plus-circle"></i> Create Master Tray Catalog
+                        <i class="fas fa-plus-circle"></i> Create Master Catalog
                     </button>
                 </div>
             </div>
 
             <!-- Executive KPI Cards -->
-            <div id="cssdKpiSection" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div id="cssdKpiSection" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px;">
                 ${renderKpiCards()}
             </div>
 
@@ -77,6 +91,12 @@ export function CSSDView() {
             <div style="display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; gap: 8px; flex-wrap: wrap;">
                 <button class="cssd-tab-btn ${state.activeTab === 'circulating' ? 'active' : ''}" data-tab="circulating" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 14px; cursor: pointer; color: ${state.activeTab === 'circulating' ? '#4f46e5' : '#64748b'}; border-bottom: 3px solid ${state.activeTab === 'circulating' ? '#4f46e5' : 'transparent'}; margin-bottom: -2px; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-layer-group"></i> Circulating Barcoded Trays
+                </button>
+                <button class="cssd-tab-btn ${state.activeTab === 'ot_dispatches' ? 'active' : ''}" data-tab="ot_dispatches" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 14px; cursor: pointer; color: ${state.activeTab === 'ot_dispatches' ? '#4f46e5' : '#64748b'}; border-bottom: 3px solid ${state.activeTab === 'ot_dispatches' ? '#4f46e5' : 'transparent'}; margin-bottom: -2px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-truck-ramp-box"></i> OT Distribution &amp; Handover
+                </button>
+                <button class="cssd-tab-btn ${state.activeTab === 'returns_and_incidents' ? 'active' : ''}" data-tab="returns_and_incidents" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 14px; cursor: pointer; color: ${state.activeTab === 'returns_and_incidents' ? '#4f46e5' : '#64748b'}; border-bottom: 3px solid ${state.activeTab === 'returns_and_incidents' ? '#4f46e5' : 'transparent'}; margin-bottom: -2px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-shield-halved"></i> Scan Returns &amp; Missing Instruments
                 </button>
                 <button class="cssd-tab-btn ${state.activeTab === 'autoclave_batches' ? 'active' : ''}" data-tab="autoclave_batches" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 14px; cursor: pointer; color: ${state.activeTab === 'autoclave_batches' ? '#4f46e5' : '#64748b'}; border-bottom: 3px solid ${state.activeTab === 'autoclave_batches' ? '#4f46e5' : 'transparent'}; margin-bottom: -2px; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-temperature-arrow-up"></i> Autoclave Batches &amp; Spore Validation
@@ -116,13 +136,18 @@ export async function initCSSD() {
  */
 async function loadInitialData() {
     try {
-        const [metaRes, metricsRes, physRes, masterRes, batchRes, machRes] = await Promise.all([
+        const [metaRes, metricsRes, physRes, masterRes, batchRes, machRes, dispRes, retRes, incRes, availRes, orRes] = await Promise.all([
             api('/cssd/metadata').catch(() => null),
             api('/cssd/metrics').catch(() => null),
             api(`/cssd/physical-trays?status=${state.statusFilter}&specialty=${encodeURIComponent(state.specialtyFilter)}&q=${encodeURIComponent(state.searchQuery)}&page=${state.page}&per_page=${state.perPage}`).catch(() => null),
             api(`/cssd/master-trays?specialty=${encodeURIComponent(state.specialtyFilter)}&q=${encodeURIComponent(state.searchQuery)}`).catch(() => null),
             api(`/cssd/batches?batch_status=${state.batchStatusFilter}&machine_id=${state.machineFilter}&q=${encodeURIComponent(state.searchQuery)}&page=${state.page}&per_page=${state.perPage}`).catch(() => null),
-            api('/cssd/machines').catch(() => null)
+            api('/cssd/machines').catch(() => null),
+            api(`/cssd/dispatches?dispatch_status=${state.dispatchStatusFilter}&suite=${encodeURIComponent(state.orSuiteFilter)}&q=${encodeURIComponent(state.searchQuery)}&page=${state.page}&per_page=${state.perPage}`).catch(() => null),
+            api(`/cssd/returns?page=${state.page}&per_page=${state.perPage}`).catch(() => null),
+            api(`/cssd/incidents?status=${state.incidentStatusFilter}&q=${encodeURIComponent(state.searchQuery)}&page=${state.page}&per_page=${state.perPage}`).catch(() => null),
+            api('/cssd/dispatches/available-trays').catch(() => null),
+            api('/cssd/dispatches/or-suites').catch(() => null)
         ]);
 
         if (metaRes?.data) cache.metadata = metaRes.data;
@@ -131,6 +156,11 @@ async function loadInitialData() {
         if (masterRes?.data) cache.masterTrays = masterRes.data;
         if (batchRes?.data) cache.batches = batchRes.data;
         if (machRes?.data) cache.machines = machRes.data;
+        if (dispRes?.data) cache.dispatches = dispRes.data;
+        if (retRes?.data) cache.returns = retRes.data;
+        if (incRes?.data) cache.incidents = incRes.data;
+        if (availRes?.data) cache.availableTrays = availRes.data;
+        if (orRes?.data) cache.orSuitesAndCases = orRes.data;
 
         renderApp();
     } catch (e) {
@@ -166,7 +196,17 @@ function renderKpiCards() {
         incubating_batches_count: 0,
         failed_batches_count: 0,
         active_machines: 0,
-        bowie_dick_passed_count: 0
+        bowie_dick_passed_count: 0,
+        total_dispatches: 0,
+        active_dispatches: 0,
+        dispatches_today: 0,
+        total_returns: 0,
+        returns_today: 0,
+        total_rsi_returns: 0,
+        total_incidents: 0,
+        open_incidents_count: 0,
+        critical_rsi_active_count: 0,
+        repair_queue_count: 0
     };
 
     return `
@@ -182,7 +222,31 @@ function renderKpiCards() {
             </div>
         </div>
 
-        <!-- Card 2: Autoclave Batches -->
+        <!-- Card 2: Active in OR Suites -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #e11d48;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase;">Active in OR / Surgery</span>
+                <span style="font-size: 18px; color: #e11d48;"><i class="fas fa-truck-ramp-box"></i></span>
+            </div>
+            <div style="font-size: 28px; font-weight: 800; color: #be123c;">${m.active_dispatches || m.active_surgery_count} <span style="font-size: 14px; font-weight: 600; color: #64748b;">Active Dispatches</span></div>
+            <div style="font-size: 12px; color: #e11d48; margin-top: 4px; font-weight: 600;">
+                <i class="fas fa-door-open"></i> ${m.dispatches_today || 0} dispatched today
+            </div>
+        </div>
+
+        <!-- Card 3: Missing Tools & RSI Safety -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid ${(m.critical_rsi_active_count > 0 || m.open_incidents_count > 0) ? '#dc2626' : '#64748b'};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase;">Missing Tools &amp; RSI Alerts</span>
+                <span style="font-size: 18px; color: ${(m.critical_rsi_active_count > 0 || m.open_incidents_count > 0) ? '#dc2626' : '#64748b'};"><i class="fas fa-triangle-exclamation"></i></span>
+            </div>
+            <div style="font-size: 28px; font-weight: 800; color: ${(m.critical_rsi_active_count > 0 || m.open_incidents_count > 0) ? '#b91c1c' : '#334155'};">${m.open_incidents_count || 0} <span style="font-size: 14px; font-weight: 600; color: #64748b;">Open Cases</span></div>
+            <div style="font-size: 12px; color: ${(m.critical_rsi_active_count > 0) ? '#dc2626' : '#64748b'}; margin-top: 4px; font-weight: 600;">
+                ${m.critical_rsi_active_count > 0 ? `<i class="fas fa-radiation"></i> ${m.critical_rsi_active_count} CRITICAL RSI ALERTS ACTIVE` : `${m.repair_queue_count || 0} in repair/maintenance`}
+            </div>
+        </div>
+
+        <!-- Card 4: Autoclave Batches -->
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #0d9488;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase;">Sterilization Batches</span>
@@ -190,11 +254,11 @@ function renderKpiCards() {
             </div>
             <div style="font-size: 28px; font-weight: 800; color: #0f766e;">${m.total_batches} <span style="font-size: 14px; font-weight: 600; color: #64748b;">Runs</span></div>
             <div style="font-size: 12px; color: #0d9488; margin-top: 4px; font-weight: 600;">
-                <i class="fas fa-certificate"></i> ${m.released_batches_count} released (${m.incubating_batches_count} in BI incubation)
+                <i class="fas fa-certificate"></i> ${m.released_batches_count} released (${m.incubating_batches_count} in BI hold)
             </div>
         </div>
 
-        <!-- Card 3: Sterilizers & Bowie-Dick -->
+        <!-- Card 5: Sterilizers & Bowie-Dick -->
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #3b82f6;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase;">Autoclaves &amp; Plasma</span>
@@ -206,15 +270,15 @@ function renderKpiCards() {
             </div>
         </div>
 
-        <!-- Card 4: Quarantined / Missing Piece -->
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid ${m.quarantined_count > 0 || m.failed_batches_count > 0 ? '#ef4444' : '#64748b'};">
+        <!-- Card 6: Quarantine Lockout -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid ${m.quarantined_count > 0 ? '#ea580c' : '#64748b'};">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase;">Quarantine / Spore Lockout</span>
-                <span style="font-size: 18px; color: ${m.quarantined_count > 0 || m.failed_batches_count > 0 ? '#ef4444' : '#64748b'};"><i class="fas fa-triangle-exclamation"></i></span>
+                <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase;">Quarantine Bay Lockout</span>
+                <span style="font-size: 18px; color: ${m.quarantined_count > 0 ? '#ea580c' : '#64748b'};"><i class="fas fa-lock"></i></span>
             </div>
-            <div style="font-size: 28px; font-weight: 800; color: ${m.quarantined_count > 0 || m.failed_batches_count > 0 ? '#b91c1c' : '#334155'};">${m.quarantined_count} Trays</div>
-            <div style="font-size: 12px; color: ${m.quarantined_count > 0 || m.failed_batches_count > 0 ? '#dc2626' : '#64748b'}; margin-top: 4px; font-weight: 600;">
-                ${m.failed_batches_count > 0 ? `${m.failed_batches_count} batch QA failures quarantined` : (m.quarantined_count > 0 ? 'Locked from clinical circulation' : 'Zero safety lockouts')}
+            <div style="font-size: 28px; font-weight: 800; color: ${m.quarantined_count > 0 ? '#c2410c' : '#334155'};">${m.quarantined_count} Trays</div>
+            <div style="font-size: 12px; color: ${m.quarantined_count > 0 ? '#ea580c' : '#64748b'}; margin-top: 4px; font-weight: 600;">
+                ${m.quarantined_count > 0 ? 'Locked pending investigation / count check' : 'Zero safety locks'}
             </div>
         </div>
     `;
@@ -227,6 +291,10 @@ function renderActiveTabContent() {
     switch (state.activeTab) {
         case 'circulating':
             return renderCirculatingTab();
+        case 'ot_dispatches':
+            return renderOTDispatchesTab();
+        case 'returns_and_incidents':
+            return renderReturnsAndIncidentsTab();
         case 'autoclave_batches':
             return renderAutoclaveBatchesTab();
         case 'machines_registry':
@@ -382,7 +450,17 @@ function renderPhysicalTrayRow(r) {
                 ` : `<span style="color: #94a3b8; font-size: 12px;">Not Sterile</span>`}
             </td>
             <td style="padding: 14px 16px; text-align: center;">
-                <div style="display: flex; justify-content: center; gap: 6px;">
+                <div style="display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;">
+                    ${r.current_status === 'sterile_stored' ? `
+                        <button class="dispatch-tray-direct-btn" data-id="${r.id}" data-barcode="${escapeHtml(r.tray_barcode)}" title="Dispatch to OR Suite" style="background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;">
+                            <i class="fas fa-truck-ramp-box"></i> Dispatch
+                        </button>
+                    ` : ''}
+                    ${r.current_status === 'dispatched_surgery' || r.current_status === 'in_surgery' ? `
+                        <button class="scan-return-direct-btn" data-id="${r.id}" data-barcode="${escapeHtml(r.tray_barcode)}" title="Scan Post-Op Return" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;">
+                            <i class="fas fa-barcode"></i> Scan Return
+                        </button>
+                    ` : ''}
                     <button class="open-status-modal-btn" data-id="${r.id}" data-barcode="${escapeHtml(r.tray_barcode)}" data-status="${r.current_status}" data-location="${escapeHtml(r.current_location)}" title="Advance Lifecycle Status" style="background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
                         <i class="fas fa-arrows-rotate"></i> Lifecycle
                     </button>
@@ -393,6 +471,437 @@ function renderPhysicalTrayRow(r) {
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
+            </td>
+        </tr>
+    `;
+}
+
+/**
+ * TAB: OT Surgical Instrument Dispatches & Custody Handover
+ */
+function renderOTDispatchesTab() {
+    const records = cache.dispatches?.records || [];
+
+    return `
+        <!-- Filter Bar -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <div style="flex: 1; min-width: 220px;">
+                <input type="text" id="dispSearchInput" placeholder="Search Dispatch #, Tray Barcode, Patient, Surgeon, Procedure..." value="${escapeHtml(state.searchQuery)}" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+            </div>
+            <div style="min-width: 170px;">
+                <select id="dispStatusFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                    <option value="">All Dispatch Statuses</option>
+                    <option value="dispatched_in_transit" ${state.dispatchStatusFilter === 'dispatched_in_transit' ? 'selected' : ''}>Dispatched (In Transit to OR)</option>
+                    <option value="received_in_or" ${state.dispatchStatusFilter === 'received_in_or' ? 'selected' : ''}>Received in OR (Handover Confirmed)</option>
+                    <option value="in_surgery" ${state.dispatchStatusFilter === 'in_surgery' ? 'selected' : ''}>In Surgery (Open Sterile Field)</option>
+                    <option value="returned_to_cssd" ${state.dispatchStatusFilter === 'returned_to_cssd' ? 'selected' : ''}>Returned to CSSD Decon</option>
+                    <option value="quarantined_incident" ${state.dispatchStatusFilter === 'quarantined_incident' ? 'selected' : ''}>Quarantined Safety Incident</option>
+                </select>
+            </div>
+            <div style="min-width: 160px;">
+                <select id="dispSuiteFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                    <option value="">All Operating Theaters</option>
+                    <option value="OR Suite 1" ${state.orSuiteFilter === 'OR Suite 1' ? 'selected' : ''}>OR Suite 1 - General</option>
+                    <option value="OR Suite 2" ${state.orSuiteFilter === 'OR Suite 2' ? 'selected' : ''}>OR Suite 2 - Ortho</option>
+                    <option value="OR Suite 3" ${state.orSuiteFilter === 'OR Suite 3' ? 'selected' : ''}>OR Suite 3 - OB-GYN</option>
+                    <option value="OR Suite 4" ${state.orSuiteFilter === 'OR Suite 4' ? 'selected' : ''}>OR Suite 4 - Neuro</option>
+                    <option value="Labor & Delivery" ${state.orSuiteFilter === 'Labor & Delivery' ? 'selected' : ''}>Labor &amp; Delivery OR</option>
+                    <option value="Emergency Minor OR" ${state.orSuiteFilter === 'Emergency Minor OR' ? 'selected' : ''}>Emergency Minor OR</option>
+                </select>
+            </div>
+            <button id="btnDispatchModalTab" style="background: #e11d48; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-truck-ramp-box"></i> New OT Dispatch
+            </button>
+        </div>
+
+        <!-- Dispatches Ledger Table -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                    <thead>
+                        <tr style="background: #0f172a; color: #ffffff; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">
+                            <th style="padding: 14px 16px; width: 14%;">Dispatch &amp; Priority</th>
+                            <th style="padding: 14px 16px; width: 20%;">Instrument Set &amp; Barcode</th>
+                            <th style="padding: 14px 16px; width: 18%;">Destination OR &amp; Case</th>
+                            <th style="padding: 14px 16px; width: 16%;">Surgical Team</th>
+                            <th style="padding: 14px 16px; width: 14%;">Custody &amp; Handover</th>
+                            <th style="padding: 14px 16px; width: 10%; text-align: center;">Status</th>
+                            <th style="padding: 14px 16px; width: 8%; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${records.length === 0 ? `
+                            <tr>
+                                <td colspan="7" style="padding: 40px; text-align: center; color: #64748b;">
+                                    <div style="font-size: 32px; margin-bottom: 8px; color: #cbd5e1;"><i class="fas fa-truck-ramp-box"></i></div>
+                                    <div style="font-weight: 600; font-size: 15px; color: #334155;">No surgical instrument dispatches found</div>
+                                    <div style="font-size: 13px; margin-top: 4px;">Dispatch sterile surgical sets to operating rooms for scheduled and emergency procedures.</div>
+                                </td>
+                            </tr>
+                        ` : records.map(d => renderDispatchRow(d)).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            ${renderPagination()}
+        </div>
+    `;
+}
+
+/**
+ * Render Single OT Dispatch Row
+ */
+function renderDispatchRow(d) {
+    const priorityBadge = d.case_priority === 'stat_emergency' 
+        ? `<span style="background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase;"><i class="fas fa-bolt"></i> STAT EMERG</span>`
+        : (d.case_priority === 'urgent' 
+            ? `<span style="background: #fef3c7; color: #b45309; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase;">Urgent</span>`
+            : `<span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;">Elective</span>`);
+
+    let statusBadge = '';
+    switch (d.dispatch_status) {
+        case 'dispatched_in_transit':
+            statusBadge = `<span style="background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-truck-fast"></i> In Transit</span>`;
+            break;
+        case 'received_in_or':
+            statusBadge = `<span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-handshake"></i> Handover OK</span>`;
+            break;
+        case 'in_surgery':
+            statusBadge = `<span style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-user-doctor"></i> In Surgery</span>`;
+            break;
+        case 'returned_to_cssd':
+            statusBadge = `<span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-arrow-rotate-left"></i> Returned</span>`;
+            break;
+        case 'quarantined_incident':
+            statusBadge = `<span style="background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-triangle-exclamation"></i> RSI Alert</span>`;
+            break;
+    }
+
+    return `
+        <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 14px 16px;">
+                <div style="font-family: monospace; font-weight: 800; color: #e11d48; font-size: 13px;">
+                    ${escapeHtml(d.dispatch_number)}
+                </div>
+                <div style="margin-top: 4px;">
+                    ${priorityBadge}
+                    ${d.transport_container_barcode ? `<span style="font-size: 10px; color: #64748b; font-family: monospace; margin-left: 4px;">(${escapeHtml(d.transport_container_barcode)})</span>` : ''}
+                </div>
+            </td>
+            <td style="padding: 14px 16px;">
+                <div style="font-weight: 700; color: #0f172a;">${escapeHtml(d.master_tray_name)}</div>
+                <div style="font-size: 11px; color: #4f46e5; font-family: monospace; font-weight: 700; margin-top: 2px;">
+                    ${escapeHtml(d.tray_barcode)} &bull; ${d.total_pieces} Pieces
+                </div>
+                <div style="font-size: 10px; color: #059669; margin-top: 2px;">
+                    <i class="fas fa-shield-check"></i> Sterile Expiry: ${d.sterile_expiry_date || 'Valid'}
+                </div>
+            </td>
+            <td style="padding: 14px 16px;">
+                <div style="font-weight: 700; color: #0f172a; font-size: 12px;">
+                    <i class="fas fa-location-dot" style="color: #e11d48;"></i> ${escapeHtml(d.or_suite_name)}
+                </div>
+                <div style="font-size: 11px; color: #334155; margin-top: 2px;">
+                    ${escapeHtml(d.procedure_name || 'Scheduled Surgery')}
+                </div>
+                ${d.patient_name ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">Pt: <strong>${escapeHtml(d.patient_name)}</strong></div>` : ''}
+            </td>
+            <td style="padding: 14px 16px;">
+                <div style="font-size: 12px; font-weight: 600; color: #0f172a;">
+                    ${escapeHtml(d.primary_surgeon || 'Attending Surgeon')}
+                </div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Circ: ${escapeHtml(d.circulating_nurse || 'Assigned Nurse')}
+                </div>
+                ${d.scrub_nurse ? `<div style="font-size: 10px; color: #64748b;">Scrub: ${escapeHtml(d.scrub_nurse)}</div>` : ''}
+            </td>
+            <td style="padding: 14px 16px; font-size: 11px;">
+                <div>Dispatched: <strong>${d.dispatched_at.substring(11, 16)}</strong> by ${escapeHtml(d.dispatched_by_name.split(' ')[0])}</div>
+                ${d.received_by_name ? `
+                    <div style="color: #059669; margin-top: 3px;">
+                        <i class="fas fa-check"></i> Rcvd: <strong>${d.received_in_or_at ? d.received_in_or_at.substring(11, 16) : 'Yes'}</strong> (${escapeHtml(d.received_by_name.split(' ')[0])})
+                    </div>
+                ` : `
+                    <div style="color: #d97706; margin-top: 3px; font-weight: 600;">
+                        <i class="fas fa-clock"></i> Awaiting OR sign-off
+                    </div>
+                `}
+            </td>
+            <td style="padding: 14px 16px; text-align: center;">
+                ${statusBadge}
+            </td>
+            <td style="padding: 14px 16px; text-align: center;">
+                <div style="display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;">
+                    ${d.dispatch_status === 'dispatched_in_transit' ? `
+                        <button class="confirm-or-handover-btn" data-id="${d.id}" data-no="${escapeHtml(d.dispatch_number)}" data-barcode="${escapeHtml(d.tray_barcode)}" data-suite="${escapeHtml(d.or_suite_name)}" title="Confirm Custody Handover in OR" style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;">
+                            <i class="fas fa-handshake"></i> Handover
+                        </button>
+                    ` : ''}
+                    ${d.dispatch_status === 'in_surgery' || d.dispatch_status === 'received_in_or' ? `
+                        <button class="scan-return-direct-btn" data-id="${d.physical_tray_id}" data-barcode="${escapeHtml(d.tray_barcode)}" data-disp="${d.id}" title="Scan Post-Op Return" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;">
+                            <i class="fas fa-barcode"></i> Return Scan
+                        </button>
+                    ` : ''}
+                    <button class="view-dispatch-detail-btn" data-id="${d.id}" title="View Dispatch &amp; Manifest" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+/**
+ * TAB: Scan Returns, Decontamination & Missing Instrument Incidents
+ */
+function renderReturnsAndIncidentsTab() {
+    const returns = cache.returns?.records || [];
+    const incidents = cache.incidents?.records || [];
+
+    return `
+        <!-- Quick Action Bar -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h3 style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0;">
+                    Post-Op Decontamination Receiving &amp; Manifest Count Verification
+                </h3>
+                <p style="margin: 0; font-size: 13px; color: #64748b;">
+                    Scan returned dirty instrument trays, verify piece-by-piece against master manifests, and instantly detect lost or damaged tools before ultrasonic washing.
+                </p>
+            </div>
+            <button id="btnOpenScanReturnTerminal" style="background: #d97706; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(217,119,6,0.25);">
+                <i class="fas fa-barcode"></i> Scan Dirty Tray Return Terminal
+            </button>
+        </div>
+
+        <!-- SECTION A: Recent Post-Op Tray Return Scans -->
+        <div style="margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-arrow-rotate-left" style="color: #4f46e5;"></i> Recent Post-Op Tray Return Scans (${returns.length})
+                </h4>
+            </div>
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                        <thead>
+                            <tr style="background: #0f172a; color: #ffffff; text-transform: uppercase; font-size: 11px;">
+                                <th style="padding: 12px 14px; width: 14%;">Return # &amp; Time</th>
+                                <th style="padding: 12px 14px; width: 22%;">Tray Barcode &amp; Set</th>
+                                <th style="padding: 12px 14px; width: 18%;">Returned From Suite</th>
+                                <th style="padding: 12px 14px; width: 16%;">Reconciliation Count</th>
+                                <th style="padding: 12px 14px; width: 12%;">Bioburden</th>
+                                <th style="padding: 12px 14px; width: 12%; text-align: center;">Reconciliation Status</th>
+                                <th style="padding: 12px 14px; width: 6%; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${returns.length === 0 ? `
+                                <tr>
+                                    <td colspan="7" style="padding: 30px; text-align: center; color: #64748b;">
+                                        No dirty tray return scans recorded yet.
+                                    </td>
+                                </tr>
+                            ` : returns.map(r => renderReturnRow(r)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION B: Missing Instrument & Retained Surgical Item (RSI) Safety Tracker -->
+        <div>
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="background: #e11d48; color: #ffffff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px;">
+                        <i class="fas fa-radiation"></i>
+                    </span>
+                    <div>
+                        <div style="font-weight: 800; color: #9f1239; font-size: 14px;">
+                            Retained Surgical Item (RSI) Prevention &amp; Missing Tool Safety Ledger
+                        </div>
+                        <div style="font-size: 12px; color: #be123c;">
+                            Mandatory surgical protocol: All unaccounted tools trigger immediate OR search, C-Arm / Portable X-Ray cavity check, and documented clinical clearance.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                        <thead>
+                            <tr style="background: #1e1b4b; color: #ffffff; text-transform: uppercase; font-size: 11px;">
+                                <th style="padding: 12px 14px; width: 13%;">Incident # &amp; Date</th>
+                                <th style="padding: 12px 14px; width: 22%;">Missing / Damaged Tool</th>
+                                <th style="padding: 12px 14px; width: 18%;">Tray &amp; Master Set</th>
+                                <th style="padding: 12px 14px; width: 16%;">OR Suite &amp; Surgeon</th>
+                                <th style="padding: 12px 14px; width: 13%;">Severity</th>
+                                <th style="padding: 12px 14px; width: 12%; text-align: center;">Investigation Status</th>
+                                <th style="padding: 12px 14px; width: 6%; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${incidents.length === 0 ? `
+                                <tr>
+                                    <td colspan="7" style="padding: 30px; text-align: center; color: #059669; font-weight: 600;">
+                                        <i class="fas fa-circle-check"></i> Zero active missing instrument incidents. 100% surgical tool count reconciliation maintained.
+                                    </td>
+                                </tr>
+                            ` : incidents.map(inc => renderIncidentRow(inc)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Return Row
+ */
+function renderReturnRow(r) {
+    const isClean = r.missing_count === 0 && r.damaged_count === 0;
+
+    const rsiBadge = r.is_rsi_alert_triggered ? `
+        <span style="background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fas fa-radiation"></i> CRITICAL RSI ALERT
+        </span>
+    ` : (r.damaged_count > 0 ? `
+        <span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;">
+            <i class="fas fa-wrench"></i> ${r.damaged_count} DAMAGED
+        </span>
+    ` : `
+        <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;">
+            <i class="fas fa-check-double"></i> 100% COUNT OK
+        </span>
+    `);
+
+    let bioBadge = '';
+    switch (r.bioburden_level) {
+        case 'heavy_gross_blood':
+            bioBadge = `<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">Heavy Gross Blood</span>`;
+            break;
+        case 'suspected_prion_creutzfeldt':
+            bioBadge = `<span style="background: #450a0a; color: #fecaca; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">PRION BIOHAZARD</span>`;
+            break;
+        default:
+            bioBadge = `<span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">Moderate</span>`;
+            break;
+    }
+
+    return `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 12px 14px;">
+                <div style="font-family: monospace; font-weight: 800; color: #4f46e5;">${escapeHtml(r.return_number)}</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${r.received_at.substring(5, 16)}</div>
+            </td>
+            <td style="padding: 12px 14px;">
+                <div style="font-weight: 700; color: #0f172a;">${escapeHtml(r.master_tray_name)}</div>
+                <div style="font-family: monospace; color: #64748b; font-size: 11px; margin-top: 1px;">${escapeHtml(r.tray_barcode)}</div>
+            </td>
+            <td style="padding: 12px 14px;">
+                <div style="font-weight: 600; color: #0f172a; font-size: 12px;">${escapeHtml(r.returned_from_or_suite)}</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 1px;">By: ${escapeHtml(r.returned_by_name)}</div>
+            </td>
+            <td style="padding: 12px 14px;">
+                <div style="font-size: 13px; font-weight: 800; color: ${isClean ? '#047857' : '#b91c1c'};">
+                    ${r.counted_pieces} / ${r.expected_pieces} Pieces
+                </div>
+                ${r.missing_count > 0 ? `<div style="font-size: 11px; color: #dc2626; font-weight: 700;">⚠ ${r.missing_count} MISSING</div>` : ''}
+                ${r.damaged_count > 0 ? `<div style="font-size: 11px; color: #d97706; font-weight: 600;">🔧 ${r.damaged_count} Damaged</div>` : ''}
+            </td>
+            <td style="padding: 12px 14px;">
+                ${bioBadge}
+                <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${escapeHtml(r.decon_bay_assigned || 'Decon Bay')}</div>
+            </td>
+            <td style="padding: 12px 14px; text-align: center;">
+                ${rsiBadge}
+            </td>
+            <td style="padding: 12px 14px; text-align: center;">
+                <button class="view-return-detail-btn" data-id="${r.id}" title="Inspect Manifest Checklist Audit" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                    <i class="fas fa-list-check"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
+/**
+ * Render Incident Row
+ */
+function renderIncidentRow(inc) {
+    const isCritical = (inc.severity_level === 'critical_rsi_alert');
+
+    const severityBadge = isCritical ? `
+        <span style="background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 900; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fas fa-radiation"></i> CRITICAL RSI ALERT
+        </span>
+    ` : (inc.severity_level === 'high_priority' ? `
+        <span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase;">High Priority</span>
+    ` : `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;">Maintenance</span>`);
+
+    let statusBadge = '';
+    switch (inc.investigation_status) {
+        case 'active_search_in_or':
+            statusBadge = `<span style="background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;"><i class="fas fa-search"></i> Searching OR</span>`;
+            break;
+        case 'portable_xray_ordered':
+            statusBadge = `<span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"><i class="fas fa-x-ray"></i> X-Ray Ordered</span>`;
+            break;
+        case 'found_in_or_linens':
+            statusBadge = `<span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"><i class="fas fa-check"></i> Found in Linens</span>`;
+            break;
+        case 'found_in_trash_bin':
+            statusBadge = `<span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"><i class="fas fa-trash-can"></i> Found in Trash</span>`;
+            break;
+        case 'xray_negative_cavity_clear':
+            statusBadge = `<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"><i class="fas fa-shield"></i> Cavity Clear (X-Ray)</span>`;
+            break;
+        case 'confirmed_lost_written_off':
+            statusBadge = `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Written Off / Lost</span>`;
+            break;
+        case 'sent_for_repair':
+            statusBadge = `<span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"><i class="fas fa-screwdriver-wrench"></i> In Repair</span>`;
+            break;
+        case 'resolved_closed':
+            statusBadge = `<span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"><i class="fas fa-check-circle"></i> Resolved &amp; Closed</span>`;
+            break;
+    }
+
+    return `
+        <tr style="border-bottom: 1px solid #f1f5f9; background: ${isCritical && inc.investigation_status === 'active_search_in_or' ? '#fff5f5' : 'transparent'};">
+            <td style="padding: 12px 14px;">
+                <div style="font-family: monospace; font-weight: 800; color: #9f1239;">${escapeHtml(inc.incident_number)}</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${inc.reported_at.substring(5, 16)}</div>
+            </td>
+            <td style="padding: 12px 14px;">
+                <div style="font-weight: 800; color: #0f172a;">${escapeHtml(inc.instrument_name)}</div>
+                <div style="font-size: 11px; color: #64748b; text-transform: capitalize; margin-top: 1px;">
+                    Type: ${escapeHtml(inc.instrument_type?.replace(/_/g, ' ') || 'Surgical')} &bull; Qty: ${inc.quantity_missing || inc.quantity_damaged || 1}
+                </div>
+            </td>
+            <td style="padding: 12px 14px;">
+                <div style="font-weight: 700; color: #0f172a; font-size: 12px;">${escapeHtml(inc.master_tray_name)}</div>
+                <div style="font-family: monospace; color: #4f46e5; font-size: 11px; margin-top: 1px;">${escapeHtml(inc.tray_barcode)}</div>
+            </td>
+            <td style="padding: 12px 14px;">
+                <div style="font-weight: 600; color: #0f172a; font-size: 12px;">${escapeHtml(inc.or_suite_name)}</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 1px;">Surgeon: ${escapeHtml(inc.lead_surgeon || 'Attending')}</div>
+            </td>
+            <td style="padding: 12px 14px;">
+                ${severityBadge}
+                ${inc.xray_ordered ? `<div style="font-size: 10px; color: #0369a1; margin-top: 3px; font-weight: 600;"><i class="fas fa-x-ray"></i> X-Ray Protocol Active</div>` : ''}
+            </td>
+            <td style="padding: 12px 14px; text-align: center;">
+                ${statusBadge}
+                ${inc.xray_findings ? `<div style="font-size: 10px; color: #059669; margin-top: 2px;" title="${escapeHtml(inc.xray_findings)}"><i class="fas fa-circle-check"></i> X-Ray Clear</div>` : ''}
+            </td>
+            <td style="padding: 12px 14px; text-align: center;">
+                <button class="resolve-incident-btn" data-id="${inc.id}" title="Investigate &amp; Resolve Incident" style="background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;">
+                    <i class="fas fa-clipboard-check"></i> Resolve
+                </button>
             </td>
         </tr>
     `;
@@ -800,6 +1309,10 @@ function renderPagination() {
         total = cache.physicalTrays?.total || 0;
     } else if (state.activeTab === 'autoclave_batches') {
         total = cache.batches?.total || 0;
+    } else if (state.activeTab === 'ot_dispatches') {
+        total = cache.dispatches?.total || 0;
+    } else if (state.activeTab === 'returns_and_incidents') {
+        total = cache.returns?.total || 0;
     }
 
     const totalPages = Math.ceil(total / state.perPage) || 1;
@@ -859,6 +1372,60 @@ function bindEvents() {
         // Open Start Batch Modal
         if (e.target.closest('#btnNewBatchModal')) {
             openCreateBatchModal();
+            return;
+        }
+
+        // Open Dispatch Modal
+        if (e.target.closest('#btnDispatchModal') || e.target.closest('#btnDispatchModalTab')) {
+            openDispatchModal();
+            return;
+        }
+
+        // Open Scan Dirty Return Modal
+        if (e.target.closest('#btnScanReturnModal') || e.target.closest('#btnOpenScanReturnTerminal')) {
+            openScanReturnModal();
+            return;
+        }
+
+        // Dispatch Tray Direct
+        const dispDirectBtn = e.target.closest('.dispatch-tray-direct-btn');
+        if (dispDirectBtn) {
+            openDispatchModal(dispDirectBtn.dataset.id);
+            return;
+        }
+
+        // Scan Return Direct
+        const retDirectBtn = e.target.closest('.scan-return-direct-btn');
+        if (retDirectBtn) {
+            openScanReturnModal(retDirectBtn.dataset.barcode, retDirectBtn.dataset.disp);
+            return;
+        }
+
+        // Confirm OR Handover
+        const handoverBtn = e.target.closest('.confirm-or-handover-btn');
+        if (handoverBtn) {
+            openORHandoverModal(handoverBtn.dataset.id, handoverBtn.dataset.no, handoverBtn.dataset.barcode, handoverBtn.dataset.suite);
+            return;
+        }
+
+        // View Dispatch Detail
+        const viewDispBtn = e.target.closest('.view-dispatch-detail-btn');
+        if (viewDispBtn) {
+            openDispatchDetailModal(viewDispBtn.dataset.id);
+            return;
+        }
+
+        // View Return Detail Checklist
+        const viewRetBtn = e.target.closest('.view-return-detail-btn');
+        if (viewRetBtn) {
+            openReturnDetailModal(viewRetBtn.dataset.id);
+            return;
+        }
+
+        // Resolve Incident
+        const resolveIncBtn = e.target.closest('.resolve-incident-btn');
+        if (resolveIncBtn) {
+            openIncidentResolutionModal(resolveIncBtn.dataset.id);
             return;
         }
 
@@ -974,8 +1541,10 @@ function bindEvents() {
             state.specialtyFilter = "";
             state.batchStatusFilter = "";
             state.machineFilter = "";
+            state.dispatchStatusFilter = "";
+            state.orSuiteFilter = "";
             state.page = 1;
-            const sInput = document.getElementById('cssdSearchInput') || document.getElementById('batchSearchInput');
+            const sInput = document.getElementById('cssdSearchInput') || document.getElementById('batchSearchInput') || document.getElementById('dispSearchInput');
             if (sInput) sInput.value = "";
             await loadInitialData();
             return;
@@ -1000,12 +1569,20 @@ function bindEvents() {
             state.machineFilter = e.target.value;
             state.page = 1;
             await loadInitialData();
+        } else if (e.target.id === 'dispStatusFilter') {
+            state.dispatchStatusFilter = e.target.value;
+            state.page = 1;
+            await loadInitialData();
+        } else if (e.target.id === 'dispSuiteFilter') {
+            state.orSuiteFilter = e.target.value;
+            state.page = 1;
+            await loadInitialData();
         }
     });
 
     // Search Keyup
     document.addEventListener('keyup', async (e) => {
-        if ((e.target.id === 'cssdSearchInput' || e.target.id === 'batchSearchInput') && e.key === 'Enter') {
+        if ((e.target.id === 'cssdSearchInput' || e.target.id === 'batchSearchInput' || e.target.id === 'dispSearchInput') && e.key === 'Enter') {
             state.searchQuery = e.target.value.trim();
             state.page = 1;
             await loadInitialData();
@@ -2165,6 +2742,897 @@ async function openMasterTrayFormModal(id = null) {
             await loadInitialData();
         } catch (err) {
             showToast("Failed to save master tray: " + err.message, "error");
+        }
+    });
+}
+
+/**
+ * =========================================================================
+ * MODALS: OT DISTRIBUTION, SCAN RETURNS & RSI SAFETY INCIDENTS
+ * =========================================================================
+ */
+
+/**
+ * MODAL: Dispatch Sterile Tray to OR Suite
+ */
+async function openDispatchModal(preselectTrayId = null) {
+    let availTrays = cache.availableTrays || [];
+    let suitesCases = cache.orSuitesAndCases || { or_suites: [], surgical_cases: [] };
+
+    // Fresh fetch if empty
+    if (availTrays.length === 0) {
+        try {
+            const res = await api('/cssd/dispatches/available-trays');
+            if (res?.data) availTrays = res.data;
+        } catch (e) {}
+    }
+    if (suitesCases.or_suites.length === 0) {
+        try {
+            const res = await api('/cssd/dispatches/or-suites');
+            if (res?.data) suitesCases = res.data;
+        } catch (e) {}
+    }
+
+    const modalBox = document.getElementById('cssdModalContainer');
+    if (!modalBox) return;
+
+    modalBox.innerHTML = `
+        <div id="cssdModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 680px; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                
+                <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #ffffff; z-index: 10;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; color: #e11d48; background: #ffe4e6; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">Chain of Custody Handover</span>
+                        <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">
+                            Dispatch Sterile Instrument Set to OR Suite
+                        </h3>
+                    </div>
+                    <button id="btnCloseModal" style="background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer;">&times;</button>
+                </div>
+
+                <form id="dispatchTrayForm" style="padding: 24px;">
+                    <!-- Sterile Tray Selection -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">
+                            Select Available Sterile Tray *
+                        </label>
+                        <select name="physical_tray_id" id="dispatchPhysicalTraySelect" required style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                            <option value="">Select Sterile Instrument Tray...</option>
+                            ${availTrays.map(t => `
+                                <option value="${t.id}" ${preselectTrayId == t.id ? 'selected' : ''} data-barcode="${escapeHtml(t.tray_barcode)}" data-pieces="${t.total_pieces}" data-expiry="${t.sterile_expiry_date || ''}">
+                                    ${escapeHtml(t.tray_barcode)} - ${escapeHtml(t.master_tray_name)} (${t.total_pieces} pcs) &bull; Valid: ${t.sterile_expiry_date || 'N/A'}
+                                </option>
+                            `).join('')}
+                        </select>
+                        ${availTrays.length === 0 ? `
+                            <div style="font-size: 12px; color: #dc2626; margin-top: 4px;">
+                                ⚠ No trays currently in sterile storage. Release completed batches first.
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Destination & Priority -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Target Operating Theater *</label>
+                            <select name="or_suite_name" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                                ${suitesCases.or_suites.map(s => `
+                                    <option value="${escapeHtml(s)}">${escapeHtml(s)}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Case Priority *</label>
+                            <select name="case_priority" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                                <option value="elective">Elective</option>
+                                <option value="urgent">Urgent</option>
+                                <option value="stat_emergency">STAT Emergency</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Link to Surgical Case (Optional quick autofill) -->
+                    ${suitesCases.surgical_cases.length > 0 ? `
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                            <label style="display: block; font-size: 12px; font-weight: 700; color: #4338ca; margin-bottom: 4px;">
+                                <i class="fas fa-link"></i> Link to Scheduled Surgical Case (Auto-fills clinical fields)
+                            </label>
+                            <select id="caseAutofillSelect" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; background: #ffffff;">
+                                <option value="">Select Scheduled OR Case (Optional)...</option>
+                                ${suitesCases.surgical_cases.map(c => `
+                                    <option value="${c.id}" data-case="${escapeHtml(c.case_number)}" data-patient="${escapeHtml(c.patient_name)}" data-procedure="${escapeHtml(c.procedure_name)}" data-surgeon="${escapeHtml(c.lead_surgeon)}" data-circ="${escapeHtml(c.circulating_nurse || '')}" data-scrub="${escapeHtml(c.scrub_nurse || '')}" data-suite="${escapeHtml(c.or_suite_name)}">
+                                        ${escapeHtml(c.case_number)} - ${escapeHtml(c.patient_name)} (${escapeHtml(c.procedure_name.substring(0, 32))}...)
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    ` : ''}
+
+                    <input type="hidden" name="surgical_case_id" id="dispatchCaseId" value="" />
+                    <input type="hidden" name="surgical_case_number" id="dispatchCaseNumber" value="" />
+
+                    <!-- Procedure & Patient -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Surgical Procedure Name *</label>
+                            <input type="text" name="procedure_name" id="dispatchProcedureInput" required placeholder="e.g. Laparoscopic Cholecystectomy" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Patient Name</label>
+                            <input type="text" name="patient_name" id="dispatchPatientInput" placeholder="e.g. John Doe" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                    </div>
+
+                    <!-- Surgical Team -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Primary Surgeon</label>
+                            <input type="text" name="primary_surgeon" id="dispatchSurgeonInput" placeholder="Dr. Mark Villareal" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Circulating Nurse</label>
+                            <input type="text" name="circulating_nurse" id="dispatchCircInput" placeholder="Nurse Patrick Dizon, RN" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Scrub Nurse</label>
+                            <input type="text" name="scrub_nurse" id="dispatchScrubInput" placeholder="Nurse Teresa Aquino, RN" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                    </div>
+
+                    <!-- Transport Cart & Dispatcher -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Transport Case Cart / Tote ID</label>
+                            <input type="text" name="transport_container_barcode" placeholder="e.g. CART-OR-01" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: monospace;" />
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">CSSD Dispatcher Name *</label>
+                            <input type="text" name="dispatched_by_name" required value="Roberto Luna (CSSD Dispatch Tech)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                        </div>
+                    </div>
+
+                    <!-- Sterility Verification Checklist -->
+                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #065f46;">
+                            <input type="checkbox" name="sterility_verified" required checked style="width: 16px; height: 16px;" />
+                            <span>I have physically inspected the sterile packaging, verified the chemical indicator strip is passed, and confirmed the 180-day sterile shelf life has not expired.</span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" id="btnCloseDispModal" style="padding: 8px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="padding: 8px 20px; background: #e11d48; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-truck-ramp-box"></i> Authorize &amp; Dispatch to OR
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btnCloseDispModal')?.addEventListener('click', closeModal);
+
+    // Autofill listener
+    document.getElementById('caseAutofillSelect')?.addEventListener('change', (e) => {
+        const opt = e.target.selectedOptions[0];
+        if (!opt || !opt.value) return;
+
+        document.getElementById('dispatchCaseId').value = opt.value;
+        document.getElementById('dispatchCaseNumber').value = opt.dataset.case || '';
+        document.getElementById('dispatchProcedureInput').value = opt.dataset.procedure || '';
+        document.getElementById('dispatchPatientInput').value = opt.dataset.patient || '';
+        document.getElementById('dispatchSurgeonInput').value = opt.dataset.surgeon || '';
+        document.getElementById('dispatchCircInput').value = opt.dataset.circ || '';
+        document.getElementById('dispatchScrubInput').value = opt.dataset.scrub || '';
+    });
+
+    document.getElementById('dispatchTrayForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+            const res = await api('/cssd/dispatches', 'POST', {
+                physical_tray_id: f.get('physical_tray_id'),
+                or_suite_name: f.get('or_suite_name'),
+                case_priority: f.get('case_priority'),
+                surgical_case_id: f.get('surgical_case_id') || null,
+                surgical_case_number: f.get('surgical_case_number') || null,
+                procedure_name: f.get('procedure_name'),
+                patient_name: f.get('patient_name'),
+                primary_surgeon: f.get('primary_surgeon'),
+                circulating_nurse: f.get('circulating_nurse'),
+                scrub_nurse: f.get('scrub_nurse'),
+                transport_container_barcode: f.get('transport_container_barcode'),
+                dispatched_by_name: f.get('dispatched_by_name')
+            });
+            showToast(res?.data?.message || "Sterile set dispatched to OR suite successfully.", "success");
+            closeModal();
+            await loadInitialData();
+        } catch (err) {
+            showToast("Failed to dispatch tray: " + err.message, "error");
+        }
+    });
+}
+
+/**
+ * MODAL: Confirm Custody Handover in OR
+ */
+function openORHandoverModal(dispatchId, dispatchNumber, trayBarcode, orSuite) {
+    const modalBox = document.getElementById('cssdModalContainer');
+    if (!modalBox) return;
+
+    modalBox.innerHTML = `
+        <div id="cssdModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                
+                <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">Custody Receipt</span>
+                        <h3 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">
+                            Confirm OR Custody Handover
+                        </h3>
+                    </div>
+                    <button id="btnCloseModal" style="background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer;">&times;</button>
+                </div>
+
+                <form id="orHandoverForm" style="padding: 24px;">
+                    <input type="hidden" name="dispatch_id" value="${dispatchId}" />
+
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 12px;">
+                        <div>Dispatch #: <strong style="font-family: monospace; color: #e11d48; font-size: 13px;">${escapeHtml(dispatchNumber)}</strong></div>
+                        <div style="margin-top: 4px;">Tray Barcode: <strong style="font-family: monospace; color: #4f46e5;">${escapeHtml(trayBarcode)}</strong></div>
+                        <div style="margin-top: 4px;">Operating Suite: <strong>${escapeHtml(orSuite)}</strong></div>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                            Received in OR by (Circulating Nurse Name) *
+                        </label>
+                        <input type="text" name="received_by_name" required value="Nurse Patrick Dizon, RN" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Handover Notes</label>
+                        <input type="text" name="notes" placeholder="Sterile seal intact; temperature indicator acceptable." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" id="btnCloseHandoverModal" style="padding: 8px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="padding: 8px 18px; background: #15803d; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <i class="fas fa-handshake"></i> Accept Custody
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btnCloseHandoverModal')?.addEventListener('click', closeModal);
+
+    document.getElementById('orHandoverForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+            await api('/cssd/dispatches/receive-in-or', 'POST', {
+                dispatch_id: f.get('dispatch_id'),
+                received_by_name: f.get('received_by_name'),
+                notes: f.get('notes')
+            });
+            showToast("OR custody handover confirmed. Tray marked as in-surgery.", "success");
+            closeModal();
+            await loadInitialData();
+        } catch (err) {
+            showToast("Failed to confirm handover: " + err.message, "error");
+        }
+    });
+}
+
+/**
+ * MODAL: Scan Dirty Tray Return Terminal & Manifest Count Reconciliation
+ */
+async function openScanReturnModal(prefilledBarcode = null, prefilledDispatchId = null) {
+    const modalBox = document.getElementById('cssdModalContainer');
+    if (!modalBox) return;
+
+    let activeManifest = null;
+    let checklistItems = [];
+
+    modalBox.innerHTML = `
+        <div id="cssdModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 900px; max-height: 94vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                
+                <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #ffffff; z-index: 10;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">Decontamination Receiving Terminal</span>
+                        <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">
+                            Post-Op Dirty Tray Return &amp; Piece Manifest Audit
+                        </h3>
+                    </div>
+                    <button id="btnCloseModal" style="background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer;">&times;</button>
+                </div>
+
+                <div style="padding: 24px;">
+                    <!-- Scan Barcode Bar -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <input type="text" id="returnBarcodeScanInput" value="${escapeHtml(prefilledBarcode || '')}" placeholder="Scan Tray Barcode (e.g. TRAY-2026-0001)..." style="flex: 1; padding: 10px 14px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-family: monospace; font-weight: 700;" />
+                        <button id="btnFetchTrayManifest" style="background: #4f46e5; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-barcode"></i> Load Piece Manifest
+                        </button>
+                    </div>
+
+                    <div id="returnManifestWorkspaceArea">
+                        <div style="text-align: center; padding: 40px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px;">
+                            <i class="fas fa-barcode" style="font-size: 32px; color: #cbd5e1; margin-bottom: 8px;"></i>
+                            <div style="font-size: 14px; font-weight: 600; color: #334155;">Scan or enter a circulating tray barcode to load its itemized manifest</div>
+                            <div style="font-size: 12px; margin-top: 4px;">Enforces piece-by-piece return verification to detect missing surgical instruments.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btnCloseModal')?.addEventListener('click', closeModal);
+
+    const scanInput = document.getElementById('returnBarcodeScanInput');
+    const fetchBtn = document.getElementById('btnFetchTrayManifest');
+
+    async function loadManifest(barcode) {
+        if (!barcode) {
+            showToast("Please enter or scan a tray barcode.", "error");
+            return;
+        }
+        try {
+            const res = await api(`/cssd/returns/tray-manifest?query=${encodeURIComponent(barcode)}`);
+            activeManifest = res?.data;
+            if (!activeManifest) {
+                showToast("Tray manifest not found.", "error");
+                return;
+            }
+
+            // Initialize checklist items
+            checklistItems = (activeManifest.manifest_items || []).map(item => ({
+                id: item.id,
+                item_seq: item.item_seq,
+                instrument_name: item.instrument_name,
+                instrument_type: item.instrument_type,
+                quantity_required: item.quantity_required,
+                critical_inspection_point: item.critical_inspection_point,
+                status: 'present', // 'present' | 'missing' | 'damaged'
+                damage_note: ''
+            }));
+
+            renderChecklistWorkspace();
+        } catch (err) {
+            showToast("Failed to load manifest: " + err.message, "error");
+        }
+    }
+
+    function renderChecklistWorkspace() {
+        const area = document.getElementById('returnManifestWorkspaceArea');
+        if (!area || !activeManifest) return;
+
+        const tray = activeManifest.tray;
+        const disp = activeManifest.latest_dispatch || {};
+
+        const presentCount = checklistItems.filter(i => i.status === 'present').length;
+        const missingCount = checklistItems.filter(i => i.status === 'missing').length;
+        const damagedCount = checklistItems.filter(i => i.status === 'damaged').length;
+        const totalPieces = checklistItems.length;
+
+        area.innerHTML = `
+            <!-- Tray Header Meta -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 12px;">
+                <div>
+                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase;">Master Surgical Set</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 2px;">${escapeHtml(tray.master_tray_name)}</div>
+                    <div style="font-family: monospace; color: #4f46e5; font-weight: 700; margin-top: 2px;">${escapeHtml(tray.tray_barcode)}</div>
+                </div>
+                <div>
+                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase;">Returned From Location</div>
+                    <div style="font-weight: 700; color: #0f172a; margin-top: 2px;">${escapeHtml(disp.or_suite_name || tray.assigned_or_suite || 'OR Suite')}</div>
+                    <div style="color: #64748b; margin-top: 2px;">Case: ${escapeHtml(disp.procedure_name || 'Surgery Case')}</div>
+                </div>
+                <div>
+                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase;">Attending Surgeon</div>
+                    <div style="font-weight: 700; color: #0f172a; margin-top: 2px;">${escapeHtml(disp.primary_surgeon || 'Attending Surgeon')}</div>
+                    <div style="color: #64748b; margin-top: 2px;">Circ: ${escapeHtml(disp.circulating_nurse || 'Circulating Nurse')}</div>
+                </div>
+            </div>
+
+            <!-- Live Count Summary Bar -->
+            <div style="display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 130px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">Required Pieces</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #0f172a;">${totalPieces}</div>
+                </div>
+                <div style="flex: 1; min-width: 130px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 14px; text-align: center;">
+                    <div style="font-size: 11px; color: #065f46; text-transform: uppercase; font-weight: 600;">Present OK</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #059669;">${presentCount}</div>
+                </div>
+                <div style="flex: 1; min-width: 130px; background: ${missingCount > 0 ? '#fee2e2' : '#ffffff'}; border: 1px solid ${missingCount > 0 ? '#fca5a5' : '#e2e8f0'}; border-radius: 8px; padding: 10px 14px; text-align: center;">
+                    <div style="font-size: 11px; color: ${missingCount > 0 ? '#991b1b' : '#64748b'}; text-transform: uppercase; font-weight: 700;">Missing</div>
+                    <div style="font-size: 20px; font-weight: 800; color: ${missingCount > 0 ? '#dc2626' : '#64748b'};">${missingCount}</div>
+                </div>
+                <div style="flex: 1; min-width: 130px; background: ${damagedCount > 0 ? '#fef3c7' : '#ffffff'}; border: 1px solid ${damagedCount > 0 ? '#fde68a' : '#e2e8f0'}; border-radius: 8px; padding: 10px 14px; text-align: center;">
+                    <div style="font-size: 11px; color: ${damagedCount > 0 ? '#92400e' : '#64748b'}; text-transform: uppercase; font-weight: 700;">Damaged</div>
+                    <div style="font-size: 20px; font-weight: 800; color: ${damagedCount > 0 ? '#d97706' : '#64748b'};">${damagedCount}</div>
+                </div>
+            </div>
+
+            <!-- Critical RSI Alert Banner if missing -->
+            ${missingCount > 0 ? `
+                <div style="background: #fee2e2; border: 2px solid #ef4444; border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px; animation: pulse 2s infinite;">
+                    <span style="font-size: 24px; color: #dc2626;"><i class="fas fa-radiation"></i></span>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 800; color: #991b1b;">
+                            CRITICAL RETAINED SURGICAL ITEM (RSI) SAFETY PROTOCOL TRIGGERED!
+                        </div>
+                        <div style="font-size: 12px; color: #b91c1c; margin-top: 2px;">
+                            ${missingCount} instrument(s) missing from return count. Immediate OR suite notification, sub-sterile search, and cavity X-ray verification will be recorded. Tray will be locked in quarantine.
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
+            <!-- Piece-by-Piece Checklist Table -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 20px;">
+                <div style="max-height: 320px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                        <thead style="position: sticky; top: 0; background: #0f172a; color: #ffffff; text-transform: uppercase; font-size: 11px;">
+                            <tr>
+                                <th style="padding: 10px 12px; width: 6%;">Seq</th>
+                                <th style="padding: 10px 12px; width: 44%;">Instrument Description</th>
+                                <th style="padding: 10px 12px; width: 22%;">Critical Checkpoint</th>
+                                <th style="padding: 10px 12px; width: 28%; text-align: center;">Item Return Verification</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${checklistItems.map((item, idx) => `
+                                <tr style="border-bottom: 1px solid #f1f5f9; background: ${item.status === 'missing' ? '#fef2f2' : (item.status === 'damaged' ? '#fffbeb' : 'transparent')};">
+                                    <td style="padding: 10px 12px; font-weight: 700; color: #64748b;">${item.item_seq}</td>
+                                    <td style="padding: 10px 12px;">
+                                        <div style="font-weight: 700; color: #0f172a;">${escapeHtml(item.instrument_name)}</div>
+                                        <div style="font-size: 11px; color: #64748b; text-transform: capitalize;">${escapeHtml(item.instrument_type?.replace(/_/g, ' '))}</div>
+                                        ${item.status === 'damaged' ? `
+                                            <input type="text" class="damage-note-input" data-index="${idx}" placeholder="Specify damage (e.g. bent tip, broken spring)..." value="${escapeHtml(item.damage_note)}" style="width: 90%; margin-top: 6px; padding: 4px 8px; border: 1px solid #fde68a; border-radius: 4px; font-size: 11px; background: #ffffff;" />
+                                        ` : ''}
+                                    </td>
+                                    <td style="padding: 10px 12px; font-size: 11px; color: #64748b;">
+                                        ${escapeHtml(item.critical_inspection_point || 'Visual integrity & ratchets')}
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: center;">
+                                        <div style="display: inline-flex; gap: 4px;">
+                                            <button type="button" class="btn-check-status ${item.status === 'present' ? 'active' : ''}" data-index="${idx}" data-status="present" style="padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${item.status === 'present' ? '#10b981' : '#cbd5e1'}; background: ${item.status === 'present' ? '#dcfce7' : '#ffffff'}; color: ${item.status === 'present' ? '#15803d' : '#64748b'};">
+                                                <i class="fas fa-check"></i> Present
+                                            </button>
+                                            <button type="button" class="btn-check-status ${item.status === 'missing' ? 'active' : ''}" data-index="${idx}" data-status="missing" style="padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${item.status === 'missing' ? '#ef4444' : '#cbd5e1'}; background: ${item.status === 'missing' ? '#fee2e2' : '#ffffff'}; color: ${item.status === 'missing' ? '#b91c1c' : '#64748b'};">
+                                                <i class="fas fa-triangle-exclamation"></i> Missing
+                                            </button>
+                                            <button type="button" class="btn-check-status ${item.status === 'damaged' ? 'active' : ''}" data-index="${idx}" data-status="damaged" style="padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${item.status === 'damaged' ? '#f59e0b' : '#cbd5e1'}; background: ${item.status === 'damaged' ? '#fef3c7' : '#ffffff'}; color: ${item.status === 'damaged' ? '#b45309' : '#64748b'};">
+                                                <i class="fas fa-wrench"></i> Damaged
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reception Form Fields -->
+            <form id="executeReturnReconciliationForm">
+                <input type="hidden" name="physical_tray_id" value="${tray.id}" />
+                <input type="hidden" name="dispatch_id" value="${disp.id || ''}" />
+                <input type="hidden" name="returned_from_or_suite" value="${escapeHtml(disp.or_suite_name || tray.assigned_or_suite || 'OR Suite')}" />
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Bioburden Level *</label>
+                        <select name="bioburden_level" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                            <option value="moderate">Moderate Bioburden</option>
+                            <option value="light">Light Soil</option>
+                            <option value="heavy_gross_blood">Heavy Gross Blood / Bone Debris</option>
+                            <option value="suspected_prion_creutzfeldt">Suspected Prion Biohazard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Returned by (OR Staff)</label>
+                        <input type="text" name="returned_by_name" value="${escapeHtml(disp.circulating_nurse || 'OR Scrub/Orderly')}" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">CSSD Receiving Tech *</label>
+                        <input type="text" name="received_by_cssd_tech" required value="Danilo Santos (Decon Specialist)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Decontamination Bay / Washer Assigned</label>
+                        <input type="text" name="decon_bay_assigned" value="Decon Sink Bay 1 / Ultrasonic Tank A" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Inspection Notes</label>
+                        <input type="text" name="notes" placeholder="Gross decontamination notes..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" id="btnCloseRetModal" style="padding: 8px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 10px 22px; background: ${missingCount > 0 ? '#b91c1c' : '#0d9488'}; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-clipboard-check"></i> ${missingCount > 0 ? 'Log Missing Incident & Quarantine' : 'Complete Reconciliation & Transfer to Decon'}
+                    </button>
+                </div>
+            </form>
+        `;
+
+        document.getElementById('btnCloseRetModal')?.addEventListener('click', closeModal);
+
+        // Bind 3-toggle checklist buttons
+        area.querySelectorAll('.btn-check-status').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.index, 10);
+                const newStatus = btn.dataset.status;
+                checklistItems[idx].status = newStatus;
+                renderChecklistWorkspace();
+            });
+        });
+
+        // Bind damage note change
+        area.querySelectorAll('.damage-note-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const idx = parseInt(input.dataset.index, 10);
+                checklistItems[idx].damage_note = input.value;
+            });
+        });
+
+        // Submit Return Reconciliation
+        document.getElementById('executeReturnReconciliationForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.target);
+            try {
+                const res = await api('/cssd/returns', 'POST', {
+                    physical_tray_id: f.get('physical_tray_id'),
+                    dispatch_id: f.get('dispatch_id') || null,
+                    returned_from_or_suite: f.get('returned_from_or_suite'),
+                    returned_by_name: f.get('returned_by_name'),
+                    received_by_cssd_tech: f.get('received_by_cssd_tech'),
+                    bioburden_level: f.get('bioburden_level'),
+                    decon_bay_assigned: f.get('decon_bay_assigned'),
+                    notes: f.get('notes'),
+                    checklist_items: checklistItems
+                });
+
+                showToast(res?.data?.message || "Tray return reconciled successfully.", res?.data?.is_rsi_alert_triggered ? "error" : "success");
+                closeModal();
+                await loadInitialData();
+            } catch (err) {
+                showToast("Failed to reconcile return: " + err.message, "error");
+            }
+        });
+    }
+
+    fetchBtn?.addEventListener('click', () => loadManifest(scanInput.value.trim()));
+    scanInput?.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') loadManifest(scanInput.value.trim());
+    });
+
+    if (prefilledBarcode) {
+        loadManifest(prefilledBarcode);
+    }
+}
+
+/**
+ * MODAL: View Dispatch Details
+ */
+async function openDispatchDetailModal(dispatchId) {
+    let detail = null;
+    try {
+        const res = await api(`/cssd/dispatches/show?id=${dispatchId}`);
+        detail = res?.data;
+    } catch (e) {
+        showToast("Error loading dispatch detail: " + e.message, "error");
+        return;
+    }
+
+    if (!detail) return;
+
+    const modalBox = document.getElementById('cssdModalContainer');
+    if (!modalBox) return;
+
+    const d = detail.dispatch;
+    const items = detail.manifest_items || [];
+
+    modalBox.innerHTML = `
+        <div id="cssdModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 780px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                
+                <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-family: monospace; font-size: 14px; font-weight: 800; color: #e11d48;">${escapeHtml(d.dispatch_number)}</span>
+                        <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">
+                            OT Handover Custody &amp; Set Manifest
+                        </h3>
+                    </div>
+                    <button id="btnCloseModal" style="background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer;">&times;</button>
+                </div>
+
+                <div style="padding: 24px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px; font-size: 12px;">
+                        <div>
+                            <div>Instrument Set: <strong>${escapeHtml(d.master_tray_name)}</strong></div>
+                            <div style="margin-top: 4px;">Tray Barcode: <strong style="font-family: monospace; color: #4f46e5;">${escapeHtml(d.tray_barcode)}</strong></div>
+                            <div style="margin-top: 4px;">Destination: <strong>${escapeHtml(d.or_suite_name)}</strong></div>
+                            <div style="margin-top: 4px;">Procedure: <strong>${escapeHtml(d.procedure_name || 'N/A')}</strong></div>
+                        </div>
+                        <div>
+                            <div>Surgeon: <strong>${escapeHtml(d.primary_surgeon || 'Attending')}</strong></div>
+                            <div style="margin-top: 4px;">Circulating Nurse: <strong>${escapeHtml(d.circulating_nurse || 'Assigned Nurse')}</strong></div>
+                            <div style="margin-top: 4px;">Dispatched At: <strong>${d.dispatched_at}</strong> (${escapeHtml(d.dispatched_by_name)})</div>
+                            <div style="margin-top: 4px;">OR Handover: <strong>${d.received_in_or_at ? `${d.received_in_or_at} by ${escapeHtml(d.received_by_name)}` : 'Awaiting confirmation'}</strong></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 12px; font-weight: 700; font-size: 13px; color: #0f172a;">
+                        Expected Manifest Instruments (${items.length} Pieces)
+                    </div>
+
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 260px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                            <thead style="background: #0f172a; color: #ffffff; text-transform: uppercase; font-size: 11px;">
+                                <tr>
+                                    <th style="padding: 8px 10px; width: 8%;">Seq</th>
+                                    <th style="padding: 8px 10px; width: 50%;">Instrument Description</th>
+                                    <th style="padding: 8px 10px; width: 22%;">Type</th>
+                                    <th style="padding: 8px 10px; width: 20%;">Qty Required</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(it => `
+                                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                                        <td style="padding: 8px 10px; font-weight: 700; color: #64748b;">${it.item_seq}</td>
+                                        <td style="padding: 8px 10px; font-weight: 600;">${escapeHtml(it.instrument_name)}</td>
+                                        <td style="padding: 8px 10px; color: #64748b; text-transform: capitalize;">${escapeHtml(it.instrument_type?.replace(/_/g, ' '))}</td>
+                                        <td style="padding: 8px 10px; font-weight: 700;">${it.quantity_required}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                        <button type="button" id="btnCloseModal" style="padding: 8px 18px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * MODAL: View Return Detail & Audited Checklist
+ */
+async function openReturnDetailModal(returnId) {
+    let detail = null;
+    try {
+        const res = await api(`/cssd/returns/show?id=${returnId}`);
+        detail = res?.data;
+    } catch (e) {
+        showToast("Error loading return details: " + e.message, "error");
+        return;
+    }
+
+    if (!detail) return;
+
+    const modalBox = document.getElementById('cssdModalContainer');
+    if (!modalBox) return;
+
+    const r = detail.return;
+    const items = detail.checklist_items || [];
+
+    modalBox.innerHTML = `
+        <div id="cssdModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                
+                <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-family: monospace; font-size: 14px; font-weight: 800; color: #4f46e5;">${escapeHtml(r.return_number)}</span>
+                        <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">
+                            Post-Op Return Checklist Audit
+                        </h3>
+                    </div>
+                    <button id="btnCloseModal" style="background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer;">&times;</button>
+                </div>
+
+                <div style="padding: 24px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px; font-size: 12px;">
+                        <div>
+                            <div>Master Set: <strong>${escapeHtml(r.master_tray_name)}</strong></div>
+                            <div style="margin-top: 4px;">Tray Barcode: <strong style="font-family: monospace; color: #4f46e5;">${escapeHtml(r.tray_barcode)}</strong></div>
+                            <div style="margin-top: 4px;">Returned From: <strong>${escapeHtml(r.returned_from_or_suite)}</strong></div>
+                            <div style="margin-top: 4px;">Bioburden: <strong>${escapeHtml(r.bioburden_level.replace(/_/g, ' '))}</strong></div>
+                        </div>
+                        <div>
+                            <div>Count Status: <strong style="color: ${r.missing_count > 0 ? '#dc2626' : '#059669'};">${r.counted_pieces} / ${r.expected_pieces} Pieces Accounted</strong></div>
+                            <div style="margin-top: 4px;">Returned By: <strong>${escapeHtml(r.returned_by_name)}</strong></div>
+                            <div style="margin-top: 4px;">Received By Tech: <strong>${escapeHtml(r.received_by_cssd_tech)}</strong></div>
+                            <div style="margin-top: 4px;">Received At: <strong>${r.received_at}</strong></div>
+                        </div>
+                    </div>
+
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 300px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                            <thead style="background: #0f172a; color: #ffffff; text-transform: uppercase; font-size: 11px;">
+                                <tr>
+                                    <th style="padding: 8px 10px; width: 8%;">Seq</th>
+                                    <th style="padding: 8px 10px; width: 50%;">Instrument Description</th>
+                                    <th style="padding: 8px 10px; width: 22%;">Status</th>
+                                    <th style="padding: 8px 10px; width: 20%;">Inspection Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(it => `
+                                    <tr style="border-bottom: 1px solid #f1f5f9; background: ${it.status === 'missing' ? '#fee2e2' : (it.status === 'damaged' ? '#fef3c7' : 'transparent')};">
+                                        <td style="padding: 8px 10px; font-weight: 700; color: #64748b;">${it.seq || it.item_seq || '-'}</td>
+                                        <td style="padding: 8px 10px; font-weight: 600;">${escapeHtml(it.name || it.instrument_name)}</td>
+                                        <td style="padding: 8px 10px;">
+                                            ${it.status === 'present' ? `<span style="color: #059669; font-weight: 700;"><i class="fas fa-check"></i> Present</span>` : (it.status === 'missing' ? `<span style="color: #dc2626; font-weight: 800;"><i class="fas fa-radiation"></i> MISSING</span>` : `<span style="color: #d97706; font-weight: 700;"><i class="fas fa-wrench"></i> DAMAGED</span>`)}
+                                        </td>
+                                        <td style="padding: 8px 10px; font-size: 11px; color: #64748b;">
+                                            ${escapeHtml(it.damage_note || it.incident || '-')}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                        <button type="button" id="btnCloseModal" style="padding: 8px 18px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * MODAL: Investigate & Resolve Missing Instrument Incident
+ */
+async function openIncidentResolutionModal(incidentId) {
+    let inc = null;
+    try {
+        const res = await api(`/cssd/incidents/show?id=${incidentId}`);
+        inc = res?.data;
+    } catch (e) {
+        showToast("Error loading incident: " + e.message, "error");
+        return;
+    }
+
+    if (!inc) return;
+
+    const modalBox = document.getElementById('cssdModalContainer');
+    if (!modalBox) return;
+
+    modalBox.innerHTML = `
+        <div id="cssdModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="background: #ffffff; border-radius: 12px; width: 100%; max-width: 650px; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                
+                <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #fff1f2;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 800; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">
+                            <i class="fas fa-radiation"></i> Surgical Patient Safety Investigation
+                        </span>
+                        <h3 style="font-size: 18px; font-weight: 800; color: #9f1239; margin: 4px 0 0 0;">
+                            Incident #${escapeHtml(inc.incident_number)}: ${escapeHtml(inc.instrument_name)}
+                        </h3>
+                    </div>
+                    <button id="btnCloseModal" style="background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer;">&times;</button>
+                </div>
+
+                <form id="resolveIncidentForm" style="padding: 24px;">
+                    <input type="hidden" name="incident_id" value="${inc.id}" />
+
+                    <!-- Incident Meta Grid -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 18px; font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <div>Instrument: <strong>${escapeHtml(inc.instrument_name)}</strong></div>
+                            <div style="margin-top: 4px;">Tray: <strong style="font-family: monospace; color: #4f46e5;">${escapeHtml(inc.tray_barcode)}</strong> (${escapeHtml(inc.master_tray_name)})</div>
+                            <div style="margin-top: 4px;">Severity: <strong style="color: #dc2626;">${escapeHtml(inc.severity_level)}</strong></div>
+                        </div>
+                        <div>
+                            <div>OR Suite: <strong>${escapeHtml(inc.or_suite_name)}</strong></div>
+                            <div style="margin-top: 4px;">Surgeon: <strong>${escapeHtml(inc.lead_surgeon || 'Attending')}</strong></div>
+                            <div style="margin-top: 4px;">Circulating Nurse: <strong>${escapeHtml(inc.circulating_nurse || 'Circulator')}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- Investigation Status -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 6px;">
+                            Current Investigation &amp; Resolution Status *
+                        </label>
+                        <select name="investigation_status" required style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+                            <option value="active_search_in_or" ${inc.investigation_status === 'active_search_in_or' ? 'selected' : ''}>Active Search in OR / Sub-Sterile Bay</option>
+                            <option value="portable_xray_ordered" ${inc.investigation_status === 'portable_xray_ordered' ? 'selected' : ''}>Portable / C-Arm X-Ray Ordered for Operative Cavity</option>
+                            <option value="found_in_or_linens" ${inc.investigation_status === 'found_in_or_linens' ? 'selected' : ''}>Found in OR Linen Drapes / Laundry Bundle (RESOLVED)</option>
+                            <option value="found_in_trash_bin" ${inc.investigation_status === 'found_in_trash_bin' ? 'selected' : ''}>Found in Sub-Sterile Waste / Kick Bucket (RESOLVED)</option>
+                            <option value="xray_negative_cavity_clear" ${inc.investigation_status === 'xray_negative_cavity_clear' ? 'selected' : ''}>X-Ray Negative: Patient Cavity Clear (CLEARANCE SIGN-OFF)</option>
+                            <option value="sent_for_repair" ${inc.investigation_status === 'sent_for_repair' ? 'selected' : ''}>Sent for Precision Repair / Sharpening</option>
+                            <option value="replaced_with_new_stock" ${inc.investigation_status === 'replaced_with_new_stock' ? 'selected' : ''}>Replaced with New Stock Instrument (RESOLVED)</option>
+                            <option value="confirmed_lost_written_off" ${inc.investigation_status === 'confirmed_lost_written_off' ? 'selected' : ''}>Confirmed Lost &amp; Written Off (RESOLVED)</option>
+                            <option value="resolved_closed" ${inc.investigation_status === 'resolved_closed' ? 'selected' : ''}>Resolved &amp; Closed</option>
+                        </select>
+                    </div>
+
+                    <!-- Radiological Cavity Clearance -->
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-weight: 700; font-size: 13px; color: #166534;"><i class="fas fa-x-ray"></i> Intraoperative Radiological Findings</span>
+                            <label style="font-size: 12px; color: #166534; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <input type="checkbox" name="xray_ordered" value="1" ${inc.xray_ordered ? 'checked' : ''} />
+                                <span>X-Ray Ordered / Performed</span>
+                            </label>
+                        </div>
+                        <input type="text" name="xray_findings" value="${escapeHtml(inc.xray_findings || '')}" placeholder="e.g. C-Arm scout film negative for radiopaque foreign object in cranial field." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;" />
+                    </div>
+
+                    <!-- Found Location Details -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Found Location / Physical Trace</label>
+                        <input type="text" name="found_location_details" value="${escapeHtml(inc.found_location_details || '')}" placeholder="e.g. Wrapped inside blue sterile Mayo stand drape in dirty hamper." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+
+                    <!-- Investigated By -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Investigating Clinical Officer *</label>
+                        <input type="text" name="investigated_by_name" required value="${escapeHtml(inc.investigated_by_name || 'Nurse Maria Santos, RN (CSSD Supervisor)')}" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+
+                    <!-- Resolution Notes & Corrective Actions -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Resolution Notes &amp; Surgeon Sign-off</label>
+                        <textarea name="resolution_notes" rows="2" placeholder="Clinical documentation and attending surgeon verbal notification..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">${escapeHtml(inc.resolution_notes || '')}</textarea>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Corrective &amp; Preventive Action (CAPA)</label>
+                        <input type="text" name="corrective_action" value="${escapeHtml(inc.corrective_action || '')}" placeholder="e.g. Mandatory double-count before drape disposal protocol reinforced." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" />
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" id="btnCloseIncModal" style="padding: 8px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="padding: 10px 20px; background: #4f46e5; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <i class="fas fa-clipboard-check"></i> Save Investigation &amp; Update Tray
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btnCloseIncModal')?.addEventListener('click', closeModal);
+
+    document.getElementById('resolveIncidentForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+            const res = await api('/cssd/incidents/update', 'POST', {
+                id: f.get('incident_id'),
+                investigation_status: f.get('investigation_status'),
+                xray_ordered: f.get('xray_ordered') ? 1 : 0,
+                xray_findings: f.get('xray_findings'),
+                found_location_details: f.get('found_location_details'),
+                investigated_by_name: f.get('investigated_by_name'),
+                resolution_notes: f.get('resolution_notes'),
+                corrective_action: f.get('corrective_action')
+            });
+
+            showToast(res?.data?.message || "Incident investigation updated successfully.", "success");
+            closeModal();
+            await loadInitialData();
+        } catch (err) {
+            showToast("Failed to update incident: " + err.message, "error");
         }
     });
 }

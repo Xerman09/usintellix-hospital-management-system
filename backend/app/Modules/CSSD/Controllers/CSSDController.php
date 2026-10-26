@@ -449,4 +449,275 @@ class CSSDController extends Controller
             return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * =========================================================================
+     * OT DISTRIBUTION, RETURN SCANNING & MISSING INSTRUMENT CONTROLLER ACTIONS
+     * =========================================================================
+     */
+
+    /**
+     * GET /cssd/dispatches
+     */
+    public function indexDispatches(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $filters = [
+                'search' => $request->input('search') ?? $request->input('q'),
+                'dispatch_status' => $request->input('dispatch_status') ?? $request->input('status'),
+                'or_suite_name' => $request->input('or_suite_name') ?? $request->input('suite'),
+                'case_priority' => $request->input('case_priority') ?? $request->input('priority')
+            ];
+            $page = max(1, (int)($request->input('page') ?? 1));
+            $perPage = max(1, min(100, (int)($request->input('per_page') ?? 25)));
+
+            $data = $this->service->listDispatches($filters, $page, $perPage);
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/dispatches/show or /cssd/dispatches/:id
+     */
+    public function showDispatch($id = null, ?Request $request = null): Response
+    {
+        try {
+            $request = ($id instanceof Request) ? $id : ($request ?? new Request());
+            $resolvedId = is_numeric($id) ? (int)$id : (int)($request->input('id') ?? 0);
+
+            if ($resolvedId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Dispatch ID is required.'], 400);
+            }
+
+            $data = $this->service->getDispatchDetail($resolvedId);
+            if (!$data) {
+                return Response::json(['status' => 'error', 'message' => 'Dispatch record not found.'], 404);
+            }
+
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /cssd/dispatches/store
+     */
+    public function storeDispatch(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $payload = $request->all();
+            $userId = Session::get('user_id') ?? null;
+
+            $result = $this->service->dispatchTray($payload, $userId);
+            return Response::json(['status' => 'success', 'data' => $result], 201);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /cssd/dispatches/receive-in-or
+     */
+    public function receiveInOR(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $dispatchId = (int)($request->input('dispatch_id') ?? $request->input('id') ?? 0);
+            $receivedBy = trim($request->input('received_by_name') ?: (Session::get('username') ?? 'OR Circulating Nurse'));
+            $notes = $request->input('notes');
+
+            if ($dispatchId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Dispatch ID is required.'], 422);
+            }
+
+            $result = $this->service->receiveTrayInOR($dispatchId, $receivedBy, $notes);
+            return Response::json(['status' => 'success', 'data' => $result]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/dispatches/available-trays
+     */
+    public function availableForDispatch(): Response
+    {
+        try {
+            $trays = $this->service->getAvailableTraysForDispatch();
+            return Response::json(['status' => 'success', 'data' => $trays]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/dispatches/or-suites
+     */
+    public function orSuitesAndCases(): Response
+    {
+        try {
+            $data = $this->service->getORSuitesAndCases();
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/returns/tray-manifest
+     */
+    public function trayManifestForReturn(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $query = trim($request->input('query') ?? $request->input('barcode') ?? $request->input('tray_id') ?? '');
+
+            if (empty($query)) {
+                return Response::json(['status' => 'error', 'message' => 'Tray barcode or ID is required.'], 400);
+            }
+
+            $data = $this->service->getTrayManifestForReturn($query);
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/returns
+     */
+    public function indexReturns(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $filters = [
+                'search' => $request->input('search') ?? $request->input('q'),
+                'reconciliation_status' => $request->input('reconciliation_status') ?? $request->input('status'),
+                'is_rsi_alert_triggered' => $request->input('is_rsi_alert_triggered')
+            ];
+            $page = max(1, (int)($request->input('page') ?? 1));
+            $perPage = max(1, min(100, (int)($request->input('per_page') ?? 25)));
+
+            $data = $this->service->listReturns($filters, $page, $perPage);
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/returns/show or /cssd/returns/:id
+     */
+    public function showReturn($id = null, ?Request $request = null): Response
+    {
+        try {
+            $request = ($id instanceof Request) ? $id : ($request ?? new Request());
+            $resolvedId = is_numeric($id) ? (int)$id : (int)($request->input('id') ?? 0);
+
+            if ($resolvedId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Return ID is required.'], 400);
+            }
+
+            $data = $this->service->getReturnDetail($resolvedId);
+            if (!$data) {
+                return Response::json(['status' => 'error', 'message' => 'Return reconciliation record not found.'], 404);
+            }
+
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /cssd/returns/store
+     */
+    public function storeReturn(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $payload = $request->all();
+            $userId = Session::get('user_id') ?? null;
+
+            $result = $this->service->reconcileTrayReturn($payload, $userId);
+            return Response::json(['status' => 'success', 'data' => $result], 201);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/incidents
+     */
+    public function indexIncidents(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $filters = [
+                'search' => $request->input('search') ?? $request->input('q'),
+                'investigation_status' => $request->input('investigation_status') ?? $request->input('status'),
+                'severity_level' => $request->input('severity_level') ?? $request->input('severity'),
+                'or_suite_name' => $request->input('or_suite_name')
+            ];
+            $page = max(1, (int)($request->input('page') ?? 1));
+            $perPage = max(1, min(100, (int)($request->input('per_page') ?? 25)));
+
+            $data = $this->service->listMissingInstrumentIncidents($filters, $page, $perPage);
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /cssd/incidents/show or /cssd/incidents/:id
+     */
+    public function showIncident($id = null, ?Request $request = null): Response
+    {
+        try {
+            $request = ($id instanceof Request) ? $id : ($request ?? new Request());
+            $resolvedId = is_numeric($id) ? (int)$id : (int)($request->input('id') ?? 0);
+
+            if ($resolvedId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Incident ID is required.'], 400);
+            }
+
+            $data = $this->service->getIncidentDetail($resolvedId);
+            if (!$data) {
+                return Response::json(['status' => 'error', 'message' => 'Incident record not found.'], 404);
+            }
+
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * PUT /cssd/incidents/:id or POST /cssd/incidents/update
+     */
+    public function updateIncident($id = null, ?Request $request = null): Response
+    {
+        try {
+            $request = ($id instanceof Request) ? $id : ($request ?? new Request());
+            $resolvedId = is_numeric($id) ? (int)$id : (int)($request->input('id') ?? $request->input('incident_id') ?? 0);
+
+            if ($resolvedId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Incident ID is required.'], 400);
+            }
+
+            $payload = $request->all();
+            $userId = Session::get('user_id') ?? null;
+
+            $result = $this->service->updateIncidentResolution($resolvedId, $payload, $userId);
+            return Response::json(['status' => 'success', 'data' => $result]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
 }

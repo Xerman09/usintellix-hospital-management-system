@@ -55,6 +55,75 @@ class CSSDService
     }
 
     /**
+     * Generate Sequential OT Dispatch Number: DISP-YYYY-0001
+     */
+    public static function generateDispatchNumber(PDO $pdo): string
+    {
+        $year = (int)date('Y');
+        $stmt = $pdo->prepare("
+            INSERT INTO `billing_tariff_counters` (`counter_type`, `year`, `last_number`)
+            VALUES ('CSSD_DISPATCH', ?, 1)
+            ON DUPLICATE KEY UPDATE `last_number` = `last_number` + 1
+        ");
+        $stmt->execute([$year]);
+
+        $sel = $pdo->prepare("
+            SELECT `last_number` FROM `billing_tariff_counters`
+            WHERE `counter_type` = 'CSSD_DISPATCH' AND `year` = ?
+        ");
+        $sel->execute([$year]);
+        $num = (int)$sel->fetchColumn();
+
+        return sprintf("DISP-%d-%04d", $year, $num);
+    }
+
+    /**
+     * Generate Sequential Tray Return Number: RET-YYYY-0001
+     */
+    public static function generateReturnNumber(PDO $pdo): string
+    {
+        $year = (int)date('Y');
+        $stmt = $pdo->prepare("
+            INSERT INTO `billing_tariff_counters` (`counter_type`, `year`, `last_number`)
+            VALUES ('CSSD_RETURN', ?, 1)
+            ON DUPLICATE KEY UPDATE `last_number` = `last_number` + 1
+        ");
+        $stmt->execute([$year]);
+
+        $sel = $pdo->prepare("
+            SELECT `last_number` FROM `billing_tariff_counters`
+            WHERE `counter_type` = 'CSSD_RETURN' AND `year` = ?
+        ");
+        $sel->execute([$year]);
+        $num = (int)$sel->fetchColumn();
+
+        return sprintf("RET-%d-%04d", $year, $num);
+    }
+
+    /**
+     * Generate Sequential Missing Instrument Incident Number: INC-YYYY-0001
+     */
+    public static function generateIncidentNumber(PDO $pdo): string
+    {
+        $year = (int)date('Y');
+        $stmt = $pdo->prepare("
+            INSERT INTO `billing_tariff_counters` (`counter_type`, `year`, `last_number`)
+            VALUES ('CSSD_INCIDENT', ?, 1)
+            ON DUPLICATE KEY UPDATE `last_number` = `last_number` + 1
+        ");
+        $stmt->execute([$year]);
+
+        $sel = $pdo->prepare("
+            SELECT `last_number` FROM `billing_tariff_counters`
+            WHERE `counter_type` = 'CSSD_INCIDENT' AND `year` = ?
+        ");
+        $sel->execute([$year]);
+        $num = (int)$sel->fetchColumn();
+
+        return sprintf("INC-%d-%04d", $year, $num);
+    }
+
+    /**
      * Executive Overview & Instrument Sterilization KPIs
      */
     public function getExecutiveMetrics(): array
@@ -113,6 +182,36 @@ class CSSDService
         ";
         $specialties = $pdo->query($specSql)->fetchAll(PDO::FETCH_ASSOC);
 
+        // OT Distribution & Missing Instrument Metrics
+        $dispSql = "
+            SELECT
+                COUNT(*) as total_dispatches,
+                SUM(CASE WHEN dispatch_status IN ('dispatched_in_transit', 'received_in_or', 'in_surgery') THEN 1 ELSE 0 END) as active_dispatches,
+                SUM(CASE WHEN DATE(dispatched_at) = CURRENT_DATE THEN 1 ELSE 0 END) as dispatches_today
+            FROM `cssd_ot_dispatches`
+        ";
+        $disp = $pdo->query($dispSql)->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $retSql = "
+            SELECT
+                COUNT(*) as total_returns,
+                SUM(CASE WHEN DATE(received_at) = CURRENT_DATE THEN 1 ELSE 0 END) as returns_today,
+                SUM(CASE WHEN is_rsi_alert_triggered = 1 THEN 1 ELSE 0 END) as total_rsi_returns
+            FROM `cssd_tray_return_reconciliations`
+        ";
+        $ret = $pdo->query($retSql)->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $incSql = "
+            SELECT
+                COUNT(*) as total_incidents,
+                SUM(CASE WHEN investigation_status NOT IN ('resolved_closed', 'found_in_or_linens') THEN 1 ELSE 0 END) as open_incidents_count,
+                SUM(CASE WHEN severity_level = 'critical_rsi_alert' AND investigation_status NOT IN ('resolved_closed', 'found_in_or_linens') THEN 1 ELSE 0 END) as critical_rsi_active_count,
+                SUM(CASE WHEN investigation_status = 'active_search_in_or' THEN 1 ELSE 0 END) as or_search_active_count,
+                SUM(CASE WHEN investigation_status = 'sent_for_repair' THEN 1 ELSE 0 END) as repair_queue_count
+            FROM `cssd_missing_instrument_logs`
+        ";
+        $inc = $pdo->query($incSql)->fetch(PDO::FETCH_ASSOC) ?: [];
+
         return [
             'total_master_trays' => $totalMasterTrays,
             'total_physical_trays' => (int)($m['total_trays'] ?? 0),
@@ -131,7 +230,18 @@ class CSSDService
             'total_machines' => (int)($mac['total_machines'] ?? 0),
             'active_machines' => (int)($mac['active_machines'] ?? 0),
             'bowie_dick_passed_count' => (int)($mac['bowie_dick_passed_count'] ?? 0),
-            'specialty_distribution' => $specialties
+            'specialty_distribution' => $specialties,
+            'total_dispatches' => (int)($disp['total_dispatches'] ?? 0),
+            'active_dispatches' => (int)($disp['active_dispatches'] ?? 0),
+            'dispatches_today' => (int)($disp['dispatches_today'] ?? 0),
+            'total_returns' => (int)($ret['total_returns'] ?? 0),
+            'returns_today' => (int)($ret['returns_today'] ?? 0),
+            'total_rsi_returns' => (int)($ret['total_rsi_returns'] ?? 0),
+            'total_incidents' => (int)($inc['total_incidents'] ?? 0),
+            'open_incidents_count' => (int)($inc['open_incidents_count'] ?? 0),
+            'critical_rsi_active_count' => (int)($inc['critical_rsi_active_count'] ?? 0),
+            'or_search_active_count' => (int)($inc['or_search_active_count'] ?? 0),
+            'repair_queue_count' => (int)($inc['repair_queue_count'] ?? 0)
         ];
     }
 
@@ -1437,5 +1547,1081 @@ class CSSDService
             'batch' => $b,
             'labels' => $labels
         ];
+    }
+
+    /**
+     * =========================================================================
+     * OT DISTRIBUTION, SCAN RETURNS & MISSING INSTRUMENT LOGGING
+     * =========================================================================
+     */
+
+    /**
+     * Get Available Sterile Trays for OR Dispatch
+     */
+    public function getAvailableTraysForDispatch(): array
+    {
+        $pdo = Database::connection();
+        $sql = "
+            SELECT
+                pt.id,
+                pt.tray_barcode,
+                pt.master_tray_id,
+                mt.name as master_tray_name,
+                mt.tray_code,
+                mt.department_specialty,
+                mt.category,
+                mt.total_pieces,
+                pt.current_status,
+                pt.current_location,
+                pt.sterile_expiry_date,
+                pt.chemical_indicator_result,
+                pt.biological_spore_result,
+                DATEDIFF(pt.sterile_expiry_date, CURRENT_DATE) as days_until_expiry
+            FROM `cssd_physical_trays` pt
+            JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            WHERE pt.current_status = 'sterile_stored'
+              AND (pt.sterile_expiry_date IS NULL OR pt.sterile_expiry_date >= CURRENT_DATE)
+            ORDER BY mt.name ASC, pt.tray_barcode ASC
+        ";
+        return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get OR Suites & Active Surgical Cases for Dispatch Target
+     */
+    public function getORSuitesAndCases(): array
+    {
+        $pdo = Database::connection();
+
+        $suites = [
+            'OR Suite 1 - General Surgery',
+            'OR Suite 2 - Ortho & Trauma',
+            'OR Suite 3 - OB-GYN & C-Section',
+            'OR Suite 4 - Neurosurgery & Spine',
+            'Labor & Delivery OR 1',
+            'Emergency Minor OR',
+            'Endoscopy & GI Suite',
+            'Cath Lab / Interventional Suite'
+        ];
+
+        // Fetch active/scheduled surgical cases
+        $cases = [];
+        try {
+            $cases = $pdo->query("
+                SELECT
+                    id,
+                    case_number,
+                    patient_id,
+                    patient_name,
+                    patient_mrn,
+                    or_suite_name,
+                    procedure_name,
+                    lead_surgeon,
+                    circulating_nurse,
+                    scrub_nurse,
+                    perioperative_stage,
+                    case_priority
+                FROM `or_surgical_cases`
+                WHERE perioperative_stage NOT IN ('Transferred / Discharged', 'Cancelled')
+                ORDER BY scheduled_date ASC, scheduled_start_time ASC
+                LIMIT 50
+            ")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            // If table differs or empty, provide empty array
+            $cases = [];
+        }
+
+        return [
+            'or_suites' => $suites,
+            'surgical_cases' => $cases
+        ];
+    }
+
+    /**
+     * List OT Surgical Dispatches
+     */
+    public function listDispatches(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        $pdo = Database::connection();
+        $where = ["1=1"];
+        $params = [];
+
+        if (!empty($filters['search'])) {
+            $term = "%" . trim($filters['search']) . "%";
+            $where[] = "(d.dispatch_number LIKE ? OR d.tray_barcode LIKE ? OR d.patient_name LIKE ? OR d.procedure_name LIKE ? OR d.primary_surgeon LIKE ?)";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        if (!empty($filters['dispatch_status'])) {
+            $where[] = "d.dispatch_status = ?";
+            $params[] = $filters['dispatch_status'];
+        }
+
+        if (!empty($filters['or_suite_name'])) {
+            $where[] = "d.or_suite_name LIKE ?";
+            $params[] = "%" . $filters['or_suite_name'] . "%";
+        }
+
+        if (!empty($filters['case_priority'])) {
+            $where[] = "d.case_priority = ?";
+            $params[] = $filters['case_priority'];
+        }
+
+        $whereClause = implode(" AND ", $where);
+
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `cssd_ot_dispatches` d WHERE {$whereClause}");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
+        $offset = ($page - 1) * $perPage;
+        $sql = "
+            SELECT
+                d.*,
+                pt.serial_number as tray_serial_number,
+                pt.current_status as tray_current_status,
+                pt.current_location as tray_current_location,
+                mt.name as master_tray_name,
+                mt.tray_code as master_tray_code,
+                mt.total_pieces,
+                mt.department_specialty
+            FROM `cssd_ot_dispatches` d
+            JOIN `cssd_physical_trays` pt ON d.physical_tray_id = pt.id
+            JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            WHERE {$whereClause}
+            ORDER BY d.dispatched_at DESC, d.id DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'records' => $records
+        ];
+    }
+
+    /**
+     * Get OT Dispatch Detail
+     */
+    public function getDispatchDetail(int $id): ?array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("
+            SELECT
+                d.*,
+                pt.serial_number as tray_serial_number,
+                pt.current_status as tray_current_status,
+                pt.current_location as tray_current_location,
+                pt.last_sterilization_batch_id,
+                mt.name as master_tray_name,
+                mt.tray_code as master_tray_code,
+                mt.total_pieces,
+                mt.department_specialty,
+                mt.category
+            FROM `cssd_ot_dispatches` d
+            JOIN `cssd_physical_trays` pt ON d.physical_tray_id = pt.id
+            JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            WHERE d.id = ?
+        ");
+        $stmt->execute([$id]);
+        $dispatch = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$dispatch) return null;
+
+        // Fetch piece-by-piece manifest items for this tray
+        $manifestStmt = $pdo->prepare("
+            SELECT * FROM `cssd_master_tray_items`
+            WHERE master_tray_id = ?
+            ORDER BY item_seq ASC
+        ");
+        $manifestStmt->execute([$dispatch['master_tray_id']]);
+        $items = $manifestStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch any return or incident linked to this dispatch
+        $returns = $pdo->prepare("SELECT * FROM `cssd_tray_return_reconciliations` WHERE dispatch_id = ?");
+        $returns->execute([$id]);
+
+        $incidents = $pdo->prepare("SELECT * FROM `cssd_missing_instrument_logs` WHERE dispatch_id = ?");
+        $incidents->execute([$id]);
+
+        return [
+            'dispatch' => $dispatch,
+            'manifest_items' => $items,
+            'returns' => $returns->fetchAll(PDO::FETCH_ASSOC),
+            'incidents' => $incidents->fetchAll(PDO::FETCH_ASSOC)
+        ];
+    }
+
+    /**
+     * Dispatch Sterile Tray to OR Suite
+     */
+    public function dispatchTray(array $data, ?int $userId = null): array
+    {
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            $physicalTrayId = !empty($data['physical_tray_id']) ? (int)$data['physical_tray_id'] : null;
+            $trayBarcode = trim($data['tray_barcode'] ?? '');
+
+            if (!$physicalTrayId && !empty($trayBarcode)) {
+                $sel = $pdo->prepare("SELECT id FROM cssd_physical_trays WHERE tray_barcode = ?");
+                $sel->execute([$trayBarcode]);
+                $physicalTrayId = (int)$sel->fetchColumn();
+            }
+
+            if (!$physicalTrayId) {
+                throw new \InvalidArgumentException("Physical tray selection is required.");
+            }
+
+            // Lock tray record
+            $stmt = $pdo->prepare("
+                SELECT pt.*, mt.name as master_name, mt.total_pieces
+                FROM cssd_physical_trays pt
+                JOIN cssd_master_trays mt ON pt.master_tray_id = mt.id
+                WHERE pt.id = ? FOR UPDATE
+            ");
+            $stmt->execute([$physicalTrayId]);
+            $tray = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$tray) {
+                throw new \RuntimeException("Physical tray not found.");
+            }
+
+            // Check shelf-life sterility
+            $today = date('Y-m-d');
+            if (!empty($tray['sterile_expiry_date']) && $tray['sterile_expiry_date'] < $today) {
+                $override = !empty($data['allow_expired_override']);
+                if (!$override) {
+                    throw new \RuntimeException("SAFETY LOCKOUT: Tray {$tray['tray_barcode']} has expired sterile shelf life ({$tray['sterile_expiry_date']}). Cannot dispatch unsterile instrumentation.");
+                }
+            }
+
+            $dispatchNo = self::generateDispatchNumber($pdo);
+            $orSuite = trim($data['or_suite_name'] ?? 'OR Suite 1 - General Surgery');
+            $caseId = !empty($data['surgical_case_id']) ? (int)$data['surgical_case_id'] : null;
+            $caseNo = !empty($data['surgical_case_number']) ? trim($data['surgical_case_number']) : null;
+            $patientId = !empty($data['patient_id']) ? (int)$data['patient_id'] : null;
+            $patientName = trim($data['patient_name'] ?? '');
+            $procedure = trim($data['procedure_name'] ?? 'Surgical Procedure');
+            $surgeon = trim($data['primary_surgeon'] ?? '');
+            $circulator = trim($data['circulating_nurse'] ?? '');
+            $scrub = trim($data['scrub_nurse'] ?? '');
+            $dispatchedBy = trim($data['dispatched_by_name'] ?? 'CSSD Dispatch Specialist');
+            $receivedBy = trim($data['received_by_name'] ?? '');
+            $priority = $data['case_priority'] ?? 'elective';
+            $cartBarcode = trim($data['transport_container_barcode'] ?? '');
+            $notes = $data['notes'] ?? null;
+
+            $initialStatus = !empty($receivedBy) ? 'received_in_or' : 'dispatched_in_transit';
+            $receivedAt = !empty($receivedBy) ? date('Y-m-d H:i:s') : null;
+
+            $insert = $pdo->prepare("
+                INSERT INTO `cssd_ot_dispatches` (
+                    `dispatch_number`, `physical_tray_id`, `tray_barcode`, `master_tray_id`,
+                    `surgical_case_id`, `surgical_case_number`, `or_suite_name`, `patient_id`,
+                    `patient_name`, `procedure_name`, `primary_surgeon`, `circulating_nurse`,
+                    `scrub_nurse`, `dispatched_by_name`, `dispatched_by_user_id`, `received_by_name`,
+                    `dispatched_at`, `received_in_or_at`, `sterility_verified`, `chemical_indicator_checked`,
+                    `sterile_expiry_date`, `dispatch_status`, `case_priority`,
+                    `transport_container_barcode`, `notes`
+                ) VALUES (
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    NOW(), ?, 1, 1,
+                    ?, ?, ?,
+                    ?, ?
+                )
+            ");
+            $insert->execute([
+                $dispatchNo, $physicalTrayId, $tray['tray_barcode'], $tray['master_tray_id'],
+                $caseId, $caseNo, $orSuite, $patientId,
+                $patientName, $procedure, $surgeon, $circulator,
+                $scrub, $dispatchedBy, $userId, $receivedBy ?: null,
+                $receivedAt,
+                $tray['sterile_expiry_date'], $initialStatus, $priority,
+                $cartBarcode ?: null, $notes
+            ]);
+            $dispatchId = (int)$pdo->lastInsertId();
+
+            // Update physical tray status
+            $trayNewStatus = ($initialStatus === 'received_in_or') ? 'in_surgery' : 'dispatched_surgery';
+            $pdo->prepare("
+                UPDATE `cssd_physical_trays` SET
+                    `current_status` = ?,
+                    `current_location` = ?,
+                    `assigned_or_suite` = ?,
+                    `updated_at` = NOW()
+                WHERE id = ?
+            ")->execute([$trayNewStatus, $orSuite, $orSuite, $physicalTrayId]);
+
+            // Lifecycle event
+            $pdo->prepare("
+                INSERT INTO `cssd_tray_lifecycle_events` (
+                    `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                    `location`, `operator_name`, `instruments_verified_count`, `notes`
+                ) VALUES (?, 'dispatched_to_or', ?, ?, ?, ?, ?, ?)
+            ")->execute([
+                $physicalTrayId, $tray['current_status'], $trayNewStatus,
+                $orSuite, $dispatchedBy, $tray['total_pieces'],
+                "Dispatched to {$orSuite} for {$procedure}. Dispatch #{$dispatchNo}."
+            ]);
+
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'dispatch_id' => $dispatchId,
+                'dispatch_number' => $dispatchNo,
+                'tray_barcode' => $tray['tray_barcode'],
+                'target_suite' => $orSuite,
+                'message' => "Sterile set {$tray['tray_barcode']} dispatched to {$orSuite} successfully."
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Confirm OR Receipt & Handover Sign-off
+     */
+    public function receiveTrayInOR(int $dispatchId, string $receivedBy, ?string $notes = null): array
+    {
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM cssd_ot_dispatches WHERE id = ? FOR UPDATE");
+            $stmt->execute([$dispatchId]);
+            $dispatch = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$dispatch) {
+                throw new \RuntimeException("Dispatch record not found.");
+            }
+
+            $pdo->prepare("
+                UPDATE `cssd_ot_dispatches` SET
+                    `dispatch_status` = 'received_in_or',
+                    `received_by_name` = ?,
+                    `received_in_or_at` = NOW(),
+                    `notes` = CONCAT(IFNULL(notes, ''), '\n[OR Handover]: Received by ', ?, ' at ', NOW()),
+                    `updated_at` = NOW()
+                WHERE id = ?
+            ")->execute([$receivedBy, $receivedBy, $dispatchId]);
+
+            // Update physical tray to in_surgery
+            $pdo->prepare("
+                UPDATE `cssd_physical_trays` SET
+                    `current_status` = 'in_surgery',
+                    `updated_at` = NOW()
+                WHERE id = ?
+            ")->execute([$dispatch['physical_tray_id']]);
+
+            // Lifecycle event
+            $pdo->prepare("
+                INSERT INTO `cssd_tray_lifecycle_events` (
+                    `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                    `location`, `operator_name`, `notes`
+                ) VALUES (?, 'or_count_in', 'dispatched_surgery', 'in_surgery', ?, ?, ?)
+            ")->execute([
+                $dispatch['physical_tray_id'], $dispatch['or_suite_name'],
+                $receivedBy, "Custody accepted in {$dispatch['or_suite_name']}. Seal opened for case."
+            ]);
+
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'dispatch_id' => $dispatchId,
+                'dispatch_status' => 'received_in_or',
+                'message' => "Tray {$dispatch['tray_barcode']} confirmed received in {$dispatch['or_suite_name']} by {$receivedBy}."
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Get Tray Manifest & Piece Count Checklist for Return Scanning
+     */
+    public function getTrayManifestForReturn(string $query): array
+    {
+        $pdo = Database::connection();
+        $query = trim($query);
+
+        $stmt = $pdo->prepare("
+            SELECT
+                pt.*,
+                mt.name as master_tray_name,
+                mt.tray_code as master_tray_code,
+                mt.total_pieces,
+                mt.department_specialty,
+                mt.category
+            FROM `cssd_physical_trays` pt
+            JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            WHERE pt.tray_barcode = ? OR pt.id = ?
+        ");
+        $stmt->execute([$query, is_numeric($query) ? (int)$query : 0]);
+        $tray = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$tray) {
+            throw new \RuntimeException("Physical tray '{$query}' not found.");
+        }
+
+        // Fetch piece-by-piece manifest
+        $itemsStmt = $pdo->prepare("
+            SELECT
+                id, item_seq, instrument_name, instrument_type,
+                quantity_required, size_or_gauge, critical_inspection_point, is_critical_count
+            FROM `cssd_master_tray_items`
+            WHERE master_tray_id = ?
+            ORDER BY item_seq ASC, id ASC
+        ");
+        $itemsStmt->execute([$tray['master_tray_id']]);
+        $manifest = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch latest active dispatch if available
+        $dispStmt = $pdo->prepare("
+            SELECT * FROM `cssd_ot_dispatches`
+            WHERE physical_tray_id = ?
+            ORDER BY dispatched_at DESC
+            LIMIT 1
+        ");
+        $dispStmt->execute([$tray['id']]);
+        $latestDispatch = $dispStmt->fetch(PDO::FETCH_ASSOC);
+
+        return [
+            'tray' => $tray,
+            'manifest_items' => $manifest,
+            'latest_dispatch' => $latestDispatch
+        ];
+    }
+
+    /**
+     * List Tray Return Reconciliations
+     */
+    public function listReturns(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        $pdo = Database::connection();
+        $where = ["1=1"];
+        $params = [];
+
+        if (!empty($filters['search'])) {
+            $term = "%" . trim($filters['search']) . "%";
+            $where[] = "(r.return_number LIKE ? OR r.tray_barcode LIKE ? OR r.returned_from_or_suite LIKE ? OR r.received_by_cssd_tech LIKE ?)";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        if (!empty($filters['reconciliation_status'])) {
+            $where[] = "r.reconciliation_status = ?";
+            $params[] = $filters['reconciliation_status'];
+        }
+
+        if (isset($filters['is_rsi_alert_triggered']) && $filters['is_rsi_alert_triggered'] !== '') {
+            $where[] = "r.is_rsi_alert_triggered = ?";
+            $params[] = (int)$filters['is_rsi_alert_triggered'];
+        }
+
+        $whereClause = implode(" AND ", $where);
+
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `cssd_tray_return_reconciliations` r WHERE {$whereClause}");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
+        $offset = ($page - 1) * $perPage;
+        $sql = "
+            SELECT
+                r.*,
+                pt.serial_number as tray_serial_number,
+                mt.name as master_tray_name,
+                mt.tray_code as master_tray_code,
+                d.dispatch_number,
+                d.procedure_name,
+                d.primary_surgeon
+            FROM `cssd_tray_return_reconciliations` r
+            JOIN `cssd_physical_trays` pt ON r.physical_tray_id = pt.id
+            JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            LEFT JOIN `cssd_ot_dispatches` d ON r.dispatch_id = d.id
+            WHERE {$whereClause}
+            ORDER BY r.received_at DESC, r.id DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'records' => $records
+        ];
+    }
+
+    /**
+     * Get Tray Return Detail
+     */
+    public function getReturnDetail(int $id): ?array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("
+            SELECT
+                r.*,
+                pt.serial_number as tray_serial_number,
+                pt.current_status as tray_current_status,
+                mt.name as master_tray_name,
+                mt.tray_code as master_tray_code,
+                mt.department_specialty,
+                d.dispatch_number,
+                d.procedure_name,
+                d.primary_surgeon,
+                d.circulating_nurse,
+                d.scrub_nurse
+            FROM `cssd_tray_return_reconciliations` r
+            JOIN `cssd_physical_trays` pt ON r.physical_tray_id = pt.id
+            JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            LEFT JOIN `cssd_ot_dispatches` d ON r.dispatch_id = d.id
+            WHERE r.id = ?
+        ");
+        $stmt->execute([$id]);
+        $return = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$return) return null;
+
+        $incidents = $pdo->prepare("SELECT * FROM `cssd_missing_instrument_logs` WHERE return_id = ?");
+        $incidents->execute([$id]);
+
+        return [
+            'return' => $return,
+            'checklist_items' => json_decode($return['checklist_audit_json'] ?? '[]', true) ?: [],
+            'incidents' => $incidents->fetchAll(PDO::FETCH_ASSOC)
+        ];
+    }
+
+    /**
+     * Scan Dirty Tray Return & Execute Piece-by-Piece Manifest Reconciliation
+     */
+    public function reconcileTrayReturn(array $data, ?int $userId = null): array
+    {
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            $physicalTrayId = !empty($data['physical_tray_id']) ? (int)$data['physical_tray_id'] : null;
+            $trayBarcode = trim($data['tray_barcode'] ?? '');
+
+            if (!$physicalTrayId && !empty($trayBarcode)) {
+                $sel = $pdo->prepare("SELECT id FROM cssd_physical_trays WHERE tray_barcode = ?");
+                $sel->execute([$trayBarcode]);
+                $physicalTrayId = (int)$sel->fetchColumn();
+            }
+
+            if (!$physicalTrayId) {
+                throw new \InvalidArgumentException("Physical tray identification is required.");
+            }
+
+            // Lock tray record
+            $stmt = $pdo->prepare("
+                SELECT pt.*, mt.name as master_name, mt.total_pieces
+                FROM cssd_physical_trays pt
+                JOIN cssd_master_trays mt ON pt.master_tray_id = mt.id
+                WHERE pt.id = ? FOR UPDATE
+            ");
+            $stmt->execute([$physicalTrayId]);
+            $tray = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$tray) {
+                throw new \RuntimeException("Physical tray not found.");
+            }
+
+            // Find linked dispatch if not provided
+            $dispatchId = !empty($data['dispatch_id']) ? (int)$data['dispatch_id'] : null;
+            if (!$dispatchId) {
+                $dispSel = $pdo->prepare("
+                    SELECT id FROM cssd_ot_dispatches
+                    WHERE physical_tray_id = ? AND dispatch_status IN ('dispatched_in_transit', 'received_in_or', 'in_surgery')
+                    ORDER BY dispatched_at DESC LIMIT 1
+                ");
+                $dispSel->execute([$physicalTrayId]);
+                $dispatchId = (int)$dispSel->fetchColumn() ?: null;
+            }
+
+            $dispatch = null;
+            if ($dispatchId) {
+                $dStmt = $pdo->prepare("SELECT * FROM cssd_ot_dispatches WHERE id = ?");
+                $dStmt->execute([$dispatchId]);
+                $dispatch = $dStmt->fetch(PDO::FETCH_ASSOC);
+            }
+
+            $returnNo = self::generateReturnNumber($pdo);
+            $fromSuite = trim($data['returned_from_or_suite'] ?? ($dispatch['or_suite_name'] ?? 'Operating Theater'));
+            $returnedBy = trim($data['returned_by_name'] ?? ($dispatch['circulating_nurse'] ?? 'OR Nurse / Orderly'));
+            $receivedBy = trim($data['received_by_cssd_tech'] ?? 'CSSD Decon Tech');
+            $bioburden = $data['bioburden_level'] ?? 'moderate';
+            $deconBay = trim($data['decon_bay_assigned'] ?? 'Decon Sink Bay 1 / Ultrasonic Washer');
+            $notes = $data['notes'] ?? null;
+
+            // Audit checklist items
+            $checklist = $data['checklist_items'] ?? [];
+            $expectedPieces = (int)$tray['total_pieces'];
+            $missingItems = [];
+            $damagedItems = [];
+            $countedPieces = 0;
+
+            foreach ($checklist as $item) {
+                $status = $item['status'] ?? 'present';
+                if ($status === 'present') {
+                    $countedPieces++;
+                } elseif ($status === 'missing') {
+                    $missingItems[] = $item;
+                } elseif ($status === 'damaged') {
+                    $countedPieces++; // physically present, but damaged
+                    $damagedItems[] = $item;
+                }
+            }
+
+            // If no explicit checklist passed, fallback to numeric counts
+            if (empty($checklist)) {
+                $countedPieces = isset($data['counted_pieces']) ? (int)$data['counted_pieces'] : $expectedPieces;
+                $missingCount = isset($data['missing_count']) ? (int)$data['missing_count'] : max(0, $expectedPieces - $countedPieces);
+                $damagedCount = (int)($data['damaged_count'] ?? 0);
+            } else {
+                $missingCount = count($missingItems);
+                $damagedCount = count($damagedItems);
+            }
+
+            $hasMissing = ($missingCount > 0);
+            $hasDamaged = ($damagedCount > 0);
+
+            // Determine status and RSI alert
+            $reconciliationStatus = 'reconciled_complete';
+            $isRSI = 0;
+
+            if ($hasMissing) {
+                $reconciliationStatus = 'quarantined_safety_incident';
+                $isRSI = 1; // Any missing instrument post-op triggers Retained Surgical Item investigation!
+            } elseif ($hasDamaged) {
+                $reconciliationStatus = 'damaged_instruments_detected';
+            }
+
+            // Insert Return Record
+            $insertRet = $pdo->prepare("
+                INSERT INTO `cssd_tray_return_reconciliations` (
+                    `return_number`, `dispatch_id`, `physical_tray_id`, `tray_barcode`,
+                    `surgical_case_id`, `returned_from_or_suite`, `returned_by_name`,
+                    `received_by_cssd_tech`, `received_by_user_id`, `received_at`,
+                    `expected_pieces`, `counted_pieces`, `missing_count`, `damaged_count`,
+                    `bioburden_level`, `reconciliation_status`, `is_rsi_alert_triggered`,
+                    `checklist_audit_json`, `decon_bay_assigned`, `notes`
+                ) VALUES (
+                    ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, NOW(),
+                    ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?
+                )
+            ");
+            $insertRet->execute([
+                $returnNo, $dispatchId, $physicalTrayId, $tray['tray_barcode'],
+                $dispatch['surgical_case_id'] ?? null, $fromSuite, $returnedBy,
+                $receivedBy, $userId,
+                $expectedPieces, $countedPieces, $missingCount, $damagedCount,
+                $bioburden, $reconciliationStatus, $isRSI,
+                json_encode($checklist), $deconBay, $notes
+            ]);
+            $returnId = (int)$pdo->lastInsertId();
+
+            // Created incidents list
+            $createdIncidentIds = [];
+
+            // Auto-create Missing Instrument Incidents
+            if ($hasMissing) {
+                foreach ($missingItems as $mItem) {
+                    $incNo = self::generateIncidentNumber($pdo);
+                    $instName = trim($mItem['instrument_name'] ?? 'Unspecified Surgical Instrument');
+                    $instType = $mItem['instrument_type'] ?? 'clamping_occluding';
+                    $masterItemId = !empty($mItem['id']) ? (int)$mItem['id'] : null;
+
+                    $stmtInc = $pdo->prepare("
+                        INSERT INTO `cssd_missing_instrument_logs` (
+                            `incident_number`, `return_id`, `dispatch_id`, `physical_tray_id`,
+                            `tray_barcode`, `master_tray_name`, `master_tray_item_id`, `instrument_name`,
+                            `instrument_type`, `quantity_missing`, `quantity_damaged`, `incident_type`,
+                            `severity_level`, `or_suite_name`, `surgical_case_id`, `patient_mrn`,
+                            `lead_surgeon`, `circulating_nurse`, `scrub_nurse`, `investigation_status`,
+                            `xray_ordered`, `reported_at`, `reported_by_name`, `resolution_notes`
+                        ) VALUES (
+                            ?, ?, ?, ?,
+                            ?, ?, ?, ?,
+                            ?, 1, 0, 'retained_surgical_item_risk',
+                            'critical_rsi_alert', ?, ?, ?,
+                            ?, ?, ?, 'active_search_in_or',
+                            1, NOW(), ?, ?
+                        )
+                    ");
+                    $stmtInc->execute([
+                        $incNo, $returnId, $dispatchId, $physicalTrayId,
+                        $tray['tray_barcode'], $tray['master_name'], $masterItemId, $instName,
+                        $instType, $fromSuite, $dispatch['surgical_case_id'] ?? null, $dispatch['patient_mrn'] ?? null,
+                        $dispatch['primary_surgeon'] ?? 'Attending Surgeon',
+                        $dispatch['circulating_nurse'] ?? $returnedBy,
+                        $dispatch['scrub_nurse'] ?? 'Scrub Nurse',
+                        $receivedBy,
+                        "CRITICAL RET-ALERT: Missing '{$instName}' during return count from {$fromSuite}. Immediate OR search & X-Ray check initiated."
+                    ]);
+                    $createdIncidentIds[] = (int)$pdo->lastInsertId();
+                }
+
+                // If surgical case linked, flag count_issue in or_surgical_cases
+                if (!empty($dispatch['surgical_case_id'])) {
+                    $pdo->prepare("UPDATE `or_surgical_cases` SET `count_issue` = 1 WHERE id = ?")->execute([$dispatch['surgical_case_id']]);
+                }
+            }
+
+            // Auto-create Damaged Instrument Records
+            if ($hasDamaged) {
+                foreach ($damagedItems as $dItem) {
+                    $incNo = self::generateIncidentNumber($pdo);
+                    $instName = trim($dItem['instrument_name'] ?? 'Damaged Surgical Instrument');
+                    $instType = $dItem['instrument_type'] ?? 'clamping_occluding';
+                    $masterItemId = !empty($dItem['id']) ? (int)$dItem['id'] : null;
+                    $damageNote = trim($dItem['damage_note'] ?? ($dItem['incident'] ?? 'Damaged/bent during surgical manipulation.'));
+
+                    $stmtDam = $pdo->prepare("
+                        INSERT INTO `cssd_missing_instrument_logs` (
+                            `incident_number`, `return_id`, `dispatch_id`, `physical_tray_id`,
+                            `tray_barcode`, `master_tray_name`, `master_tray_item_id`, `instrument_name`,
+                            `instrument_type`, `quantity_missing`, `quantity_damaged`, `incident_type`,
+                            `severity_level`, `or_suite_name`, `surgical_case_id`, `lead_surgeon`,
+                            `circulating_nurse`, `investigation_status`, `reported_at`, `reported_by_name`,
+                            `resolution_notes`
+                        ) VALUES (
+                            ?, ?, ?, ?,
+                            ?, ?, ?, ?,
+                            ?, 0, 1, 'damaged_blunt_cracked',
+                            'minor_maintenance', ?, ?, ?,
+                            ?, 'sent_for_repair', NOW(), ?,
+                            ?
+                        )
+                    ");
+                    $stmtDam->execute([
+                        $incNo, $returnId, $dispatchId, $physicalTrayId,
+                        $tray['tray_barcode'], $tray['master_name'], $masterItemId, $instName,
+                        $instType, $fromSuite, $dispatch['surgical_case_id'] ?? null,
+                        $dispatch['primary_surgeon'] ?? 'Attending Surgeon',
+                        $dispatch['circulating_nurse'] ?? $returnedBy,
+                        $receivedBy,
+                        "Instrument damage reported: {$damageNote}. Tagged for repair / sharpening."
+                    ]);
+                    $createdIncidentIds[] = (int)$pdo->lastInsertId();
+                }
+            }
+
+            // Update Physical Tray Lifecycle
+            if ($hasMissing) {
+                $trayStatus = 'quarantined_missing_item';
+                $trayLocation = 'CSSD Quarantine Biohazard Shelf Q-1';
+                $missingNotes = "Quarantined post-return: {$missingCount} missing pieces. Missing: " . implode(', ', array_column($missingItems, 'instrument_name'));
+
+                $pdo->prepare("
+                    UPDATE `cssd_physical_trays` SET
+                        `current_status` = ?,
+                        `current_location` = ?,
+                        `instrument_count_verified` = 0,
+                        `missing_pieces_notes` = ?,
+                        `updated_at` = NOW()
+                    WHERE id = ?
+                ")->execute([$trayStatus, $trayLocation, $missingNotes, $physicalTrayId]);
+
+                $pdo->prepare("
+                    INSERT INTO `cssd_tray_lifecycle_events` (
+                        `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                        `location`, `operator_name`, `instruments_verified_count`, `notes`
+                    ) VALUES (?, 'quarantined', ?, ?, ?, ?, ?, ?)
+                ")->execute([
+                    $physicalTrayId, $tray['current_status'], $trayStatus,
+                    $trayLocation, $receivedBy, $countedPieces,
+                    "SAFETY LOCKOUT: {$missingCount} missing piece(s) detected during return scan. Incident #{$returnNo}."
+                ]);
+            } else {
+                $trayStatus = 'dirty_received';
+                $trayLocation = $deconBay;
+
+                $pdo->prepare("
+                    UPDATE `cssd_physical_trays` SET
+                        `current_status` = ?,
+                        `current_location` = ?,
+                        `instrument_count_verified` = 1,
+                        `missing_pieces_notes` = NULL,
+                        `updated_at` = NOW()
+                    WHERE id = ?
+                ")->execute([$trayStatus, $trayLocation, $physicalTrayId]);
+
+                $pdo->prepare("
+                    INSERT INTO `cssd_tray_lifecycle_events` (
+                        `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                        `location`, `operator_name`, `instruments_verified_count`, `notes`
+                    ) VALUES (?, 'returned_to_cssd', ?, ?, ?, ?, ?, ?)
+                ")->execute([
+                    $physicalTrayId, $tray['current_status'], $trayStatus,
+                    $trayLocation, $receivedBy, $countedPieces,
+                    "Return scan complete. All {$countedPieces}/{$expectedPieces} pieces reconciled. Assigned to {$deconBay}."
+                ]);
+            }
+
+            // Update dispatch status if linked
+            if ($dispatchId) {
+                $dispatchFinalStatus = $hasMissing ? 'quarantined_incident' : 'returned_to_cssd';
+                $pdo->prepare("
+                    UPDATE `cssd_ot_dispatches` SET
+                        `dispatch_status` = ?,
+                        `updated_at` = NOW()
+                    WHERE id = ?
+                ")->execute([$dispatchFinalStatus, $dispatchId]);
+            }
+
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'return_id' => $returnId,
+                'return_number' => $returnNo,
+                'tray_barcode' => $tray['tray_barcode'],
+                'expected_pieces' => $expectedPieces,
+                'counted_pieces' => $countedPieces,
+                'missing_count' => $missingCount,
+                'damaged_count' => $damagedCount,
+                'is_rsi_alert_triggered' => $isRSI,
+                'reconciliation_status' => $reconciliationStatus,
+                'tray_status' => $trayStatus,
+                'incident_ids' => $createdIncidentIds,
+                'message' => $hasMissing
+                    ? "CRITICAL RET-ALERT: Return scanned with {$missingCount} MISSING pieces. Retained Surgical Item investigation and quarantine triggered."
+                    : "Return scanned successfully. All {$countedPieces} instruments accounted for. Transferred to decontamination."
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * List Missing Instrument Incidents & RSI Safety Log
+     */
+    public function listMissingInstrumentIncidents(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        $pdo = Database::connection();
+        $where = ["1=1"];
+        $params = [];
+
+        if (!empty($filters['search'])) {
+            $term = "%" . trim($filters['search']) . "%";
+            $where[] = "(inc.incident_number LIKE ? OR inc.tray_barcode LIKE ? OR inc.instrument_name LIKE ? OR inc.or_suite_name LIKE ? OR inc.lead_surgeon LIKE ?)";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        if (!empty($filters['investigation_status'])) {
+            $where[] = "inc.investigation_status = ?";
+            $params[] = $filters['investigation_status'];
+        }
+
+        if (!empty($filters['severity_level'])) {
+            $where[] = "inc.severity_level = ?";
+            $params[] = $filters['severity_level'];
+        }
+
+        if (!empty($filters['or_suite_name'])) {
+            $where[] = "inc.or_suite_name LIKE ?";
+            $params[] = "%" . $filters['or_suite_name'] . "%";
+        }
+
+        $whereClause = implode(" AND ", $where);
+
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `cssd_missing_instrument_logs` inc WHERE {$whereClause}");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
+        $offset = ($page - 1) * $perPage;
+        $sql = "
+            SELECT
+                inc.*,
+                pt.serial_number as tray_serial_number,
+                pt.current_status as tray_current_status,
+                r.return_number,
+                d.dispatch_number,
+                d.procedure_name
+            FROM `cssd_missing_instrument_logs` inc
+            JOIN `cssd_physical_trays` pt ON inc.physical_tray_id = pt.id
+            LEFT JOIN `cssd_tray_return_reconciliations` r ON inc.return_id = r.id
+            LEFT JOIN `cssd_ot_dispatches` d ON inc.dispatch_id = d.id
+            WHERE {$whereClause}
+            ORDER BY
+                CASE WHEN inc.severity_level = 'critical_rsi_alert' THEN 1 ELSE 2 END,
+                inc.reported_at DESC, inc.id DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'records' => $records
+        ];
+    }
+
+    /**
+     * Get Incident Detail
+     */
+    public function getIncidentDetail(int $id): ?array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("
+            SELECT
+                inc.*,
+                pt.serial_number as tray_serial_number,
+                pt.current_status as tray_current_status,
+                pt.current_location as tray_current_location,
+                r.return_number,
+                r.bioburden_level,
+                d.dispatch_number,
+                d.procedure_name,
+                d.surgical_case_number
+            FROM `cssd_missing_instrument_logs` inc
+            JOIN `cssd_physical_trays` pt ON inc.physical_tray_id = pt.id
+            LEFT JOIN `cssd_tray_return_reconciliations` r ON inc.return_id = r.id
+            LEFT JOIN `cssd_ot_dispatches` d ON inc.dispatch_id = d.id
+            WHERE inc.id = ?
+        ");
+        $stmt->execute([$id]);
+        $inc = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$inc) return null;
+
+        return $inc;
+    }
+
+    /**
+     * Update Missing Instrument Investigation & Resolution
+     */
+    public function updateIncidentResolution(int $id, array $data, ?int $userId = null): array
+    {
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM cssd_missing_instrument_logs WHERE id = ? FOR UPDATE");
+            $stmt->execute([$id]);
+            $inc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$inc) {
+                throw new \RuntimeException("Incident record not found.");
+            }
+
+            $status = $data['investigation_status'] ?? $inc['investigation_status'];
+            $xrayOrdered = isset($data['xray_ordered']) ? (int)$data['xray_ordered'] : $inc['xray_ordered'];
+            $xrayFindings = $data['xray_findings'] ?? $inc['xray_findings'];
+            $xrayTime = (!empty($xrayFindings) && empty($inc['xray_performed_at'])) ? date('Y-m-d H:i:s') : $inc['xray_performed_at'];
+            $foundLoc = $data['found_location_details'] ?? $inc['found_location_details'];
+            $investigator = trim($data['investigated_by_name'] ?? ($inc['investigated_by_name'] ?? 'CSSD QA Specialist'));
+            $resNotes = $data['resolution_notes'] ?? $inc['resolution_notes'];
+            $corrective = $data['corrective_action'] ?? $inc['corrective_action'];
+
+            $isResolved = in_array($status, [
+                'resolved_closed',
+                'found_in_or_linens',
+                'found_in_trash_bin',
+                'xray_negative_cavity_clear',
+                'confirmed_lost_written_off',
+                'replaced_with_new_stock'
+            ]);
+            $resolvedAt = $isResolved ? date('Y-m-d H:i:s') : null;
+
+            $update = $pdo->prepare("
+                UPDATE `cssd_missing_instrument_logs` SET
+                    `investigation_status` = ?,
+                    `xray_ordered` = ?,
+                    `xray_findings` = ?,
+                    `xray_performed_at` = ?,
+                    `found_location_details` = ?,
+                    `investigated_by_name` = ?,
+                    `resolved_at` = ?,
+                    `resolution_notes` = ?,
+                    `corrective_action` = ?,
+                    `updated_at` = NOW()
+                WHERE id = ?
+            ");
+            $update->execute([
+                $status, $xrayOrdered, $xrayFindings, $xrayTime,
+                $foundLoc, $investigator, $resolvedAt,
+                $resNotes, $corrective, $id
+            ]);
+
+            // Check if all missing incidents for the physical tray have now been resolved
+            $openCount = (int)$pdo->query("
+                SELECT COUNT(*) FROM `cssd_missing_instrument_logs`
+                WHERE physical_tray_id = {$inc['physical_tray_id']}
+                  AND investigation_status IN ('active_search_in_or', 'portable_xray_ordered')
+            ")->fetchColumn();
+
+            if ($openCount === 0) {
+                // Tray is cleared to leave quarantine!
+                $pdo->prepare("
+                    UPDATE `cssd_physical_trays` SET
+                        `current_status` = 'dirty_received',
+                        `current_location` = 'CSSD Decontamination Wash Bay',
+                        `instrument_count_verified` = 1,
+                        `missing_pieces_notes` = 'All missing piece incidents investigated and resolved. Cleared for decontamination.',
+                        `updated_at` = NOW()
+                    WHERE id = ? AND current_status = 'quarantined_missing_item'
+                ")->execute([$inc['physical_tray_id']]);
+
+                // Lifecycle event
+                $pdo->prepare("
+                    INSERT INTO `cssd_tray_lifecycle_events` (
+                        `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                        `location`, `operator_name`, `notes`
+                    ) VALUES (?, 'wash_disinfection_completed', 'quarantined_missing_item', 'dirty_received', 'CSSD Decon Bay', ?, ?)
+                ")->execute([
+                    $inc['physical_tray_id'], $investigator,
+                    "Incident #{$inc['incident_number']} resolved ({$status}). Tray released from quarantine to decontamination."
+                ]);
+            }
+
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'incident_id' => $id,
+                'investigation_status' => $status,
+                'is_resolved' => $isResolved,
+                'tray_quarantine_cleared' => ($openCount === 0),
+                'message' => "Incident #{$inc['incident_number']} updated successfully. Status: {$status}."
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
 }

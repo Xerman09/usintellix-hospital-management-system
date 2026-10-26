@@ -23,6 +23,18 @@ $router->get('/dispensing/charge-slip', [DispensingController::class, 'chargeSli
 
 
 // ---------------------------------------------------------------
+// Scanning at the counter: resolve a scanned code to the prescription,
+// the patient or the medicine it identifies. All reads; a code that
+// matches nothing answers 200 with found = false.
+// ---------------------------------------------------------------
+use App\Modules\Dispensing\Controllers\ScanController;
+
+$router->get('/dispensing/scan/rx', [ScanController::class, 'rx'], $dispensingRoles);
+$router->get('/dispensing/scan/patient', [ScanController::class, 'patient'], $dispensingRoles);
+$router->get('/dispensing/scan/lot', [ScanController::class, 'lot'], $dispensingRoles);
+
+
+// ---------------------------------------------------------------
 // Pharmacist Clinical Verification Queue (prescription_verifications):
 // Renal adjustment, patient weight considerations, clinical indication,
 // allergy/interaction cross-check, and verification status before dispensing.

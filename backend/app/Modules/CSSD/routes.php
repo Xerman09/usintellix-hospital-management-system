@@ -48,4 +48,30 @@ $router->post('/cssd/batches/verify-spore', [CSSDController::class, 'verifySpore
 
 // Thermal Barcode Labels
 $router->get('/cssd/batches/thermal-labels', [CSSDController::class, 'thermalLabels'], $cssdView);
+
+// OT Distribution & Custody Handover
+$router->get('/cssd/dispatches', [CSSDController::class, 'indexDispatches'], $cssdView);
+$router->get('/cssd/dispatches/show', [CSSDController::class, 'showDispatch'], $cssdView);
+$router->get('/cssd/dispatches/available-trays', [CSSDController::class, 'availableForDispatch'], $cssdView);
+$router->get('/cssd/dispatches/or-suites', [CSSDController::class, 'orSuitesAndCases'], $cssdView);
+$router->get('/cssd/dispatches/:id', [CSSDController::class, 'showDispatch'], $cssdView);
+$router->post('/cssd/dispatches', [CSSDController::class, 'storeDispatch'], $cssdManage);
+$router->post('/cssd/dispatches/store', [CSSDController::class, 'storeDispatch'], $cssdManage);
+$router->post('/cssd/dispatches/receive-in-or', [CSSDController::class, 'receiveInOR'], $cssdManage);
+
+// Dirty Tray Returns & Piece-by-Piece Manifest Scan Reconciliations
+$router->get('/cssd/returns', [CSSDController::class, 'indexReturns'], $cssdView);
+$router->get('/cssd/returns/show', [CSSDController::class, 'showReturn'], $cssdView);
+$router->get('/cssd/returns/tray-manifest', [CSSDController::class, 'trayManifestForReturn'], $cssdView);
+$router->get('/cssd/returns/:id', [CSSDController::class, 'showReturn'], $cssdView);
+$router->post('/cssd/returns', [CSSDController::class, 'storeReturn'], $cssdManage);
+$router->post('/cssd/returns/store', [CSSDController::class, 'storeReturn'], $cssdManage);
+
+// Missing Instrument Logs & Retained Surgical Item (RSI) Incidents
+$router->get('/cssd/incidents', [CSSDController::class, 'indexIncidents'], $cssdView);
+$router->get('/cssd/incidents/show', [CSSDController::class, 'showIncident'], $cssdView);
+$router->get('/cssd/incidents/:id', [CSSDController::class, 'showIncident'], $cssdView);
+$router->post('/cssd/incidents/update', [CSSDController::class, 'updateIncident'], $cssdManage);
+$router->put('/cssd/incidents', [CSSDController::class, 'updateIncident'], $cssdManage);
+$router->put('/cssd/incidents/:id', [CSSDController::class, 'updateIncident'], $cssdManage);
 $router->get('/cssd/batches/:id/thermal-labels', [CSSDController::class, 'thermalLabels'], $cssdView);
