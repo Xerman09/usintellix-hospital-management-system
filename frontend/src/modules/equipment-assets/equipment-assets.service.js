@@ -264,3 +264,41 @@ export async function updateBiomedWorkOrder(id, data) {
         body: JSON.stringify({ id, ...data })
     });
 }
+
+/**
+ * Fetch NIST Calibration Summary Metrics.
+ */
+export async function fetchCalibrationSummary() {
+    return await api("/equipment-assets/biomed/calibration-summary");
+}
+
+/**
+ * Fetch NIST Calibration Records with optional filters.
+ */
+export async function fetchCalibrationRecords(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.search) params.set("search", filters.search);
+    if (filters.calibration_type) params.set("calibration_type", filters.calibration_type);
+    if (filters.overall_result) params.set("overall_result", filters.overall_result);
+    if (filters.asset_id) params.set("asset_id", filters.asset_id);
+
+    const qs = params.toString();
+    return await api(`/equipment-assets/biomed/calibration-records${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * Fetch a single NIST Calibration Record by ID.
+ */
+export async function fetchCalibrationRecord(id) {
+    return await api(`/equipment-assets/biomed/calibration-record?id=${id}`);
+}
+
+/**
+ * Create a new NIST Calibration Certificate & Safety Record.
+ */
+export async function createCalibrationRecord(data) {
+    return await api("/equipment-assets/biomed/calibration-records", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}

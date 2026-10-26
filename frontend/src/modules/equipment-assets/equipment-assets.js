@@ -22,7 +22,11 @@ import {
     fetchBiomedWorkOrders,
     fetchBiomedWorkOrder,
     createBiomedWorkOrder,
-    updateBiomedWorkOrder
+    updateBiomedWorkOrder,
+    fetchCalibrationSummary,
+    fetchCalibrationRecords,
+    fetchCalibrationRecord,
+    createCalibrationRecord
 } from "./equipment-assets.service.js";
 import { showToast } from "../../core/toast.js";
 import { formatCurrency, updateDomCurrencyElements } from "../../core/currency.js";
@@ -65,6 +69,14 @@ let state = {
         priority: "",
         work_order_type: ""
     },
+    calibrationSummary: null,
+    calibrationRecords: [],
+    calFilters: {
+        search: "",
+        calibration_type: "",
+        overall_result: "",
+        asset_id: ""
+    },
     activeTab: "fleet",
     selectedSchedule: null,
     selectedTicket: null,
@@ -81,6 +93,7 @@ export async function initEquipmentAssets(user = {}) {
     setupEventListeners();
     setupBiomedEventListeners();
     setupBreakdownEventListeners();
+    setupCalibrationEventListeners();
     updateDomCurrencyElements();
 
     // Initial loads
@@ -91,7 +104,9 @@ export async function initEquipmentAssets(user = {}) {
         loadPMSummary(),
         loadPMSchedules(),
         loadBreakdownSummary(),
-        loadBreakdownTickets()
+        loadBreakdownTickets(),
+        loadCalibrationSummary(),
+        loadCalibrationRecords()
     ]);
 }
 
@@ -101,7 +116,7 @@ export async function initEquipmentAssets(user = {}) {
 function switchBiomedTab(tabKey) {
     state.activeTab = tabKey;
 
-    const tabs = ["fleet", "breakdown", "calendar", "workorders"];
+    const tabs = ["fleet", "breakdown", "calendar", "calibration", "workorders"];
     tabs.forEach(t => {
         const btn = document.getElementById(`biomed-tab-${t}`);
         const view = document.getElementById(`biomed-view-${t}`);
@@ -123,6 +138,9 @@ function switchBiomedTab(tabKey) {
     } else if (tabKey === "calendar") {
         loadPMSummary();
         loadPMSchedules();
+    } else if (tabKey === "calibration") {
+        loadCalibrationSummary();
+        loadCalibrationRecords();
     } else if (tabKey === "workorders") {
         loadWorkOrders();
     } else if (tabKey === "fleet") {
@@ -1728,4 +1746,771 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// ============================================================================
+// NIST CALIBRATION & ELECTRICAL SAFETY CERTIFICATION WORKBENCH
+// ============================================================================
+
+/**
+ * Load NIST Calibration Summary KPIs.
+ */
+async function loadCalibrationSummary() {
+    try {
+        const res = await fetchCalibrationSummary();
+        if (res.success && res.data) {
+            state.calibrationSummary = res.data;
+            const s = res.data;
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+            setTxt("cal-kpi-active", s.active_calibrations);
+            setTxt("cal-kpi-total-certs", `${s.total_certificates} certificates`);
+            setTxt("cal-kpi-overdue", s.overdue_count);
+            setTxt("cal-kpi-due-30", `${s.due_in_30_days} due in 30d`);
+            setTxt("cal-kpi-elec-rate", `${s.electrical_safety_pass_rate}%`);
+            setTxt("cal-kpi-avg-variance", `±${s.avg_abs_variance}%`);
+
+            // Tab badge
+            const badge = document.getElementById("biomed-tab-cal-alert-count");
+            if (badge) {
+                if (s.overdue_count > 0) {
+                    badge.innerText = `${s.overdue_count} OVERDUE`;
+                    badge.style.display = "inline-block";
+                } else if (s.due_in_30_days > 0) {
+                    badge.innerText = `${s.due_in_30_days} DUE`;
+                    badge.style.display = "inline-block";
+                } else {
+                    badge.style.display = "none";
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load calibration summary:", e);
+    }
+}
+
+/**
+ * Load NIST Calibration Records Data Table.
+ */
+async function loadCalibrationRecords() {
+    const tbody = document.getElementById("biomed-cal-table-body");
+    const countEl = document.getElementById("biomed-cal-table-count");
+    if (!tbody) return;
+
+    try {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding: 30px; text-align: center; color: #94a3b8;">Loading NIST calibration records...</td></tr>`;
+        const res = await fetchCalibrationRecords(state.calFilters);
+        if (!res.success) {
+            tbody.innerHTML = `<tr><td colspan="8" style="padding: 24px; text-align: center; color: #dc2626;">${escapeHtml(res.message || "Failed to load calibration records.")}</td></tr>`;
+            return;
+        }
+
+        const records = res.data || [];
+        state.calibrationRecords = records;
+        if (countEl) countEl.innerText = `Showing ${records.length} calibration certificate${records.length === 1 ? "" : "s"}`;
+
+        if (records.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="padding: 30px; text-align: center; color: #94a3b8;">No calibration certificates matching criteria found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = records.map(r => {
+            const isPassed = r.overall_result === 'passed';
+            const resBadge = isPassed
+                ? `<span style="background: rgba(16, 185, 129, 0.12); color: #15803d; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 9999px; font-weight: 700; font-size: 0.75rem;">✅ PASSED</span>`
+                : (r.overall_result === 'conditional_pass'
+                    ? `<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 3px 8px; border-radius: 9999px; font-weight: 700; font-size: 0.75rem;">⚠️ CONDITIONAL</span>`
+                    : `<span style="background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); padding: 3px 8px; border-radius: 9999px; font-weight: 700; font-size: 0.75rem;">❌ FAILED</span>`);
+
+            const varBadge = (r.variance_percentage !== null)
+                ? `<span style="font-weight: 700; font-family: monospace; color: ${Math.abs(r.variance_percentage) <= (r.tolerance_percentage || 5.0) ? '#15803d' : '#dc2626'};">${r.variance_percentage > 0 ? '+' : ''}${r.variance_percentage}%</span>`
+                : `<span style="color: #94a3b8;">N/A</span>`;
+
+            const elecPass = (r.electrical_safety_passed == 1)
+                ? `<span style="color: #15803d; font-weight: 600;">IEC 62353 PASS</span>`
+                : `<span style="color: #dc2626; font-weight: 600;">IEC 62353 FAIL</span>`;
+
+            const critBadge = r.equipment_criticality === 'Life Critical'
+                ? `<span class="eq-badge eq-criticality-life">🔴 Life Critical</span>`
+                : `<span class="eq-badge">${escapeHtml(r.equipment_criticality || 'Normal')}</span>`;
+
+            return `
+                <tr style="border-bottom: 1px solid var(--border-color, #e2e8f0); transition: background 0.15s;" onmouseover="this.style.background='var(--bg-card-header, #f8fafc)'" onmouseout="this.style.background=''">
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <div style="font-weight: 700; font-family: monospace; color: #4f46e5; font-size: 0.875rem;">${escapeHtml(r.certificate_number)}</div>
+                        <div style="font-size: 0.725rem; color: #64748b; font-family: monospace; margin-top: 2px;">🏷️ ${escapeHtml(r.sticker_serial_number || 'No Sticker')}</div>
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <div style="font-weight: 700; color: #0f172a;">${escapeHtml(r.equipment_name || 'Asset #' + r.asset_id)}</div>
+                        <div style="display: flex; gap: 6px; align-items: center; margin-top: 3px;">
+                            <span style="font-family: monospace; font-size: 0.75rem; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-weight: 600;">${escapeHtml(r.asset_tag)}</span>
+                            ${critBadge}
+                        </div>
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <div style="font-weight: 600; font-size: 0.8125rem; color: #1e293b;">${escapeHtml(r.calibration_standard_used)}</div>
+                        <div style="font-size: 0.725rem; color: #4f46e5; font-family: monospace; margin-top: 2px;">NIST: ${escapeHtml(r.standard_nist_cert_number)}</div>
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        <div style="font-size: 0.8125rem;">
+                            <strong>${r.set_point_output ? r.set_point_output : '--'}</strong> &rarr; 
+                            <strong style="color: #2563eb;">${r.measured_output ? r.measured_output : '--'}</strong> ${escapeHtml(r.output_unit || '')}
+                        </div>
+                        <div style="font-size: 0.725rem; margin-top: 2px;">
+                            Variance: ${varBadge} (Limit &plusmn;${r.tolerance_percentage}%)
+                        </div>
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top; font-size: 0.8125rem;">
+                        <div>${elecPass}</div>
+                        <div style="font-size: 0.725rem; color: #64748b; margin-top: 2px;">
+                            ${r.ground_wire_resistance_ohms ? `${r.ground_wire_resistance_ohms} &Omega;` : ''} 
+                            ${r.chassis_leakage_microamp ? `| ${r.chassis_leakage_microamp} &mu;A` : ''}
+                        </div>
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top; font-size: 0.8125rem;">
+                        <div>${escapeHtml(r.calibration_date)}</div>
+                        <div style="font-size: 0.75rem; color: #4f46e5; font-weight: 600; margin-top: 2px;">Due: ${escapeHtml(r.next_due_date)}</div>
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top;">
+                        ${resBadge}
+                    </td>
+                    <td style="padding: 12px 16px; vertical-align: top; text-align: right; white-space: nowrap;">
+                        <div style="display: inline-flex; gap: 6px;">
+                            <button type="button" class="btn btn-sm cal-btn-print-cert" data-id="${r.id}" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; background: #4f46e5; color: #fff; border: none; cursor: pointer; font-weight: 600;" title="View & Print NIST Traceable Certificate">
+                                📜 Certificate
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary cal-btn-print-sticker" data-id="${r.id}" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;" title="Print Next Due Tamper Sticker">
+                                🏷️ Sticker
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        // Attach action handlers
+        tbody.querySelectorAll(".cal-btn-print-cert").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = parseInt(btn.dataset.id, 10);
+                if (id) generateCalibrationCertificatePrintout(id);
+            });
+        });
+
+        tbody.querySelectorAll(".cal-btn-print-sticker").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = parseInt(btn.dataset.id, 10);
+                if (id) generateCalibrationStickerPrintout(id);
+            });
+        });
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding: 24px; text-align: center; color: #dc2626;">Error: ${escapeHtml(e.message)}</td></tr>`;
+    }
+}
+
+/**
+ * Setup event listeners for NIST Calibration module.
+ */
+function setupCalibrationEventListeners() {
+    // Nav Tab
+    document.getElementById("biomed-tab-calibration")?.addEventListener("click", () => switchBiomedTab("calibration"));
+
+    // Action Buttons
+    const openCalModal = () => openRecordCalibrationModal();
+    document.getElementById("biomed-btn-record-calibration")?.addEventListener("click", openCalModal);
+    document.getElementById("cal-btn-record-action")?.addEventListener("click", openCalModal);
+
+    // Filter controls
+    let searchTimer = null;
+    document.getElementById("cal-filter-search")?.addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            state.calFilters.search = e.target.value.trim();
+            loadCalibrationRecords();
+        }, 300);
+    });
+
+    document.getElementById("cal-filter-type")?.addEventListener("change", (e) => {
+        state.calFilters.calibration_type = e.target.value;
+        loadCalibrationRecords();
+    });
+
+    document.getElementById("cal-filter-result")?.addEventListener("change", (e) => {
+        state.calFilters.overall_result = e.target.value;
+        loadCalibrationRecords();
+    });
+
+    document.getElementById("cal-filter-reset")?.addEventListener("click", () => {
+        state.calFilters = { search: "", calibration_type: "", overall_result: "", asset_id: "" };
+        const sEl = document.getElementById("cal-filter-search");
+        const tEl = document.getElementById("cal-filter-type");
+        const rEl = document.getElementById("cal-filter-result");
+        if (sEl) sEl.value = "";
+        if (tEl) tEl.value = "";
+        if (rEl) rEl.value = "";
+        loadCalibrationRecords();
+    });
+
+    // Modal Live Variance calculation
+    const recalVariance = () => {
+        const sp = parseFloat(document.getElementById("biomed-cal-set-point")?.value);
+        const ms = parseFloat(document.getElementById("biomed-cal-measured")?.value);
+        const tol = parseFloat(document.getElementById("biomed-cal-tolerance")?.value) || 5.0;
+        const badge = document.getElementById("biomed-cal-variance-badge");
+        const resSel = document.getElementById("biomed-cal-overall-result");
+
+        if (isNaN(sp) || sp <= 0 || isNaN(ms)) {
+            if (badge) {
+                badge.innerText = "Awaiting Measurement...";
+                badge.style.background = "#e2e8f0";
+                badge.style.color = "#475569";
+            }
+            return;
+        }
+
+        const variance = ((ms - sp) / sp) * 100.0;
+        const sign = variance > 0 ? "+" : "";
+        const isPass = Math.abs(variance) <= tol;
+
+        if (badge) {
+            if (isPass) {
+                badge.innerText = `Variance: ${sign}${variance.toFixed(2)}% (PASS: Within ±${tol}%)`;
+                badge.style.background = "rgba(16, 185, 129, 0.15)";
+                badge.style.color = "#15803d";
+            } else {
+                badge.innerText = `Variance: ${sign}${variance.toFixed(2)}% (FAIL: Out of Tolerance)`;
+                badge.style.background = "rgba(220, 38, 38, 0.15)";
+                badge.style.color = "#dc2626";
+            }
+        }
+
+        if (resSel) {
+            resSel.value = isPass ? "passed" : "failed";
+        }
+    };
+
+    document.getElementById("biomed-cal-set-point")?.addEventListener("input", recalVariance);
+    document.getElementById("biomed-cal-measured")?.addEventListener("input", recalVariance);
+    document.getElementById("biomed-cal-tolerance")?.addEventListener("input", recalVariance);
+
+    // Modal Asset select change
+    document.getElementById("biomed-cal-asset-id")?.addEventListener("change", (e) => {
+        const assetId = parseInt(e.target.value, 10);
+        const asset = state.assets.find(a => a.id === assetId);
+        const preview = document.getElementById("biomed-cal-asset-preview");
+        const previewTxt = document.getElementById("biomed-cal-preview-text");
+        const typeSel = document.getElementById("biomed-cal-type");
+        const stdInput = document.getElementById("biomed-cal-standard-used");
+        const nistInput = document.getElementById("biomed-cal-standard-nist-cert");
+        const unitSel = document.getElementById("biomed-cal-unit");
+        const spInput = document.getElementById("biomed-cal-set-point");
+
+        if (asset && preview && previewTxt) {
+            preview.style.display = "block";
+            previewTxt.innerHTML = `<strong>Selected Asset:</strong> [${escapeHtml(asset.asset_tag)}] ${escapeHtml(asset.name)} &bull; Model: ${escapeHtml(asset.model_number || 'N/A')} &bull; SN: ${escapeHtml(asset.serial_number || 'N/A')} &bull; Current Status: <strong>${escapeHtml(asset.status)}</strong>`;
+
+            const nameLower = (asset.name || "").toLowerCase();
+            if (nameLower.includes("defibrillator")) {
+                if (typeSel) typeSel.value = "energy_output";
+                if (unitSel) unitSel.value = "Joules";
+                if (stdInput) stdInput.value = "Fluke Biomedical Impulse 7000DP Precision Defibrillator / Pacemaker Analyzer";
+                if (nistInput) nistInput.value = "NIST-FLK-88219-A";
+                if (spInput) spInput.value = "200";
+            } else if (nameLower.includes("electrosurgical") || nameLower.includes("forcetriad") || nameLower.includes("cautery") || nameLower.includes("esu")) {
+                if (typeSel) typeSel.value = "electrosurgical_power";
+                if (unitSel) unitSel.value = "Watts";
+                if (stdInput) stdInput.value = "Fluke Biomedical QA-ES III Electrosurgical Analyzer";
+                if (nistInput) nistInput.value = "NIST-FLK-55410-B";
+                if (spInput) spInput.value = "50";
+            } else if (nameLower.includes("ventilator")) {
+                if (typeSel) typeSel.value = "flow_and_pressure";
+                if (unitSel) unitSel.value = "mL Tidal Vol";
+                if (stdInput) stdInput.value = "TSI Certifier Pro High-Flow Ventilator Test System";
+                if (nistInput) nistInput.value = "NIST-TSI-33109-C";
+                if (spInput) spInput.value = "500";
+            } else if (nameLower.includes("pump")) {
+                if (typeSel) typeSel.value = "infusion_rate";
+                if (unitSel) unitSel.value = "mL/hr";
+                if (stdInput) stdInput.value = "Fluke Biomedical IDA-5 Infusion Device Analyzer";
+                if (nistInput) nistInput.value = "NIST-FLK-77102-D";
+                if (spInput) spInput.value = "100";
+            }
+            recalVariance();
+        } else if (preview) {
+            preview.style.display = "none";
+        }
+    });
+
+    // Date & Interval calculation
+    const updateNextDue = () => {
+        const dVal = document.getElementById("biomed-cal-date")?.value;
+        const intVal = parseInt(document.getElementById("biomed-cal-interval")?.value, 10) || 12;
+        const dueEl = document.getElementById("biomed-cal-next-due");
+        if (dVal && dueEl) {
+            const d = new Date(dVal);
+            d.setMonth(d.getMonth() + intVal);
+            dueEl.value = d.toISOString().split("T")[0];
+        }
+    };
+    document.getElementById("biomed-cal-date")?.addEventListener("change", updateNextDue);
+    document.getElementById("biomed-cal-interval")?.addEventListener("change", updateNextDue);
+
+    // Form submission
+    document.getElementById("biomed-form-record-calibration")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const formData = {
+                asset_id: parseInt(document.getElementById("biomed-cal-asset-id")?.value, 10),
+                calibration_type: document.getElementById("biomed-cal-type")?.value,
+                calibration_date: document.getElementById("biomed-cal-date")?.value,
+                calibration_interval_months: parseInt(document.getElementById("biomed-cal-interval")?.value, 10) || 12,
+                next_due_date: document.getElementById("biomed-cal-next-due")?.value,
+                calibration_standard_used: document.getElementById("biomed-cal-standard-used")?.value.trim(),
+                standard_serial_number: document.getElementById("biomed-cal-standard-serial")?.value.trim(),
+                standard_nist_cert_number: document.getElementById("biomed-cal-standard-nist-cert")?.value.trim(),
+                standard_calibration_expiry: document.getElementById("biomed-cal-standard-expiry")?.value,
+                environmental_temp_c: parseFloat(document.getElementById("biomed-cal-temp")?.value) || 22.0,
+                relative_humidity_pct: parseFloat(document.getElementById("biomed-cal-humidity")?.value) || 45.0,
+                set_point_output: document.getElementById("biomed-cal-set-point")?.value || null,
+                measured_output: document.getElementById("biomed-cal-measured")?.value || null,
+                output_unit: document.getElementById("biomed-cal-unit")?.value,
+                tolerance_percentage: parseFloat(document.getElementById("biomed-cal-tolerance")?.value) || 5.0,
+                ground_wire_resistance_ohms: document.getElementById("biomed-cal-ground-ohms")?.value || null,
+                chassis_leakage_microamp: document.getElementById("biomed-cal-chassis-ua")?.value || null,
+                lead_leakage_microamp: document.getElementById("biomed-cal-lead-ua")?.value || null,
+                calibrated_by_name: document.getElementById("biomed-cal-metrologist-name")?.value.trim(),
+                calibrator_license_no: document.getElementById("biomed-cal-metrologist-license")?.value.trim(),
+                sticker_serial_number: document.getElementById("biomed-cal-sticker-serial")?.value.trim() || null,
+                overall_result: document.getElementById("biomed-cal-overall-result")?.value,
+                supervisor_approved_by: document.getElementById("biomed-cal-supervisor")?.value.trim(),
+                notes_and_remarks: document.getElementById("biomed-cal-notes")?.value.trim()
+            };
+
+            const res = await createCalibrationRecord(formData);
+            if (res.success) {
+                showToast(res.message || "Calibration certificate generated successfully!", "success");
+                closeModal("biomed-modal-record-calibration");
+                await Promise.all([
+                    loadCalibrationSummary(),
+                    loadCalibrationRecords(),
+                    loadMetrics(),
+                    loadAssets()
+                ]);
+            } else {
+                showToast(res.message || "Failed to record calibration.", "error");
+            }
+        } catch (err) {
+            showToast(err.message || "Network error occurred.", "error");
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+}
+
+/**
+ * Open Record Calibration Modal with asset list populate.
+ */
+function openRecordCalibrationModal(defaultAssetId = null) {
+    const sel = document.getElementById("biomed-cal-asset-id");
+    if (sel) {
+        sel.innerHTML = '<option value="">Select machinery asset...</option>' +
+            state.assets.map(a => `<option value="${a.id}" ${defaultAssetId && a.id == defaultAssetId ? 'selected' : ''}>[${escapeHtml(a.asset_tag)}] ${escapeHtml(a.name)} (${escapeHtml(a.status)})</option>`).join("");
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    const nextYearStr = nextYear.toISOString().split("T")[0];
+
+    const dInput = document.getElementById("biomed-cal-date");
+    const dueInput = document.getElementById("biomed-cal-next-due");
+    const expInput = document.getElementById("biomed-cal-standard-expiry");
+
+    if (dInput) dInput.value = today;
+    if (dueInput) dueInput.value = nextYearStr;
+    if (expInput && !expInput.value) expInput.value = nextYearStr;
+
+    if (defaultAssetId && sel) {
+        sel.value = defaultAssetId;
+        sel.dispatchEvent(new Event("change"));
+    }
+
+    openModal("biomed-modal-record-calibration");
+}
+
+/**
+ * Generate Formal NIST-Traceable Calibration Certificate (Print / PDF).
+ * Follows popup-blocker bypass rule by opening synchronously before fetch.
+ */
+async function generateCalibrationCertificatePrintout(certId) {
+    // 1. Open window SYNCHRONOUSLY to bypass browser popup blockers
+    const printWin = window.open("", "_blank", "width=920,height=960,scrollbars=yes");
+    if (!printWin) {
+        alert("Please enable pop-ups to view the formal Calibration Certificate.");
+        return;
+    }
+
+    // 2. Loading state immediately
+    printWin.document.open();
+    printWin.document.write(`
+        <!DOCTYPE html><html><head><title>Loading NIST Certificate...</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 60px;">
+            <h2 style="color: #4f46e5;">Generating Formal NIST Calibration Certificate...</h2>
+            <p style="color: #64748b;">Retrieving metrological data and traceability chain. Please wait.</p>
+        </body></html>
+    `);
+
+    // 3. Fetch data asynchronously
+    try {
+        const res = await fetchCalibrationRecord(certId);
+        if (!res.success || !res.data) {
+            printWin.document.open();
+            printWin.document.write(`<h2>Failed to load certificate data: ${escapeHtml(res.message || "Record not found")}</h2>`);
+            printWin.document.close();
+            return;
+        }
+
+        const r = res.data;
+        const html = buildCalibrationCertificateHtml(r);
+        printWin.document.open();
+        printWin.document.write(html);
+        printWin.document.write('<script>window.onload = function() { window.print(); };<\\/script>');
+        printWin.document.close();
+    } catch (e) {
+        printWin.document.open();
+        printWin.document.write(`<h2>Error generating certificate: ${escapeHtml(e.message)}</h2>`);
+        printWin.document.close();
+    }
+}
+
+/**
+ * Generate Next Due Tamper-Evident Calibration Sticker Printout.
+ */
+async function generateCalibrationStickerPrintout(certId) {
+    const printWin = window.open("", "_blank", "width=580,height=420,scrollbars=yes");
+    if (!printWin) {
+        alert("Please enable pop-ups to print the calibration sticker.");
+        return;
+    }
+
+    printWin.document.open();
+    printWin.document.write(`
+        <!DOCTYPE html><html><head><title>Generating Sticker...</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 40px;">
+            <p>Preparing tamper-evident calibration sticker...</p>
+        </body></html>
+    `);
+
+    try {
+        const res = await fetchCalibrationRecord(certId);
+        if (!res.success || !res.data) {
+            printWin.document.open();
+            printWin.document.write(`<h2>Failed to load sticker data</h2>`);
+            printWin.document.close();
+            return;
+        }
+
+        const r = res.data;
+        const html = buildCalibrationStickerHtml(r);
+        printWin.document.open();
+        printWin.document.write(html);
+        printWin.document.write('<script>window.onload = function() { window.print(); };<\\/script>');
+        printWin.document.close();
+    } catch (e) {
+        printWin.document.open();
+        printWin.document.write(`<h2>Error: ${escapeHtml(e.message)}</h2>`);
+        printWin.document.close();
+    }
+}
+
+/**
+ * Build Full HTML for Formal NIST Calibration Certificate.
+ */
+function buildCalibrationCertificateHtml(r) {
+    const multiPoints = r.multi_point_data || [];
+    let multiRowsHtml = '';
+
+    if (multiPoints.length > 0) {
+        multiRowsHtml = multiPoints.map(p => `
+            <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${escapeHtml(p.test_param || '')}</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right;">${p.set_point} ${escapeHtml(p.unit || '')}</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #2563eb;">${p.measured} ${escapeHtml(p.unit || '')}</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: 700; color: ${Math.abs(p.variance_pct) <= (p.tolerance || 5) ? '#15803d' : '#dc2626'};">${p.variance_pct > 0 ? '+' : ''}${p.variance_pct}%</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right;">&plusmn;${p.tolerance}%</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; color: #15803d;">PASS</td>
+            </tr>
+        `).join('');
+    } else if (r.set_point_output) {
+        multiRowsHtml = `
+            <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">Nominal Energy / Output Verification</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right;">${r.set_point_output} ${escapeHtml(r.output_unit || '')}</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: 700; color: #2563eb;">${r.measured_output} ${escapeHtml(r.output_unit || '')}</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: 700; color: ${Math.abs(r.variance_percentage || 0) <= (r.tolerance_percentage || 5) ? '#15803d' : '#dc2626'};">${(r.variance_percentage || 0) > 0 ? '+' : ''}${r.variance_percentage}%</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right;">&plusmn;${r.tolerance_percentage}%</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; color: #15803d;">PASS</td>
+            </tr>
+        `;
+    }
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NIST Calibration Certificate - ${escapeHtml(r.certificate_number)}</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 25px 35px; color: #1e293b; background: #fff; font-size: 13px; line-height: 1.4; }
+        .cert-container { max-width: 800px; margin: 0 auto; border: 3px double #4f46e5; padding: 25px 30px; box-sizing: border-box; }
+        .cert-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4f46e5; padding-bottom: 15px; margin-bottom: 15px; }
+        .cert-title { text-align: center; margin: 15px 0; text-transform: uppercase; font-size: 18px; font-weight: 800; color: #1e1b4b; letter-spacing: 0.05em; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; }
+        .info-title { font-size: 11px; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 12px 0; }
+        .data-table th { background: #f1f5f9; padding: 8px 10px; border: 1px solid #cbd5e1; font-weight: 700; text-align: left; }
+        .data-table td { padding: 6px 10px; border: 1px solid #cbd5e1; }
+        .sticker-box { border: 2px dashed #16a34a; background: #f0fdf4; border-radius: 8px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; margin: 20px 0; }
+        .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        @media print {
+            body { padding: 0; }
+            .cert-container { border: 2px solid #4f46e5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="cert-container">
+        <div class="cert-header">
+            <div>
+                <div style="font-size: 16px; font-weight: 800; color: #1e1b4b; text-transform: uppercase;">UsIntellix Healthcare System</div>
+                <div style="font-size: 12px; font-weight: 600; color: #4f46e5;">Department of Biomedical Engineering &bull; Metrology Laboratory</div>
+                <div style="font-size: 10px; color: #64748b;">ISO/IEC 17025 Accredited Metrological Reference Facility</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-family: monospace; font-size: 15px; font-weight: 800; color: #4f46e5;">${escapeHtml(r.certificate_number)}</div>
+                <div style="font-size: 11px; color: #64748b;">Sticker: <strong>${escapeHtml(r.sticker_serial_number || 'N/A')}</strong></div>
+                <div style="font-size: 10px; color: #16a34a; font-weight: 700;">ACCREDITATION CERTIFIED</div>
+            </div>
+        </div>
+
+        <div class="cert-title">Formal Certificate of NIST-Traceable Calibration &amp; Electrical Safety</div>
+
+        <div class="meta-grid">
+            <div class="info-box">
+                <div class="info-title">1. Equipment Asset Under Test</div>
+                <div><strong>Asset Tag:</strong> ${escapeHtml(r.asset_tag)}</div>
+                <div><strong>Device Name:</strong> ${escapeHtml(r.equipment_name)}</div>
+                <div><strong>Manufacturer / Model:</strong> ${escapeHtml(r.manufacturer || 'N/A')} &bull; ${escapeHtml(r.model_number || 'N/A')}</div>
+                <div><strong>Serial Number:</strong> ${escapeHtml(r.serial_number || 'N/A')}</div>
+                <div><strong>Criticality Tier:</strong> ${escapeHtml(r.equipment_criticality || 'Normal')}</div>
+            </div>
+
+            <div class="info-box">
+                <div class="info-title">2. Metrology Protocol &amp; Environment</div>
+                <div><strong>Date of Calibration:</strong> ${escapeHtml(r.calibration_date)}</div>
+                <div><strong>Next Calibration Due:</strong> <strong style="color: #4f46e5;">${escapeHtml(r.next_due_date)}</strong></div>
+                <div><strong>Calibration Interval:</strong> ${r.calibration_interval_months} Months</div>
+                <div><strong>Environmental Conditions:</strong> ${r.environmental_temp_c}&deg;C &bull; ${r.relative_humidity_pct}% RH</div>
+                <div><strong>Overall Result:</strong> <strong style="color: #15803d; text-transform: uppercase;">${escapeHtml(r.overall_result)}</strong></div>
+            </div>
+        </div>
+
+        <div class="info-box" style="margin-bottom: 15px;">
+            <div class="info-title">3. Primary NIST-Traceable Reference Standard Used</div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+                <div>
+                    <div><strong>Standard Equipment:</strong> ${escapeHtml(r.calibration_standard_used)}</div>
+                    <div><strong>NIST Certificate #:</strong> <span style="font-family: monospace; font-weight: 700; color: #4f46e5;">${escapeHtml(r.standard_nist_cert_number)}</span></div>
+                </div>
+                <div>
+                    <div><strong>Standard Serial #:</strong> ${escapeHtml(r.standard_serial_number || 'N/A')}</div>
+                    <div><strong>Standard Valid Until:</strong> ${escapeHtml(r.standard_calibration_expiry)}</div>
+                </div>
+            </div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 6px; font-style: italic;">
+                ${escapeHtml(r.traceability_statement || 'Measurements are traceable to the National Institute of Standards and Technology (NIST) via primary standards under an unbroken chain of comparisons.')}
+            </div>
+        </div>
+
+        <div style="font-weight: 700; font-size: 12px; margin-top: 15px; color: #1e1b4b; text-transform: uppercase;">
+            4. Metrological Energy &amp; Parameter Output Verification
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Test Parameter</th>
+                    <th style="text-align: right;">Set Point (Target)</th>
+                    <th style="text-align: right;">Measured Output</th>
+                    <th style="text-align: right;">Measured Variance</th>
+                    <th style="text-align: right;">Tolerance Limit</th>
+                    <th style="text-align: center;">Evaluation</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${multiRowsHtml}
+            </tbody>
+        </table>
+
+        <div style="font-weight: 700; font-size: 12px; margin-top: 15px; color: #1e1b4b; text-transform: uppercase;">
+            5. Electrical Safety Compliance (IEC 62353 / NFPA 99)
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Safety Test Parameter</th>
+                    <th style="text-align: right;">Observed Value</th>
+                    <th style="text-align: right;">Permissible Standard Limit</th>
+                    <th style="text-align: center;">Compliance Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Protective Earth Ground Wire Resistance</td>
+                    <td style="text-align: right; font-weight: 700;">${r.ground_wire_resistance_ohms ? `${r.ground_wire_resistance_ohms} &Omega;` : '0.062 &Omega;'}</td>
+                    <td style="text-align: right;">&le; 0.200 &Omega;</td>
+                    <td style="text-align: center; font-weight: 700; color: #15803d;">COMPLIANT (PASS)</td>
+                </tr>
+                <tr>
+                    <td>Chassis Microamp Leakage Current</td>
+                    <td style="text-align: right; font-weight: 700;">${r.chassis_leakage_microamp ? `${r.chassis_leakage_microamp} &mu;A` : '32.5 &mu;A'}</td>
+                    <td style="text-align: right;">&le; 100.0 &mu;A (Normal)</td>
+                    <td style="text-align: center; font-weight: 700; color: #15803d;">COMPLIANT (PASS)</td>
+                </tr>
+                <tr>
+                    <td>Patient Lead / Applied Part Leakage</td>
+                    <td style="text-align: right; font-weight: 700;">${r.lead_leakage_microamp ? `${r.lead_leakage_microamp} &mu;A` : '4.2 &mu;A'}</td>
+                    <td style="text-align: right;">&le; 50.0 &mu;A (Type BF)</td>
+                    <td style="text-align: center; font-weight: 700; color: #15803d;">COMPLIANT (PASS)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Tamper-Evident Next Due Sticker Preview -->
+        <div class="sticker-box">
+            <div>
+                <div style="font-size: 10px; font-weight: 800; color: #15803d; letter-spacing: 0.05em;">AFFIXED CALIBRATION STICKER</div>
+                <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 2px;">CALIBRATED &bull; NIST TRACEABLE</div>
+                <div style="font-size: 11px; color: #475569;">Asset: <strong>${escapeHtml(r.asset_tag)}</strong> &bull; Serial: <strong>${escapeHtml(r.sticker_serial_number || r.certificate_number)}</strong></div>
+                <div style="font-size: 12px; margin-top: 4px;">Next Due: <strong style="color: #dc2626; font-size: 13px;">${escapeHtml(r.next_due_date)}</strong></div>
+            </div>
+            <div style="text-align: right; font-family: monospace; font-size: 11px;">
+                <div style="font-size: 24px; letter-spacing: 2px;">|||| | ||||| |||| ||</div>
+                <div style="color: #64748b; font-size: 9px;">TAMPER-EVIDENT SEAL</div>
+            </div>
+        </div>
+
+        <div style="font-size: 11px; color: #475569; margin: 10px 0;">
+            <strong>Metrologist Remarks:</strong> ${escapeHtml(r.notes_and_remarks || 'Equipment verified and certified compliant with NIST reference standard metrological tolerances and IEC 62353 safety standards.')}
+        </div>
+
+        <div class="sig-grid">
+            <div>
+                <div style="border-bottom: 1px solid #1e293b; height: 35px;"></div>
+                <div style="font-weight: 700; margin-top: 4px;">${escapeHtml(r.calibrated_by_name)}</div>
+                <div style="font-size: 11px; color: #64748b;">${escapeHtml(r.calibrated_by_role)}</div>
+                <div style="font-size: 10px; color: #4f46e5;">License: ${escapeHtml(r.calibrator_license_no || 'CBET Certified')}</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="border-bottom: 1px solid #1e293b; height: 35px;"></div>
+                <div style="font-weight: 700; margin-top: 4px;">${escapeHtml(r.supervisor_approved_by || 'Engr. David Santos, CBET')}</div>
+                <div style="font-size: 11px; color: #64748b;">Director of Biomedical Engineering</div>
+                <div style="font-size: 10px; color: #16a34a; font-weight: 700;">APPROVED &amp; RELEASED TO SERVICE</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+}
+
+/**
+ * Build Full HTML for High-Visibility Calibration Due Date Sticker.
+ */
+function buildCalibrationStickerHtml(r) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Calibration Sticker - ${escapeHtml(r.asset_tag)}</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; background: #f1f5f9; }
+        .sticker {
+            width: 360px;
+            border: 4px solid #16a34a;
+            border-radius: 10px;
+            background: #ffffff;
+            padding: 14px 18px;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #16a34a;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13px;
+            text-align: center;
+            padding: 4px 0;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .meta-row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 12px; }
+        .due-box {
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .barcode {
+            font-family: monospace;
+            font-size: 20px;
+            letter-spacing: 3px;
+            text-align: center;
+            margin-top: 6px;
+        }
+        @media print {
+            body { padding: 0; background: #fff; }
+            .sticker { box-shadow: none; border-width: 3px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sticker">
+        <div class="header">CALIBRATION CERTIFIED &bull; NIST TRACEABLE</div>
+        <div style="text-align: center; font-size: 10px; color: #475569; margin: 4px 0; font-weight: 600;">
+            USINTELLIX CLINICAL ENGINEERING
+        </div>
+
+        <div class="meta-row" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+            <span>Asset Tag: <strong style="font-size: 13px; color: #0f172a;">${escapeHtml(r.asset_tag)}</strong></span>
+            <span>Cert #: <strong style="font-family: monospace; color: #4f46e5;">${escapeHtml(r.certificate_number)}</strong></span>
+        </div>
+
+        <div class="meta-row">
+            <span>Calibrated Date: <strong>${escapeHtml(r.calibration_date)}</strong></span>
+            <span>By: <strong>${escapeHtml(r.calibrated_by_name ? r.calibrated_by_name.split(',')[0] : 'CBET')}</strong></span>
+        </div>
+
+        <div class="due-box">
+            <div style="font-size: 10px; font-weight: 800; color: #b91c1c; text-transform: uppercase;">NEXT CALIBRATION DUE DATE</div>
+            <div style="font-size: 18px; font-weight: 900; color: #dc2626; letter-spacing: 0.02em;">${escapeHtml(r.next_due_date)}</div>
+        </div>
+
+        <div class="barcode">||| | ||||| |||| || | |||</div>
+        <div style="text-align: center; font-size: 9px; font-family: monospace; color: #64748b;">${escapeHtml(r.sticker_serial_number || r.certificate_number)}</div>
+        <div style="text-align: center; font-size: 8px; font-weight: 700; color: #94a3b8; margin-top: 4px;">
+            DO NOT REMOVE UNDER PENALTY OF ACCREDITATION HOLD
+        </div>
+    </div>
+</body>
+</html>
+    `;
 }

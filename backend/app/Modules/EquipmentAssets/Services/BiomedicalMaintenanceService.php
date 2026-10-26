@@ -82,6 +82,29 @@ class BiomedicalMaintenanceService
     }
 
     /**
+     * Generate sequential NIST Calibration Certificate number e.g. CAL-2026-0005
+     */
+    public function generateCertificateNumber(PDO $pdo): string
+    {
+        $year = (int) date('Y');
+        $stmt = $pdo->prepare("
+            INSERT INTO `billing_tariff_counters` (`counter_type`, `year`, `last_number`)
+            VALUES ('BIOMED_CAL', ?, 1)
+            ON DUPLICATE KEY UPDATE `last_number` = `last_number` + 1
+        ");
+        $stmt->execute([$year]);
+
+        $sel = $pdo->prepare("
+            SELECT `last_number` FROM `billing_tariff_counters`
+            WHERE `counter_type` = 'BIOMED_CAL' AND `year` = ?
+        ");
+        $sel->execute([$year]);
+        $num = (int)$sel->fetchColumn();
+
+        return sprintf("CAL-%d-%04d", $year, $num);
+    }
+
+    /**
      * Retrieve executive summary KPIs for PM Calendar and maintenance fleet.
      */
     public function getPMCalendarSummary(): array
@@ -1480,6 +1503,404 @@ class BiomedicalMaintenanceService
                 $pdo->rollBack();
             }
             return ['success' => false, 'message' => 'Failed to update work order: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Get summary metrics for NIST Calibrations and Electrical Safety Compliance.
+     */
+    public function getCalibrationSummary(): array
+    {
+        $pdo = Database::connection();
+
+        $sql = "
+            SELECT
+                COUNT(*) as total_certificates,
+                SUM(CASE WHEN next_due_date >= CURDATE() AND overall_result = 'passed' THEN 1 ELSE 0 END) as active_calibrations,
+                SUM(CASE WHEN overall_result = 'failed' THEN 1 ELSE 0 END) as failed_calibrations,
+                SUM(CASE WHEN electrical_safety_passed = 1 THEN 1 ELSE 0 END) as electrical_safety_passed_count,
+                AVG(CASE WHEN variance_percentage IS NOT NULL THEN ABS(variance_percentage) ELSE NULL END) as avg_abs_variance
+            FROM biomed_calibration_records
+            WHERE deleted_at IS NULL
+        ";
+        $summary = $pdo->query($sql)->fetch(PDO::FETCH_ASSOC);
+
+        // Calculate fleet-wide calibration due status on hospital equipment
+        $fleetSql = "
+            SELECT
+                COUNT(*) as total_equipment,
+                SUM(CASE WHEN next_calibration_due < CURDATE() OR status = 'Needs Calibration' THEN 1 ELSE 0 END) as overdue_count,
+                SUM(CASE WHEN next_calibration_due BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as due_in_30_days,
+                SUM(CASE WHEN next_calibration_due >= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND status = 'Operational' THEN 1 ELSE 0 END) as compliant_count
+            FROM hospital_equipment_assets
+            WHERE deleted_at IS NULL AND status != 'Decommissioned'
+        ";
+        $fleet = $pdo->query($fleetSql)->fetch(PDO::FETCH_ASSOC);
+
+        $totalCerts = (int)($summary['total_certificates'] ?? 0);
+        $elecPassCount = (int)($summary['electrical_safety_passed_count'] ?? 0);
+        $elecRate = ($totalCerts > 0) ? round(($elecPassCount / $totalCerts) * 100, 1) : 100.0;
+
+        return [
+            'total_certificates'           => $totalCerts,
+            'active_calibrations'          => (int)($summary['active_calibrations'] ?? 0),
+            'failed_calibrations'          => (int)($summary['failed_calibrations'] ?? 0),
+            'electrical_safety_pass_rate'  => $elecRate,
+            'avg_abs_variance'             => round((float)($summary['avg_abs_variance'] ?? 0.0), 2),
+            'total_active_fleet'           => (int)($fleet['total_equipment'] ?? 0),
+            'overdue_count'                => (int)($fleet['overdue_count'] ?? 0),
+            'due_in_30_days'               => (int)($fleet['due_in_30_days'] ?? 0),
+            'compliant_count'              => (int)($fleet['compliant_count'] ?? 0)
+        ];
+    }
+
+    /**
+     * List NIST Calibration Records with asset relations and filtering.
+     */
+    public function listCalibrationRecords(array $filters = []): array
+    {
+        $pdo = Database::connection();
+
+        $sql = "
+            SELECT
+                c.*,
+                a.asset_tag,
+                a.name as equipment_name,
+                a.category as equipment_category,
+                a.criticality_level as equipment_criticality,
+                a.model_number,
+                a.serial_number,
+                a.manufacturer,
+                a.status as equipment_status,
+                wo.work_order_number
+            FROM biomed_calibration_records c
+            INNER JOIN hospital_equipment_assets a ON c.asset_id = a.id
+            LEFT JOIN biomed_work_orders wo ON c.work_order_id = wo.id
+            WHERE c.deleted_at IS NULL
+        ";
+
+        $params = [];
+
+        if (!empty($filters['search'])) {
+            $term = '%' . trim($filters['search']) . '%';
+            $sql .= " AND (c.certificate_number LIKE :s1 OR a.asset_tag LIKE :s2 OR a.name LIKE :s3 OR c.calibrated_by_name LIKE :s4 OR c.calibration_standard_used LIKE :s5 OR c.sticker_serial_number LIKE :s6)";
+            $params['s1'] = $term;
+            $params['s2'] = $term;
+            $params['s3'] = $term;
+            $params['s4'] = $term;
+            $params['s5'] = $term;
+            $params['s6'] = $term;
+        }
+
+        if (!empty($filters['asset_id'])) {
+            $sql .= " AND c.asset_id = :asset_id";
+            $params['asset_id'] = (int)$filters['asset_id'];
+        }
+
+        if (!empty($filters['calibration_type'])) {
+            $sql .= " AND c.calibration_type = :cal_type";
+            $params['cal_type'] = $filters['calibration_type'];
+        }
+
+        if (!empty($filters['overall_result'])) {
+            $sql .= " AND c.overall_result = :res";
+            $params['res'] = $filters['overall_result'];
+        }
+
+        $sql .= " ORDER BY c.calibration_date DESC, c.id DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$r) {
+            $r['multi_point_data'] = !empty($r['multi_point_data_json']) ? json_decode($r['multi_point_data_json'], true) : [];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Get a single NIST Calibration Record by ID.
+     */
+    public function getCalibrationRecord(int $id): ?array
+    {
+        $pdo = Database::connection();
+
+        $sql = "
+            SELECT
+                c.*,
+                a.asset_tag,
+                a.name as equipment_name,
+                a.category as equipment_category,
+                a.criticality_level as equipment_criticality,
+                a.model_number,
+                a.serial_number,
+                a.manufacturer,
+                a.status as equipment_status,
+                wo.work_order_number
+            FROM biomed_calibration_records c
+            INNER JOIN hospital_equipment_assets a ON c.asset_id = a.id
+            LEFT JOIN biomed_work_orders wo ON c.work_order_id = wo.id
+            WHERE c.id = :id AND c.deleted_at IS NULL
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return null;
+        }
+
+        $row['multi_point_data'] = !empty($row['multi_point_data_json']) ? json_decode($row['multi_point_data_json'], true) : [];
+        return $row;
+    }
+
+    /**
+     * Create a formal NIST-Traceable Calibration Certificate & Electrical Safety Record.
+     * Synchronizes hospital_equipment_assets dates and clears/applies lockout accordingly.
+     */
+    public function createCalibrationRecord(array $data, int $userId): array
+    {
+        $pdo = Database::connection();
+
+        if (empty($data['asset_id'])) {
+            return ['success' => false, 'message' => 'Equipment asset is required.'];
+        }
+        if (empty($data['calibration_standard_used'])) {
+            return ['success' => false, 'message' => 'Reference calibration standard equipment is required.'];
+        }
+        if (empty($data['standard_nist_cert_number'])) {
+            return ['success' => false, 'message' => 'NIST-traceable certificate number of the standard is required.'];
+        }
+        if (empty($data['calibrated_by_name'])) {
+            return ['success' => false, 'message' => 'Calibrating metrologist / engineer name is required.'];
+        }
+
+        $assetStmt = $pdo->prepare("SELECT id, asset_tag, name, status, criticality_level FROM hospital_equipment_assets WHERE id = ?");
+        $assetStmt->execute([(int)$data['asset_id']]);
+        $asset = $assetStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$asset) {
+            return ['success' => false, 'message' => 'Equipment asset not found.'];
+        }
+
+        $calDate = !empty($data['calibration_date']) ? $data['calibration_date'] : date('Y-m-d');
+        $intervalMonths = isset($data['calibration_interval_months']) ? max(1, (int)$data['calibration_interval_months']) : 12;
+        $nextDueDate = !empty($data['next_due_date'])
+            ? $data['next_due_date']
+            : date('Y-m-d', strtotime("+{$intervalMonths} months", strtotime($calDate)));
+
+        // Output / Energy Metrology Verification
+        $setPoint = isset($data['set_point_output']) && $data['set_point_output'] !== '' ? (float)$data['set_point_output'] : null;
+        $measured = isset($data['measured_output']) && $data['measured_output'] !== '' ? (float)$data['measured_output'] : null;
+        $tolerance = isset($data['tolerance_percentage']) && $data['tolerance_percentage'] !== '' ? (float)$data['tolerance_percentage'] : 5.00;
+        $variancePct = null;
+        $energyPass = 1;
+
+        if ($setPoint !== null && $setPoint > 0 && $measured !== null) {
+            $variancePct = round((($measured - $setPoint) / $setPoint) * 100.0, 3);
+            $energyPass = (abs($variancePct) <= $tolerance) ? 1 : 0;
+        }
+
+        // Electrical Safety Testing (IEC 62353 / NFPA 99)
+        $groundOhms = isset($data['ground_wire_resistance_ohms']) && $data['ground_wire_resistance_ohms'] !== '' ? (float)$data['ground_wire_resistance_ohms'] : null;
+        $chassisUa  = isset($data['chassis_leakage_microamp']) && $data['chassis_leakage_microamp'] !== '' ? (float)$data['chassis_leakage_microamp'] : null;
+        $leadUa     = isset($data['lead_leakage_microamp']) && $data['lead_leakage_microamp'] !== '' ? (float)$data['lead_leakage_microamp'] : null;
+
+        $groundPass = ($groundOhms === null || $groundOhms <= 0.2000) ? 1 : 0;
+        $chassisPass = ($chassisUa === null || $chassisUa <= 100.00) ? 1 : 0;
+        $leadPass = ($leadUa === null || $leadUa <= 50.00) ? 1 : 0;
+        $elecPass = ($groundPass && $chassisPass && $leadPass) ? 1 : 0;
+
+        // Overall Result
+        $overallResult = ($energyPass === 1 && $elecPass === 1) ? 'passed' : 'failed';
+        if (isset($data['overall_result']) && in_array($data['overall_result'], ['passed', 'failed', 'conditional_pass'])) {
+            $overallResult = $data['overall_result'];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $certNumber = $this->generateCertificateNumber($pdo);
+            $year = date('Y', strtotime($calDate));
+            $stickerSerial = !empty($data['sticker_serial_number'])
+                ? trim($data['sticker_serial_number'])
+                : str_replace('CAL-', 'CAL-STK-', $certNumber);
+
+            $multiPointJson = null;
+            if (!empty($data['multi_point_data'])) {
+                $multiPointJson = is_string($data['multi_point_data']) ? $data['multi_point_data'] : json_encode($data['multi_point_data'], JSON_UNESCAPED_UNICODE);
+            }
+
+            $sql = "
+                INSERT INTO biomed_calibration_records (
+                    certificate_number,
+                    asset_id,
+                    work_order_id,
+                    calibration_type,
+                    calibration_date,
+                    next_due_date,
+                    calibration_interval_months,
+                    environmental_temp_c,
+                    relative_humidity_pct,
+                    calibrated_by_name,
+                    calibrated_by_role,
+                    calibrator_license_no,
+                    calibration_standard_used,
+                    standard_serial_number,
+                    standard_nist_cert_number,
+                    standard_calibration_expiry,
+                    traceability_statement,
+                    set_point_output,
+                    measured_output,
+                    output_unit,
+                    tolerance_percentage,
+                    variance_percentage,
+                    energy_calibration_passed,
+                    multi_point_data_json,
+                    ground_wire_resistance_ohms,
+                    ground_resistance_passed,
+                    chassis_leakage_microamp,
+                    chassis_leakage_passed,
+                    lead_leakage_microamp,
+                    lead_leakage_passed,
+                    electrical_safety_passed,
+                    overall_result,
+                    sticker_issued,
+                    sticker_serial_number,
+                    notes_and_remarks,
+                    supervisor_approved_by,
+                    supervisor_approved_at,
+                    created_by
+                ) VALUES (
+                    :cert_no,
+                    :asset_id,
+                    :work_order_id,
+                    :cal_type,
+                    :cal_date,
+                    :next_due,
+                    :interval_months,
+                    :temp_c,
+                    :humidity,
+                    :cal_by_name,
+                    :cal_by_role,
+                    :license_no,
+                    :std_used,
+                    :std_serial,
+                    :std_nist_cert,
+                    :std_expiry,
+                    :traceability,
+                    :set_point,
+                    :measured,
+                    :output_unit,
+                    :tolerance,
+                    :variance,
+                    :energy_passed,
+                    :multi_point_json,
+                    :ground_ohms,
+                    :ground_pass,
+                    :chassis_ua,
+                    :chassis_pass,
+                    :lead_ua,
+                    :lead_pass,
+                    :elec_passed,
+                    :overall_result,
+                    :sticker_issued,
+                    :sticker_serial,
+                    :notes,
+                    :supervisor_by,
+                    :supervisor_at,
+                    :created_by
+                )
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                'cert_no'          => $certNumber,
+                'asset_id'         => $asset['id'],
+                'work_order_id'    => !empty($data['work_order_id']) ? (int)$data['work_order_id'] : null,
+                'cal_type'         => $data['calibration_type'] ?? 'comprehensive_calibration',
+                'cal_date'         => $calDate,
+                'next_due'         => $nextDueDate,
+                'interval_months'  => $intervalMonths,
+                'temp_c'           => isset($data['environmental_temp_c']) ? (float)$data['environmental_temp_c'] : 22.0,
+                'humidity'         => isset($data['relative_humidity_pct']) ? (float)$data['relative_humidity_pct'] : 45.0,
+                'cal_by_name'      => trim($data['calibrated_by_name']),
+                'cal_by_role'      => trim($data['calibrated_by_role'] ?? 'Biomedical Metrology Specialist'),
+                'license_no'       => trim($data['calibrator_license_no'] ?? ''),
+                'std_used'         => trim($data['calibration_standard_used']),
+                'std_serial'       => trim($data['standard_serial_number'] ?? ''),
+                'std_nist_cert'    => trim($data['standard_nist_cert_number']),
+                'std_expiry'       => !empty($data['standard_calibration_expiry']) ? $data['standard_calibration_expiry'] : date('Y-m-d', strtotime('+1 year')),
+                'traceability'     => trim($data['traceability_statement'] ?? 'Measurements are traceable to the National Institute of Standards and Technology (NIST) via Fluke Calibration Reference Standard laboratory.'),
+                'set_point'        => $setPoint,
+                'measured'         => $measured,
+                'output_unit'      => $data['output_unit'] ?? 'Joules',
+                'tolerance'        => $tolerance,
+                'variance'         => $variancePct,
+                'energy_passed'    => $energyPass,
+                'multi_point_json' => $multiPointJson,
+                'ground_ohms'      => $groundOhms,
+                'ground_pass'      => $groundPass,
+                'chassis_ua'       => $chassisUa,
+                'chassis_pass'     => $chassisPass,
+                'lead_ua'          => $leadUa,
+                'lead_pass'        => $leadPass,
+                'elec_passed'      => $elecPass,
+                'overall_result'   => $overallResult,
+                'sticker_issued'   => !empty($data['sticker_issued']) ? 1 : 1,
+                'sticker_serial'   => $stickerSerial,
+                'notes'            => trim($data['notes_and_remarks'] ?? ''),
+                'supervisor_by'    => trim($data['supervisor_approved_by'] ?? 'Engr. David Santos, CBET (Biomed Lead)'),
+                'supervisor_at'    => !empty($data['supervisor_approved_by']) ? date('Y-m-d H:i:s') : null,
+                'created_by'       => $userId
+            ]);
+
+            $newCertId = (int)$pdo->lastInsertId();
+
+            // Synchronize hospital_equipment_assets status
+            if ($overallResult === 'passed') {
+                $updAsset = $pdo->prepare("
+                    UPDATE hospital_equipment_assets
+                    SET last_calibration_date = ?,
+                        next_calibration_due = ?,
+                        status = IF(status = 'Needs Calibration', 'Operational', status),
+                        status_reason = IF(status = 'Needs Calibration', NULL, status_reason)
+                    WHERE id = ?
+                ");
+                $updAsset->execute([$calDate, $nextDueDate, $asset['id']]);
+            } else {
+                $updAsset = $pdo->prepare("
+                    UPDATE hospital_equipment_assets
+                    SET last_calibration_date = ?,
+                        next_calibration_due = ?,
+                        status = 'Needs Calibration',
+                        status_reason = ?
+                    WHERE id = ?
+                ");
+                $updAsset->execute([$calDate, $nextDueDate, "CALIBRATION FAILED: Cert {$certNumber} out of tolerance.", $asset['id']]);
+            }
+
+            $pdo->commit();
+
+            AuditLogger::log(
+                AuditLogger::CATEGORY_CLINICAL,
+                'BIOMED_CALIBRATION_RECORDED',
+                "Calibration Cert {$certNumber} issued for {$asset['asset_tag']}. Result: {$overallResult}, Variance: {$variancePct}%",
+                null,
+                $userId
+            );
+
+            return [
+                'success' => true,
+                'message' => "NIST Calibration Certificate {$certNumber} generated successfully.",
+                'data'    => $this->getCalibrationRecord($newCertId)
+            ];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'message' => 'Failed to record calibration certificate: ' . $e->getMessage()];
         }
     }
 }

@@ -23,10 +23,16 @@ final class PrescriptionVerificationController
 
     /**
      * GET /dispensing/clinical-verifications
+     *
+     * Takes no arguments: Router dispatches with `$instance->$methodName()`, so
+     * a required Request parameter made this endpoint throw ArgumentCountError
+     * on every call. The Request is constructed here, as every other controller
+     * in the codebase does it.
      */
-    public function index(Request $request): void
+    public function index(): void
     {
         try {
+            $request = new Request();
             $filters = [
                 'prescription_id'     => $request->query('prescription_id'),
                 'patient_id'          => $request->query('patient_id'),
@@ -45,13 +51,18 @@ final class PrescriptionVerificationController
     /**
      * POST /dispensing/clinical-verifications/save
      */
-    public function save(Request $request): void
+    public function save(): void
     {
         try {
-            $user = $request->attribute('auth_user', Session::get('user') ?: []);
+            $request = new Request();
+
+            // Core\Request has neither attribute() nor body(): the acting user
+            // comes from the session, as it does everywhere else, and the body
+            // is all().
+            $user = Session::get('user') ?: [];
             $userId = isset($user['id']) ? (int) $user['id'] : null;
 
-            $record = $this->service->saveVerification($request->body(), $userId);
+            $record = $this->service->saveVerification($request->all(), $userId);
             Response::json([
                 'success' => true,
                 'message' => 'Pharmacist Clinical Verification saved (' . ($record['verification_status'] ?? 'Updated') . ').',

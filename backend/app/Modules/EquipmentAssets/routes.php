@@ -133,3 +133,24 @@ $router->put('/equipment-assets/biomed/tickets/resolve', [BiomedicalController::
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+// NIST Calibration & Electrical Safety Certifications
+$router->get('/equipment-assets/biomed/calibration-summary', [BiomedicalController::class, 'calibrationSummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'pharmacist', 'receptionist']]
+]);
+
+$router->get('/equipment-assets/biomed/calibration-records', [BiomedicalController::class, 'calibrationRecords'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'pharmacist', 'receptionist']]
+]);
+
+$router->get('/equipment-assets/biomed/calibration-record', [BiomedicalController::class, 'calibrationRecord'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'pharmacist', 'receptionist']]
+]);
+
+$router->post('/equipment-assets/biomed/calibration-records', [BiomedicalController::class, 'storeCalibrationRecord'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

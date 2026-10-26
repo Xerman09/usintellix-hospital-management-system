@@ -322,4 +322,70 @@ class BiomedicalController extends Controller
 
         $this->success($result['data'], $result['message']);
     }
+
+    /**
+     * Get Calibration Summary metrics.
+     */
+    public function calibrationSummary(): void
+    {
+        $summary = $this->service->getCalibrationSummary();
+        $this->success($summary, 'NIST Calibration summary metrics retrieved.');
+    }
+
+    /**
+     * List NIST Calibration Records.
+     */
+    public function calibrationRecords(): void
+    {
+        $request = new Request();
+        $filters = [
+            'search'           => $request->input('search'),
+            'asset_id'         => $request->input('asset_id'),
+            'calibration_type' => $request->input('calibration_type'),
+            'overall_result'   => $request->input('overall_result'),
+        ];
+
+        $records = $this->service->listCalibrationRecords($filters);
+        $this->success($records, 'NIST calibration certificates retrieved successfully.');
+    }
+
+    /**
+     * Get single Calibration Certificate by ID.
+     */
+    public function calibrationRecord(): void
+    {
+        $request = new Request();
+        $id = (int)$request->input('id');
+
+        if (!$id) {
+            $this->error('Certificate ID is required.', 422);
+            return;
+        }
+
+        $record = $this->service->getCalibrationRecord($id);
+        if (!$record) {
+            $this->error('Calibration certificate not found.', 404);
+            return;
+        }
+
+        $this->success($record, 'Calibration certificate retrieved.');
+    }
+
+    /**
+     * Create / Record a formal Calibration Certificate & Safety test.
+     */
+    public function storeCalibrationRecord(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $data = $request->all();
+
+        $result = $this->service->createCalibrationRecord($data, (int)($user['id'] ?? 1));
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
 }

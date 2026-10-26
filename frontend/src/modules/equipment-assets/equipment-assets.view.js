@@ -30,6 +30,10 @@ export function EquipmentAssetsView(user = {}) {
                         </svg>
                         Refresh
                     </button>
+                    <button id="biomed-btn-record-calibration" class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.875rem; font-weight: 700; border-radius: 6px; background: #4f46e5; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 1px 3px rgba(79,70,229,0.3);">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        📜 Record NIST Calibration
+                    </button>
                     <button id="biomed-btn-report-breakdown" class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.875rem; font-weight: 700; border-radius: 6px; background: #dc2626; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 1px 3px rgba(220,38,38,0.3);">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                         🚨 Report Breakdown Ticket
@@ -60,6 +64,11 @@ export function EquipmentAssetsView(user = {}) {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                     Preventive Maintenance (PM) Calendar
                     <span id="biomed-tab-overdue-count" class="badge-pill" style="display: none; background: #dc2626; color: #fff; font-size: 0.7rem; padding: 1px 7px; border-radius: 9999px; font-weight: 700;">0</span>
+                </button>
+                <button type="button" id="biomed-tab-calibration" class="biomed-nav-tab" style="padding: 10px 18px; font-weight: 600; font-size: 0.875rem; border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--text-muted, #64748b); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    NIST Calibration &amp; Safety Certs
+                    <span id="biomed-tab-cal-alert-count" class="badge-pill" style="display: none; background: #d97706; color: #fff; font-size: 0.7rem; padding: 1px 7px; border-radius: 9999px; font-weight: 700;">0</span>
                 </button>
                 <button type="button" id="biomed-tab-workorders" class="biomed-nav-tab" style="padding: 10px 18px; font-weight: 600; font-size: 0.875rem; border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--text-muted, #64748b); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
@@ -550,6 +559,133 @@ export function EquipmentAssetsView(user = {}) {
             </div>
 
             <!-- ============================================================== -->
+            <!-- VIEW 5: NIST CALIBRATION & ELECTRICAL SAFETY (NEW)             -->
+            <!-- ============================================================== -->
+            <div id="biomed-view-calibration" style="display: none;">
+                <!-- Calibration KPI Summary Banner -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div class="card" style="padding: 18px 20px; border-radius: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b);">Active NIST Calibrations</span>
+                            <span style="display: inline-flex; padding: 6px; border-radius: 6px; background: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <span id="cal-kpi-active" style="font-size: 1.75rem; font-weight: 700; color: #4f46e5;">--</span>
+                            <span id="cal-kpi-total-certs" style="font-size: 0.75rem; color: var(--text-muted, #64748b);">-- certificates</span>
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding: 18px 20px; border-radius: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b);">Overdue &amp; 30-Day Alert</span>
+                            <span style="display: inline-flex; padding: 6px; border-radius: 6px; background: rgba(217, 119, 6, 0.15); color: #d97706;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <span id="cal-kpi-overdue" style="font-size: 1.75rem; font-weight: 700; color: #dc2626;">--</span>
+                            <span id="cal-kpi-due-30" style="font-size: 0.75rem; color: #d97706; font-weight: 600;">-- due in 30d</span>
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding: 18px 20px; border-radius: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b);">Electrical Safety Pass Rate</span>
+                            <span style="display: inline-flex; padding: 6px; border-radius: 6px; background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <span id="cal-kpi-elec-rate" style="font-size: 1.75rem; font-weight: 700; color: #15803d;">--%</span>
+                            <span style="font-size: 0.75rem; color: #15803d; font-weight: 600;">IEC 62353 Compliant</span>
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding: 18px 20px; border-radius: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b);">Avg Energy Variance</span>
+                            <span style="display: inline-flex; padding: 6px; border-radius: 6px; background: rgba(59, 130, 246, 0.1); color: #2563eb;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <span id="cal-kpi-avg-variance" style="font-size: 1.75rem; font-weight: 700; color: var(--text-primary, #0f172a);">--%</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b);">Tolerance &plusmn;5.0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calibration Filters & Actions Toolbar -->
+                <div class="card" style="padding: 16px 20px; border-radius: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="display: grid; grid-template-columns: 2fr 1.5fr 1.2fr auto auto; gap: 12px; align-items: center;">
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            </span>
+                            <input type="text" id="cal-filter-search" placeholder="Search Certificate #, Asset Tag, Standard, or Metrologist..." class="form-control" style="width: 100%; padding: 8px 12px 8px 36px; font-size: 0.875rem; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        </div>
+                        <div>
+                            <select id="cal-filter-type" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <option value="">All Metrology Disciplines</option>
+                                <option value="energy_output">⚡ Defibrillator Joules Output</option>
+                                <option value="electrosurgical_power">⚡ Electrosurgical RF Wattage</option>
+                                <option value="flow_and_pressure">💨 Ventilator Flow &amp; Airway Pressure</option>
+                                <option value="infusion_rate">💧 Infusion Pump Flow Rate</option>
+                                <option value="electrical_safety_only">🛡️ IEC 62353 Electrical Safety Only</option>
+                                <option value="comprehensive_calibration">🔬 Comprehensive Metrology</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="cal-filter-result" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <option value="">All Results</option>
+                                <option value="passed">✅ Passed (Sticker Issued)</option>
+                                <option value="failed">❌ Failed (Out of Tolerance)</option>
+                                <option value="conditional_pass">⚠️ Conditional Pass</option>
+                            </select>
+                        </div>
+                        <button type="button" id="cal-filter-reset" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.875rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;">
+                            Reset
+                        </button>
+                        <button type="button" id="cal-btn-record-action" class="btn" style="padding: 8px 18px; font-size: 0.875rem; font-weight: 700; border-radius: 6px; background: #4f46e5; color: #fff; border: none; cursor: pointer; white-space: nowrap; box-shadow: 0 1px 2px rgba(79,70,229,0.25);">
+                            + Record Calibration Test
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calibration Certificates Data Table -->
+                <div class="card" style="border-radius: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem; text-align: left;">
+                            <thead>
+                                <tr style="background: var(--bg-table-header, #f8fafc); border-bottom: 1px solid var(--border-color, #e2e8f0); color: var(--text-muted, #475569); font-weight: 600;">
+                                    <th style="padding: 12px 16px;">Certificate # &amp; Sticker</th>
+                                    <th style="padding: 12px 16px;">Equipment Asset</th>
+                                    <th style="padding: 12px 16px;">NIST Standard Used</th>
+                                    <th style="padding: 12px 16px;">Output Metrology &amp; Variance</th>
+                                    <th style="padding: 12px 16px;">Electrical Safety (IEC 62353)</th>
+                                    <th style="padding: 12px 16px;">Date &amp; Next Due</th>
+                                    <th style="padding: 12px 16px;">Result</th>
+                                    <th style="padding: 12px 16px; text-align: right;">Certification Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="biomed-cal-table-body">
+                                <tr>
+                                    <td colspan="8" style="padding: 40px; text-align: center; color: var(--text-muted, #94a3b8);">
+                                        Loading calibration certificates...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="padding: 12px 20px; border-top: 1px solid var(--border-color, #e2e8f0); background: var(--bg-table-footer, #f8fafc); font-size: 0.8125rem; color: var(--text-muted, #64748b);">
+                        <div id="biomed-cal-table-count">Showing 0 calibration certificates</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
             <!-- MODAL: REPORT MACHINE BREAKDOWN / CLINICAL ALERT (NEW)         -->
             <!-- ============================================================== -->
             <div id="biomed-modal-report-breakdown" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); z-index: 1050; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;">
@@ -807,7 +943,263 @@ export function EquipmentAssetsView(user = {}) {
                 </div>
             </div>
 
-            <!-- Existing Modals: Asset CRUD, Status, Logs, PM Schedule, PM Checklist, Work Order -->
+            <!-- ============================================================== -->
+            <!-- MODAL: RECORD NIST CALIBRATION & SAFETY CERTIFICATE (NEW)      -->
+            <!-- ============================================================== -->
+            <div id="biomed-modal-record-calibration" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); z-index: 1050; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;">
+                <div style="background: var(--bg-card, #ffffff); width: 100%; max-width: 860px; border-radius: 12px; box-shadow: 0 25px 30px -5px rgba(0,0,0,0.3); overflow: hidden; margin: auto; max-height: 94vh; display: flex; flex-direction: column; border-top: 5px solid #4f46e5;">
+                    <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                        <div>
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                NIST Metrology &bull; Electrical Safety (IEC 62353)
+                            </div>
+                            <h3 style="margin: 2px 0 0 0; font-size: 1.15rem; font-weight: 800; color: #1e1b4b;">Record NIST Calibration &amp; Safety Test</h3>
+                        </div>
+                        <button type="button" class="eq-modal-close" data-modal="biomed-modal-record-calibration" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted, #94a3b8);">&times;</button>
+                    </div>
+
+                    <form id="biomed-form-record-calibration" style="padding: 24px; overflow-y: auto; flex: 1;">
+                        <!-- Section 1: Equipment Under Test -->
+                        <div style="font-size: 0.8125rem; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+                            1. Equipment Asset Under Metrology Test
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Select Hospital Asset <span style="color: #ef4444;">*</span>
+                                </label>
+                                <select id="biomed-cal-asset-id" required class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <option value="">Select machinery asset...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Calibration Discipline <span style="color: #ef4444;">*</span>
+                                </label>
+                                <select id="biomed-cal-type" required class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <option value="energy_output">⚡ Defibrillator Delivered Joules</option>
+                                    <option value="electrosurgical_power">⚡ Electrosurgical RF Wattage</option>
+                                    <option value="flow_and_pressure">💨 Ventilator Flow &amp; Airway Pressure</option>
+                                    <option value="infusion_rate">💧 Infusion Pump Flow Accuracy</option>
+                                    <option value="electrical_safety_only">🛡️ IEC 62353 Electrical Safety Only</option>
+                                    <option value="comprehensive_calibration" selected>🔬 Comprehensive Calibration</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Asset details preview strip -->
+                        <div id="biomed-cal-asset-preview" style="display: none; background: #e0e7ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.8125rem; color: #3730a3;">
+                            <span id="biomed-cal-preview-text"></span>
+                        </div>
+
+                        <!-- Date and Interval -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Calibration Date <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="date" id="biomed-cal-date" required class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Interval (Months) <span style="color: #ef4444;">*</span>
+                                </label>
+                                <select id="biomed-cal-interval" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <option value="6">6 Months (High-Risk Semi-Annual)</option>
+                                    <option value="12" selected>12 Months (Annual Standard)</option>
+                                    <option value="24">24 Months (Biennial Diagnostic)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Next Due Date (Sticker) <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="date" id="biomed-cal-next-due" required class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc;">
+                            </div>
+                        </div>
+
+                        <!-- Section 2: NIST Reference Standard -->
+                        <div style="font-size: 0.8125rem; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+                            2. NIST-Traceable Primary Reference Standard Used
+                        </div>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Standard Equipment Name &amp; Model <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="text" id="biomed-cal-standard-used" required placeholder="e.g. Fluke Biomedical Impulse 7000DP / QA-ES III / ESA620" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Standard Serial No.
+                                </label>
+                                <input type="text" id="biomed-cal-standard-serial" placeholder="e.g. SN-IMP-77291" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    NIST Certificate # <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="text" id="biomed-cal-standard-nist-cert" required placeholder="e.g. NIST-FLK-88219-A" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Standard Expiry <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="date" id="biomed-cal-standard-expiry" required class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Ambient &deg;C
+                                </label>
+                                <input type="number" step="0.1" id="biomed-cal-temp" value="22.0" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Rel. Humidity %
+                                </label>
+                                <input type="number" step="0.1" id="biomed-cal-humidity" value="45.0" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                        </div>
+
+                        <!-- Section 3: Energy / Parameter Metrology with Live Variance Feedback -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div style="font-size: 0.8125rem; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    3. Energy / Output Metrology Verification (Live Variance Calculator)
+                                </div>
+                                <div id="biomed-cal-variance-badge" style="font-size: 0.8125rem; font-weight: 700; padding: 4px 10px; border-radius: 9999px; background: #e2e8f0; color: #475569;">
+                                    Awaiting Measurement...
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Set Point (Nominal)
+                                    </label>
+                                    <input type="number" step="0.001" id="biomed-cal-set-point" placeholder="e.g. 200.0" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Measured Output <span style="color: #ef4444;">*</span>
+                                    </label>
+                                    <input type="number" step="0.001" id="biomed-cal-measured" placeholder="e.g. 201.4" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Engineering Unit
+                                    </label>
+                                    <select id="biomed-cal-unit" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                        <option value="Joules">Joules (Defibrillator Energy)</option>
+                                        <option value="Watts">Watts (Electrosurgical Power)</option>
+                                        <option value="mL/hr">mL/hr (Infusion Rate)</option>
+                                        <option value="mL Tidal Vol">mL (Ventilator Tidal Volume)</option>
+                                        <option value="cmH2O">cmH2O (Airway Pressure)</option>
+                                        <option value="mmHg">mmHg (NIBP / Invasive Blood Pressure)</option>
+                                        <option value="BPM">BPM (Heart Rate / Pulse)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Max Tolerance &plusmn;%
+                                    </label>
+                                    <input type="number" step="0.1" id="biomed-cal-tolerance" value="5.0" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 4: Electrical Safety (IEC 62353) -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <div style="font-size: 0.8125rem; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+                                4. IEC 62353 Electrical Safety Analyzer Readings
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Ground Resistance (&Omega;)
+                                    </label>
+                                    <input type="number" step="0.001" id="biomed-cal-ground-ohms" placeholder="Limit &le; 0.200 &Omega;" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Standard: &le; 0.200 &Omega;</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Chassis Leakage (&mu;A)
+                                    </label>
+                                    <input type="number" step="0.1" id="biomed-cal-chassis-ua" placeholder="Limit &le; 100 &mu;A" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Normal: &le; 100 &mu;A, Single Fault: &le; 500 &mu;A</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                        Patient Lead Leakage (&mu;A)
+                                    </label>
+                                    <input type="number" step="0.1" id="biomed-cal-lead-ua" placeholder="Limit &le; 50 &mu;A" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Type CF: &le; 10 &mu;A, Type BF: &le; 50 &mu;A</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 5: Metrologist Signoff & Sticker Serial -->
+                        <div style="font-size: 0.8125rem; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+                            5. Accreditation Sign-Off &amp; Tamper-Evident Sticker
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1.2fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Calibrating Metrologist / Engineer <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="text" id="biomed-cal-metrologist-name" required value="Engr. Mark Villanueva, CBET" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    PRC / CBET License #
+                                </label>
+                                <input type="text" id="biomed-cal-metrologist-license" value="PRC-ECE-0045182" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Physical Sticker Serial #
+                                </label>
+                                <input type="text" id="biomed-cal-sticker-serial" placeholder="Auto-generated if blank" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace;">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Overall Certification Result <span style="color: #ef4444;">*</span>
+                                </label>
+                                <select id="biomed-cal-overall-result" required class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 700;">
+                                    <option value="passed" selected>✅ Passed (Release to Operational)</option>
+                                    <option value="failed">❌ Failed (Lockout: Needs Calibration)</option>
+                                    <option value="conditional_pass">⚠️ Conditional Pass (Minor Variance)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                    Supervisor Approval / Clinical Reviewer
+                                </label>
+                                <input type="text" id="biomed-cal-supervisor" value="Engr. David Santos, CBET (Director of Biomedical Engineering)" class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 6px;">
+                                Metrology Notes, Standards Traceability &amp; Environmental Remarks
+                            </label>
+                            <textarea id="biomed-cal-notes" rows="2" placeholder="e.g. Verified multi-step energy delivery into 50-ohm test fixture. All parameters within ISO/IEC 17025 accredited limits..." class="form-control" style="width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;"></textarea>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                            <button type="button" class="btn btn-secondary eq-modal-close" data-modal="biomed-modal-record-calibration" style="padding: 8px 18px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;">Cancel</button>
+                            <button type="submit" class="btn" style="padding: 8px 24px; border-radius: 6px; background: #4f46e5; color: #fff; border: none; font-weight: 700; cursor: pointer; box-shadow: 0 1px 3px rgba(79,70,229,0.3);">
+                                📜 Generate NIST Certificate &amp; Affix Sticker
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
             <!-- MODAL: REGISTER / EDIT ASSET -->
             <div id="eq-modal-asset" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;">
                 <div style="background: var(--bg-card, #ffffff); width: 100%; max-width: 840px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden; margin: auto; max-height: 90vh; display: flex; flex-direction: column;">
