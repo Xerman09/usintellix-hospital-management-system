@@ -291,6 +291,8 @@ import { initFinancialBiDashboard } from "../reports/financial-bi-dashboard.js";
 import { FinancialBiDashboardView } from "../reports/financial-bi-dashboard.view.js";
 import { initDepartmentalProfitability } from "../reports/departmental-profitability.js";
 import { DepartmentalProfitabilityView } from "../reports/departmental-profitability.view.js";
+import { initClaimDenialPareto } from "../reports/claim-denial-pareto.js";
+import { ClaimDenialParetoView } from "../reports/claim-denial-pareto.view.js";
 import { initOrManagement } from "../or-management/or-management.js?v=29";
 import { OrManagementView } from "../or-management/or-management.view.js?v=5";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=4";
@@ -1479,6 +1481,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Departmental Profitability & Cost Centers', () => {
                 setTimeout(initDepartmentalProfitability, 0);
                 return DepartmentalProfitabilityView();
+            }, activate);
+        } else if (tabId === 'reports_claim_denial_pareto') {
+            tabManager.openTab(tabId, title || 'Claim Denial Rate & CARC Pareto', () => {
+                setTimeout(initClaimDenialPareto, 0);
+                return ClaimDenialParetoView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

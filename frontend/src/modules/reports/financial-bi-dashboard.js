@@ -51,8 +51,56 @@ async function loadAllData(targetMonth = '') {
     await Promise.all([
         loadOverview(targetMonth),
         loadCostCenterMargins(targetMonth),
+        loadDenialParetoSummary(targetMonth),
         loadTrends()
     ]);
+}
+
+async function loadDenialParetoSummary(month = '') {
+    const params = new URLSearchParams();
+    if (month) params.append('month', month);
+
+    try {
+        const res = await api(`/reports/financial-bi/claim-denial-pareto?${params.toString()}`);
+        if (res && res.success && res.data) {
+            renderDenialParetoTable(res.data);
+        }
+    } catch (err) {
+        console.error('Failed to load claim denial Pareto summary', err);
+    }
+}
+
+function renderDenialParetoTable(data) {
+    const tbody = document.getElementById('fbiDenialParetoTableBody');
+    const summaryLabel = document.getElementById('fbiDenialParetoSummaryLabel');
+    const kpis = data.kpis || {};
+    const pareto = data.pareto_root_causes || [];
+
+    if (summaryLabel) {
+        summaryLabel.textContent = `Gross Denial Rate: ${parseFloat(kpis.gross_claim_denial_rate_pct || 0).toFixed(2)}% | Clean Claim Rate: ${parseFloat(kpis.clean_claim_rate_pct || 0).toFixed(2)}% | Appeal Recovery: ${parseFloat(kpis.appeal_recovery_rate_pct || 0).toFixed(1)}%`;
+    }
+
+    if (!tbody) return;
+    if (pareto.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">No claim denial records found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = pareto.map(row => `
+        <tr>
+            <td><span style="background:#1e293b; color:#38bdf8; font-family:monospace; font-size:11.5px; font-weight:700; padding:2px 7px; border-radius:4px;">${escapeHtml(row.carc_codes)}</span></td>
+            <td>
+                <strong style="color:#0f172a;">${escapeHtml(row.category_label)}</strong>
+                <div style="font-size:11px; color:#64748b;">${escapeHtml(row.responsible_owner)}</div>
+            </td>
+            <td style="text-align:center; font-weight:700;">${row.claims_count}</td>
+            <td style="text-align:right; font-weight:700; color:#dc2626;">${formatCurrency(row.denied_amount)}</td>
+            <td style="text-align:right; font-weight:800; color:#dc2626;">${row.dollar_share_pct}%</td>
+            <td style="text-align:right; font-weight:700; color:#d97706;">${row.cumulative_pareto_pct}%</td>
+            <td style="text-align:right; font-weight:700; color:#059669;">${row.overturn_rate_pct}%</td>
+            <td style="font-size:12px; color:#0f172a; max-width:340px;">${escapeHtml(row.immediate_correction)}</td>
+        </tr>
+    `).join('');
 }
 
 async function loadCostCenterMargins(month = '') {

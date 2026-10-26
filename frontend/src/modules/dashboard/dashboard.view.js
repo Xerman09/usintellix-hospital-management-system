@@ -383,6 +383,7 @@ function staffNavLinks(role)
                     <div class="dropdown-submenu-content">
                         <a data-tab="reports_financial_bi">💼 Executive Financial &amp; BI (RevPAB)</a>
                         <a data-tab="reports_departmental_profitability">📊 Departmental Profitability &amp; Cost Centers</a>
+                        <a data-tab="reports_claim_denial_pareto">📉 Claim Denial Rate &amp; CARC Pareto</a>
                         <a data-tab="reports_financial_sales">Sales</a>
                         <a data-tab="reports_financial_cash_rec">Cash Rec</a>
                         <a data-tab="reports_financial_front_rec">Front Rec</a>

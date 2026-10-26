@@ -364,3 +364,9 @@ $router->post('/reports/financial-bi/cost-center-margins/recalculate', [ReportCo
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// Claim Denial Rate & CARC Pareto Analytics (80/20 Root Cause Distribution)
+$router->get('/reports/financial-bi/claim-denial-pareto', [ReportController::class, 'claimDenialParetoAnalytics'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

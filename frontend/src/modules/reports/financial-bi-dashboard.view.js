@@ -633,6 +633,44 @@ export function FinancialBiDashboardView() {
             </table>
         </div>
     </div>
+
+    <!-- Claim Denial Rate & CARC 80/20 Pareto Analytics Panel -->
+    <div class="fbi-panel">
+        <div class="fbi-panel-header">
+            <h3>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Claim Denial Rate &amp; CARC Root-Cause Pareto Analytics
+            </h3>
+            <span style="font-size: 12px; color: #64748b;" id="fbiDenialParetoSummaryLabel">Evaluating gross denial rate &amp; CARC Pareto drivers...</span>
+        </div>
+        <div class="fbi-table-responsive">
+            <table class="fbi-table" id="fbiDenialParetoTable">
+                <thead>
+                    <tr>
+                        <th>CARC Code</th>
+                        <th>Root-Cause Denial Category</th>
+                        <th style="text-align:center;">Claims</th>
+                        <th style="text-align:right;">Denied Amount</th>
+                        <th style="text-align:right;">Denial Share %</th>
+                        <th style="text-align:right;">Cumulative Pareto %</th>
+                        <th style="text-align:right;">Appeal Recovery %</th>
+                        <th>Immediate Billing Correction Protocol</th>
+                    </tr>
+                </thead>
+                <tbody id="fbiDenialParetoTableBody">
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">
+                            Loading CARC Pareto analytics...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 `;
 }

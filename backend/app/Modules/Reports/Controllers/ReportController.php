@@ -894,4 +894,20 @@ class ReportController extends Controller
         $data = $this->financialBiService->recalculateCostCenterMargins($month);
         $this->success($data, "Departmental cost center margins recalculated for {$month}.");
     }
+
+    /**
+     * Claim Denial Rate & CARC Pareto Analytics:
+     * Gross denial percentages, 80/20 CARC root-cause Pareto breakdown, and billing correction strategies.
+     */
+    public function claimDenialParetoAnalytics(): void
+    {
+        $request = new Request();
+        $filters = [
+            'month'  => $request->input('month'),
+            'payer'  => $request->input('payer'),
+            'status' => $request->input('status')
+        ];
+        $data = $this->financialBiService->getClaimDenialParetoAnalytics($filters);
+        $this->success($data, 'Claim denial rate and CARC Pareto analytics retrieved successfully.');
+    }
 }
