@@ -43,6 +43,13 @@ class Database
                     PDO::ATTR_PERSISTENT => true,
                 ]
             );
+
+            // Automatically synchronize any newly pulled schema migrations from backend/database/schema/*.sql
+            try {
+                AutoMigrator::ensureUpToDate($this->connection);
+            } catch (\Throwable $migrationError) {
+                error_log('AutoMigrator warning: ' . $migrationError->getMessage());
+            }
         } catch (PDOException $e) {
             http_response_code(500);
             header('Content-Type: application/json');
