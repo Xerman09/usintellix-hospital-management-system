@@ -9,6 +9,7 @@ use App\Modules\Reports\Services\ClinicalQualityAnalyticsService;
 use App\Modules\Reports\Services\ClinicalQualityScorecardService;
 use App\Modules\Reports\Services\FinancialBusinessIntelligenceService;
 use App\Modules\Reports\Services\RegulatoryDiseaseSurveillanceService;
+use App\Modules\Reports\Services\RegulatoryAhsrExportService;
 use App\Modules\Deidentification\Services\DeidentificationService;
 
 class ReportController extends Controller
@@ -19,6 +20,7 @@ class ReportController extends Controller
     private ClinicalQualityScorecardService $scorecardService;
     private FinancialBusinessIntelligenceService $financialBiService;
     private RegulatoryDiseaseSurveillanceService $diseaseSurveillanceService;
+    private RegulatoryAhsrExportService $ahsrExportService;
 
     public function __construct()
     {
@@ -28,6 +30,7 @@ class ReportController extends Controller
         $this->scorecardService = new ClinicalQualityScorecardService();
         $this->financialBiService = new FinancialBusinessIntelligenceService();
         $this->diseaseSurveillanceService = new RegulatoryDiseaseSurveillanceService();
+        $this->ahsrExportService = new RegulatoryAhsrExportService();
     }
 
     /**
@@ -986,5 +989,31 @@ class ReportController extends Controller
         }
         $details = $this->diseaseSurveillanceService->getCifDetails($id);
         $this->success($details, 'Epidemiological CIF record retrieved successfully.');
+    }
+
+    /**
+     * Health Authority Annual Hospital Statistical Report (AHSR) Engine:
+     * Top 10 Leading Causes of Morbidity & Mortality, Major/Minor Surgeries, Normal/C-Section Deliveries,
+     * and regulatory export batches.
+     */
+    public function regulatoryAhsrOverview(): void
+    {
+        $request = new Request();
+        $filters = [
+            'year' => $request->input('year')
+        ];
+        $data = $this->ahsrExportService->getAhsrOverview($filters);
+        $this->success($data, 'Annual Hospital Statistical Report (AHSR) data retrieved successfully.');
+    }
+
+    /**
+     * Generate one-click encrypted JSON / XML / CSV AHSR export batch for upload to national health portals.
+     */
+    public function generateRegulatoryAhsrExport(): void
+    {
+        $request = new Request();
+        $payload = $request->all();
+        $batch = $this->ahsrExportService->generateExportBatch($payload);
+        $this->success($batch, 'Encrypted AHSR statutory export batch compiled and signed successfully.', 201);
     }
 }

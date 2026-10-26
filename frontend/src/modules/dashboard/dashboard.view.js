@@ -353,6 +353,7 @@ function staffNavLinks(role)
                         <a data-tab="clinic_quality_dashboard">⭐ Clinical Quality &amp; Utilization</a>
                         <a data-tab="clinic_safety_scorecard">🏆 Executive Quality Scorecard</a>
                         <a data-tab="regulatory_disease_surveillance">🦠 Notifiable Disease Surveillance (PIDSR / CIF)</a>
+                        <a data-tab="regulatory_ahsr_export">🏛️ Annual Hospital Statistical Report (AHSR)</a>
                     </div>
 
                 </div>
@@ -375,6 +376,7 @@ function staffNavLinks(role)
                         <a data-tab="reports_visits_services">Services</a>
                         <a data-tab="reports_visits_syndromic_surveillance">Syndromic Surveillance</a>
                         <a data-tab="regulatory_disease_surveillance">🦠 Notifiable Disease Surveillance (CIF)</a>
+                        <a data-tab="regulatory_ahsr_export">🏛️ Annual Hospital Statistical Report (AHSR)</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">

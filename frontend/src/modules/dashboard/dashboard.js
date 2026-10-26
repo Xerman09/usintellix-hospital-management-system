@@ -295,6 +295,8 @@ import { initClaimDenialPareto } from "../reports/claim-denial-pareto.js";
 import { ClaimDenialParetoView } from "../reports/claim-denial-pareto.view.js";
 import { initRegulatoryDiseaseSurveillance } from "../reports/regulatory-disease-surveillance.js";
 import { RegulatoryDiseaseSurveillanceView } from "../reports/regulatory-disease-surveillance.view.js";
+import { initRegulatoryAhsrExport } from "../reports/regulatory-ahsr-export.js";
+import { RegulatoryAhsrExportView } from "../reports/regulatory-ahsr-export.view.js";
 import { initOrManagement } from "../or-management/or-management.js?v=29";
 import { OrManagementView } from "../or-management/or-management.view.js?v=5";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=4";
@@ -1493,6 +1495,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Notifiable Disease Surveillance (CIF)', () => {
                 setTimeout(initRegulatoryDiseaseSurveillance, 0);
                 return RegulatoryDiseaseSurveillanceView();
+            }, activate);
+        } else if (tabId === 'regulatory_ahsr_export') {
+            tabManager.openTab(tabId, title || 'Annual Hospital Statistical Report (AHSR)', () => {
+                setTimeout(initRegulatoryAhsrExport, 0);
+                return RegulatoryAhsrExportView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

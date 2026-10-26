@@ -32,6 +32,8 @@ import { ClaimDenialParetoView } from "../modules/reports/claim-denial-pareto.vi
 import { initClaimDenialPareto } from "../modules/reports/claim-denial-pareto.js";
 import { RegulatoryDiseaseSurveillanceView } from "../modules/reports/regulatory-disease-surveillance.view.js";
 import { initRegulatoryDiseaseSurveillance } from "../modules/reports/regulatory-disease-surveillance.js";
+import { RegulatoryAhsrExportView } from "../modules/reports/regulatory-ahsr-export.view.js";
+import { initRegulatoryAhsrExport } from "../modules/reports/regulatory-ahsr-export.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -593,6 +595,10 @@ const routes = {
     "/regulatory-disease-surveillance": {
         view: RegulatoryDiseaseSurveillanceView,
         afterRender: initRegulatoryDiseaseSurveillance
+    },
+    "/regulatory-ahsr-export": {
+        view: RegulatoryAhsrExportView,
+        afterRender: initRegulatoryAhsrExport
     }
 };
 

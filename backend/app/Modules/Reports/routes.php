@@ -392,3 +392,13 @@ $router->get('/reports/regulatory-disease-surveillance/cif-form', [ReportControl
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// Regulatory & Statutory Reporting: Annual Hospital Statistical Report (AHSR) & Encrypted Export Batches
+$router->get('/reports/regulatory-ahsr', [ReportController::class, 'regulatoryAhsrOverview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/regulatory-ahsr/export', [ReportController::class, 'generateRegulatoryAhsrExport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
