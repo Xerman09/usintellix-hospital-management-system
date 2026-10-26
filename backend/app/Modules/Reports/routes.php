@@ -312,3 +312,21 @@ $router->get('/reports/patient-quality-summary', [ReportController::class, 'pati
 
 
 
+
+// Clinical Quality & Hospital Utilization Analytics Engine (BOR %, ALOS, BTI)
+$router->get('/reports/clinical-quality/summary', [ReportController::class, 'clinicalQualitySummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/clinical-quality/trends', [ReportController::class, 'clinicalQualityTrends'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/clinical-quality/ward-breakdown', [ReportController::class, 'clinicalQualityWardBreakdown'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/clinical-quality/run-aggregation', [ReportController::class, 'runClinicalQualityAggregation'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

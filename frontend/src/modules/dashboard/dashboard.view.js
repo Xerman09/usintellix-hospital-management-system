@@ -350,6 +350,7 @@ function staffNavLinks(role)
                         <a data-tab="clinic_hai_ssi">HAI &amp; SSI Infections</a>
                         <a data-tab="clinic_readmission_mortality">30-Day Readmission &amp; Mortality</a>
                         <a data-tab="clinic_surgical_safety">Surgical Safety &amp; Time-Out</a>
+                        <a data-tab="clinic_quality_dashboard">⭐ Clinical Quality &amp; Utilization</a>
                     </div>
 
                 </div>

@@ -283,6 +283,8 @@ import { initReadmissionMortality } from "../reports/readmission-mortality.js";
 import { ReadmissionMortalityView } from "../reports/readmission-mortality.view.js";
 import { initSurgicalSafety } from "../reports/surgical-safety.js?v=24";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js?v=4";
+import { initClinicalQualityDashboard } from "../reports/clinical-quality-dashboard.js";
+import { ClinicalQualityDashboardView } from "../reports/clinical-quality-dashboard.view.js";
 import { initOrManagement } from "../or-management/or-management.js?v=29";
 import { OrManagementView } from "../or-management/or-management.view.js?v=5";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=4";
@@ -1451,6 +1453,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Surgical Safety & Time-Out', () => {
                 setTimeout(initSurgicalSafety, 0);
                 return SurgicalSafetyView();
+            }, activate);
+        } else if (tabId === 'clinic_quality_dashboard') {
+            tabManager.openTab(tabId, title || 'Clinical Quality & Utilization', () => {
+                setTimeout(initClinicalQualityDashboard, 0);
+                return ClinicalQualityDashboardView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

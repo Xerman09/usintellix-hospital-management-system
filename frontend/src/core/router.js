@@ -20,6 +20,8 @@ import { PerformanceEvaluationsView, initPerformanceEvaluations } from "../modul
 import { SupplyCatalogView, initSupplyCatalog } from "../modules/supply-catalog/supply-catalog.js";
 import { GoodsReceiptView, initGoodsReceipt } from "../modules/goods-receipt/goods-receipt.js";
 import { CSSDView, initCSSD } from "../modules/cssd/cssd.js";
+import { ClinicalQualityDashboardView } from "../modules/reports/clinical-quality-dashboard.view.js";
+import { initClinicalQualityDashboard } from "../modules/reports/clinical-quality-dashboard.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -557,6 +559,10 @@ const routes = {
     "/instrument-manifest": {
         view: CSSDView,
         afterRender: initCSSD
+    },
+    "/clinical-quality-dashboard": {
+        view: ClinicalQualityDashboardView,
+        afterRender: initClinicalQualityDashboard
     }
 };
 

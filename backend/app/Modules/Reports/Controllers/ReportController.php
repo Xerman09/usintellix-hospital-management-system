@@ -5,17 +5,20 @@ namespace App\Modules\Reports\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Modules\Reports\Services\ReportService;
+use App\Modules\Reports\Services\ClinicalQualityAnalyticsService;
 use App\Modules\Deidentification\Services\DeidentificationService;
 
 class ReportController extends Controller
 {
     private ReportService $reportService;
     private DeidentificationService $deidService;
+    private ClinicalQualityAnalyticsService $clinicalQualityService;
 
     public function __construct()
     {
         $this->reportService = new ReportService();
         $this->deidService = new DeidentificationService();
+        $this->clinicalQualityService = new ClinicalQualityAnalyticsService();
     }
 
     /**
@@ -731,5 +734,70 @@ class ReportController extends Controller
         }
         $data = $this->reportService->getPatientQualitySafetySummary($patientId);
         $this->success($data, 'Patient quality and safety summary retrieved successfully.');
+    }
+
+    /**
+     * Automated Bed Census & Hospital Utilization (BOR %, ALOS, BTI) Summary.
+     */
+    public function clinicalQualitySummary(): void
+    {
+        $request = new Request();
+        $filters = [
+            'from'    => $request->input('from'),
+            'to'      => $request->input('to'),
+            'ward_id' => $request->input('ward_id')
+        ];
+        $data = $this->clinicalQualityService->getSummaryMetrics($filters);
+        $this->success($data, 'Clinical quality summary KPIs retrieved successfully.');
+    }
+
+    /**
+     * Daily series trend data for graphing BOR, ALOS, BTI, and census.
+     */
+    public function clinicalQualityTrends(): void
+    {
+        $request = new Request();
+        $filters = [
+            'from'    => $request->input('from'),
+            'to'      => $request->input('to'),
+            'ward_id' => $request->input('ward_id')
+        ];
+        $data = $this->clinicalQualityService->getTrends($filters);
+        $this->success($data, 'Clinical quality trends retrieved successfully.');
+    }
+
+    /**
+     * Ward utilization breakdown table.
+     */
+    public function clinicalQualityWardBreakdown(): void
+    {
+        $request = new Request();
+        $filters = [
+            'from' => $request->input('from'),
+            'to'   => $request->input('to')
+        ];
+        $data = $this->clinicalQualityService->getWardBreakdown($filters);
+        $this->success($data, 'Ward utilization breakdown retrieved successfully.');
+    }
+
+    /**
+     * Trigger recalculation or backfill on-demand.
+     */
+    public function runClinicalQualityAggregation(): void
+    {
+        $request = new Request();
+        $days = (int)($request->input('days') ?? 30);
+        $date = $request->input('date');
+
+        if (!empty($date)) {
+            $result = $this->clinicalQualityService->calculateForDate($date, 'manual_recalc');
+            $this->success($result, "Clinical quality metrics recalculated for {$date}.");
+            return;
+        }
+
+        $startDate = date('Y-m-d', strtotime("-{$days} days"));
+        $endDate = date('Y-m-d');
+        $result = $this->clinicalQualityService->backfillRange($startDate, $endDate, 'manual_recalc');
+        $this->success($result, "Clinical quality aggregation completed for past {$days} days.");
     }
 }
