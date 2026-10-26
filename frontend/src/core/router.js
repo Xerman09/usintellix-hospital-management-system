@@ -22,6 +22,8 @@ import { GoodsReceiptView, initGoodsReceipt } from "../modules/goods-receipt/goo
 import { CSSDView, initCSSD } from "../modules/cssd/cssd.js";
 import { ClinicalQualityDashboardView } from "../modules/reports/clinical-quality-dashboard.view.js";
 import { initClinicalQualityDashboard } from "../modules/reports/clinical-quality-dashboard.js";
+import { ClinicalSafetyScorecardView } from "../modules/reports/clinical-safety-scorecard.view.js";
+import { initClinicalSafetyScorecard } from "../modules/reports/clinical-safety-scorecard.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -563,6 +565,10 @@ const routes = {
     "/clinical-quality-dashboard": {
         view: ClinicalQualityDashboardView,
         afterRender: initClinicalQualityDashboard
+    },
+    "/clinical-safety-scorecard": {
+        view: ClinicalSafetyScorecardView,
+        afterRender: initClinicalSafetyScorecard
     }
 };
 

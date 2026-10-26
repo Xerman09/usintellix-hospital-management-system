@@ -285,6 +285,8 @@ import { initSurgicalSafety } from "../reports/surgical-safety.js?v=24";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js?v=4";
 import { initClinicalQualityDashboard } from "../reports/clinical-quality-dashboard.js";
 import { ClinicalQualityDashboardView } from "../reports/clinical-quality-dashboard.view.js";
+import { initClinicalSafetyScorecard } from "../reports/clinical-safety-scorecard.js";
+import { ClinicalSafetyScorecardView } from "../reports/clinical-safety-scorecard.view.js";
 import { initOrManagement } from "../or-management/or-management.js?v=29";
 import { OrManagementView } from "../or-management/or-management.view.js?v=5";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=4";
@@ -1458,6 +1460,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Clinical Quality & Utilization', () => {
                 setTimeout(initClinicalQualityDashboard, 0);
                 return ClinicalQualityDashboardView();
+            }, activate);
+        } else if (tabId === 'clinic_safety_scorecard') {
+            tabManager.openTab(tabId, title || 'Executive Quality Scorecard', () => {
+                setTimeout(initClinicalSafetyScorecard, 0);
+                return ClinicalSafetyScorecardView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

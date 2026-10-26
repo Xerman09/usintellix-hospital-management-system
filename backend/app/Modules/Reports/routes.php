@@ -330,3 +330,17 @@ $router->post('/reports/clinical-quality/run-aggregation', [ReportController::cl
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// Executive Clinical Quality Scorecard (Readmission %, HAI Device Rates, ER Turnaround, C-Section %)
+$router->get('/reports/clinical-safety-scorecard/overview', [ReportController::class, 'executiveScorecardOverview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/clinical-safety-scorecard/deliveries', [ReportController::class, 'executiveScorecardDeliveries'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/clinical-safety-scorecard/deliveries', [ReportController::class, 'recordScorecardDelivery'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

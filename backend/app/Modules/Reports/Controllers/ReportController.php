@@ -13,12 +13,14 @@ class ReportController extends Controller
     private ReportService $reportService;
     private DeidentificationService $deidService;
     private ClinicalQualityAnalyticsService $clinicalQualityService;
+    private ClinicalQualityScorecardService $scorecardService;
 
     public function __construct()
     {
         $this->reportService = new ReportService();
         $this->deidService = new DeidentificationService();
         $this->clinicalQualityService = new ClinicalQualityAnalyticsService();
+        $this->scorecardService = new ClinicalQualityScorecardService();
     }
 
     /**
@@ -799,5 +801,45 @@ class ReportController extends Controller
         $endDate = date('Y-m-d');
         $result = $this->clinicalQualityService->backfillRange($startDate, $endDate, 'manual_recalc');
         $this->success($result, "Clinical quality aggregation completed for past {$days} days.");
+    }
+
+    /**
+     * Executive Clinical Quality Scorecard (Readmission %, HAI Device Rates, ER Door-to-Doctor, C-Section %)
+     */
+    public function executiveScorecardOverview(): void
+    {
+        $request = new Request();
+        $filters = [
+            'from' => $request->input('from'),
+            'to'   => $request->input('to')
+        ];
+        $data = $this->scorecardService->getScorecardOverview($filters);
+        $this->success($data, 'Executive clinical safety scorecard retrieved successfully.');
+    }
+
+    /**
+     * Recent deliveries log for Caesarean Section & Obstetric safety tracking.
+     */
+    public function executiveScorecardDeliveries(): void
+    {
+        $request = new Request();
+        $limit = (int)($request->input('limit') ?? 50);
+        $data = $this->scorecardService->getDeliveries($limit);
+        $this->success($data, 'Obstetric delivery records retrieved successfully.');
+    }
+
+    /**
+     * Record a new delivery event.
+     */
+    public function recordScorecardDelivery(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        if (empty($data['patient_name'])) {
+            $this->error('Patient name is required.', 422);
+            return;
+        }
+        $result = $this->scorecardService->recordDelivery($data);
+        $this->success($result, 'Delivery record logged successfully.');
     }
 }
