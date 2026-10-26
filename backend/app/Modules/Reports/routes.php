@@ -344,3 +344,13 @@ $router->post('/reports/clinical-safety-scorecard/deliveries', [ReportController
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// Financial & Business Intelligence (BI): RevPAB, Bed Productivity & Department Margins
+$router->get('/reports/financial-bi/overview', [ReportController::class, 'financialBiOverview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/financial-bi/trends', [ReportController::class, 'financialBiTrends'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

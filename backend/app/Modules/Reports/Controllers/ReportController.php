@@ -14,6 +14,7 @@ class ReportController extends Controller
     private DeidentificationService $deidService;
     private ClinicalQualityAnalyticsService $clinicalQualityService;
     private ClinicalQualityScorecardService $scorecardService;
+    private FinancialBusinessIntelligenceService $financialBiService;
 
     public function __construct()
     {
@@ -21,6 +22,7 @@ class ReportController extends Controller
         $this->deidService = new DeidentificationService();
         $this->clinicalQualityService = new ClinicalQualityAnalyticsService();
         $this->scorecardService = new ClinicalQualityScorecardService();
+        $this->financialBiService = new FinancialBusinessIntelligenceService();
     }
 
     /**
@@ -841,5 +843,29 @@ class ReportController extends Controller
         }
         $result = $this->scorecardService->recordDelivery($data);
         $this->success($result, 'Delivery record logged successfully.');
+    }
+
+    /**
+     * Executive Financial & Business Intelligence (RevPAB, margins, loss-making departments).
+     */
+    public function financialBiOverview(): void
+    {
+        $request = new Request();
+        $filters = [
+            'month' => $request->input('month')
+        ];
+        $data = $this->financialBiService->getExecutiveOverview($filters);
+        $this->success($data, 'Financial BI overview retrieved successfully.');
+    }
+
+    /**
+     * Financial BI monthly trend history.
+     */
+    public function financialBiTrends(): void
+    {
+        $request = new Request();
+        $limit = (int)($request->input('limit') ?? 6);
+        $data = $this->financialBiService->getMonthlyTrends($limit);
+        $this->success($data, 'Financial BI trends retrieved successfully.');
     }
 }

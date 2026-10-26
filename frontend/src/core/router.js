@@ -24,6 +24,8 @@ import { ClinicalQualityDashboardView } from "../modules/reports/clinical-qualit
 import { initClinicalQualityDashboard } from "../modules/reports/clinical-quality-dashboard.js";
 import { ClinicalSafetyScorecardView } from "../modules/reports/clinical-safety-scorecard.view.js";
 import { initClinicalSafetyScorecard } from "../modules/reports/clinical-safety-scorecard.js";
+import { FinancialBiDashboardView } from "../modules/reports/financial-bi-dashboard.view.js";
+import { initFinancialBiDashboard } from "../modules/reports/financial-bi-dashboard.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -569,6 +571,10 @@ const routes = {
     "/clinical-safety-scorecard": {
         view: ClinicalSafetyScorecardView,
         afterRender: initClinicalSafetyScorecard
+    },
+    "/financial-bi-dashboard": {
+        view: FinancialBiDashboardView,
+        afterRender: initFinancialBiDashboard
     }
 };
 
