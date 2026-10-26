@@ -26,6 +26,15 @@ class BiomedicalController extends Controller
     }
 
     /**
+     * Get Breakdown Ticketing & Urgent Repair KPI counts.
+     */
+    public function breakdownSummary(): void
+    {
+        $metrics = $this->service->getBreakdownSummary();
+        $this->success($metrics, 'Breakdown ticketing summary metrics retrieved.');
+    }
+
+    /**
      * List all PM schedules with filters.
      */
     public function schedules(): void
@@ -186,6 +195,68 @@ class BiomedicalController extends Controller
 
         $orders = $this->service->listWorkOrders($filters);
         $this->success($orders, 'Biomedical work orders retrieved successfully.');
+    }
+
+    /**
+     * List Breakdown Tickets specifically.
+     */
+    public function breakdownTickets(): void
+    {
+        $request = new Request();
+        $filters = [
+            'search'       => $request->input('search'),
+            'status'       => $request->input('status'),
+            'priority'     => $request->input('priority'),
+            'only_tickets' => true,
+            'asset_id'     => $request->input('asset_id'),
+        ];
+
+        $tickets = $this->service->listWorkOrders($filters);
+        $this->success($tickets, 'Biomedical breakdown tickets retrieved successfully.');
+    }
+
+    /**
+     * File a new Breakdown Ticket: Alerts Biomedical Engineering and
+     * AUTOMATICALLY flips machine status to "Under Repair" (clinical lockout).
+     */
+    public function storeBreakdownTicket(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $data = $request->all();
+
+        $result = $this->service->createBreakdownTicket($data, (int)($user['id'] ?? 1));
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * Resolve Breakdown Ticket: Logs root-cause diagnostics, spare parts replaced,
+     * labor hours, electrical safety test, and releases machine back to "Operational".
+     */
+    public function resolveBreakdownTicket(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $id = (int)$request->input('id');
+
+        if (!$id) {
+            $this->error('Ticket/Work Order ID is required.', 422);
+            return;
+        }
+
+        $data = $request->all();
+        $result = $this->service->resolveBreakdownTicket($id, $data, (int)($user['id'] ?? 1));
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
     }
 
     /**

@@ -15,6 +15,10 @@ import {
     updatePMSchedule,
     deletePMSchedule,
     generateWorkOrderFromSchedule,
+    fetchBreakdownSummary,
+    fetchBreakdownTickets,
+    createBreakdownTicket,
+    resolveBreakdownTicket,
     fetchBiomedWorkOrders,
     fetchBiomedWorkOrder,
     createBiomedWorkOrder,
@@ -46,6 +50,14 @@ let state = {
         maintenance_type: "",
         due_filter: ""
     },
+    breakdownSummary: null,
+    breakdownTickets: [],
+    tktFilters: {
+        search: "",
+        status: "",
+        priority: "",
+        asset_id: ""
+    },
     workOrders: [],
     woFilters: {
         search: "",
@@ -55,6 +67,7 @@ let state = {
     },
     activeTab: "fleet",
     selectedSchedule: null,
+    selectedTicket: null,
     selectedAsset: null
 };
 
@@ -67,6 +80,7 @@ export async function initEquipmentAssets(user = {}) {
     // Attach listeners
     setupEventListeners();
     setupBiomedEventListeners();
+    setupBreakdownEventListeners();
     updateDomCurrencyElements();
 
     // Initial loads
@@ -75,7 +89,9 @@ export async function initEquipmentAssets(user = {}) {
         loadMetrics(),
         loadAssets(),
         loadPMSummary(),
-        loadPMSchedules()
+        loadPMSchedules(),
+        loadBreakdownSummary(),
+        loadBreakdownTickets()
     ]);
 }
 
@@ -85,7 +101,7 @@ export async function initEquipmentAssets(user = {}) {
 function switchBiomedTab(tabKey) {
     state.activeTab = tabKey;
 
-    const tabs = ["fleet", "calendar", "workorders"];
+    const tabs = ["fleet", "breakdown", "calendar", "workorders"];
     tabs.forEach(t => {
         const btn = document.getElementById(`biomed-tab-${t}`);
         const view = document.getElementById(`biomed-view-${t}`);
@@ -101,12 +117,65 @@ function switchBiomedTab(tabKey) {
         }
     });
 
-    if (tabKey === "calendar") {
+    if (tabKey === "breakdown") {
+        loadBreakdownSummary();
+        loadBreakdownTickets();
+    } else if (tabKey === "calendar") {
         loadPMSummary();
         loadPMSchedules();
     } else if (tabKey === "workorders") {
         loadWorkOrders();
+    } else if (tabKey === "fleet") {
+        loadMetrics();
+        loadAssets();
     }
+}
+
+/**
+ * Setup Breakdown Ticketing Listeners
+ */
+function setupBreakdownEventListeners() {
+    // Nav Tab
+    document.getElementById("biomed-tab-breakdown")?.addEventListener("click", () => switchBiomedTab("breakdown"));
+
+    // Header & workbench Report Breakdown Buttons
+    const openReportModal = () => openReportBreakdownModal();
+    document.getElementById("biomed-btn-report-breakdown")?.addEventListener("click", openReportModal);
+    document.getElementById("biomed-btn-open-breakdown-modal")?.addEventListener("click", openReportModal);
+
+    // Breakdown search & filters
+    const tktSearch = document.getElementById("biomed-tkt-filter-search");
+    if (tktSearch) {
+        let tktTimer = null;
+        tktSearch.oninput = (e) => {
+            clearTimeout(tktTimer);
+            tktTimer = setTimeout(() => {
+                state.tktFilters.search = e.target.value.trim();
+                loadBreakdownTickets();
+            }, 300);
+        };
+    }
+
+    document.getElementById("biomed-tkt-filter-priority")?.addEventListener("change", (e) => {
+        state.tktFilters.priority = e.target.value;
+        loadBreakdownTickets();
+    });
+
+    document.getElementById("biomed-tkt-filter-status")?.addEventListener("change", (e) => {
+        state.tktFilters.status = e.target.value;
+        loadBreakdownTickets();
+    });
+
+    // Report Breakdown Form Submit
+    document.getElementById("biomed-form-report-breakdown")?.addEventListener("submit", handleReportBreakdownSubmit);
+
+    // Add Spare Part Row in Resolve Modal
+    document.getElementById("biomed-btn-add-part-row")?.addEventListener("click", () => {
+        addSparePartRow();
+    });
+
+    // Resolve Breakdown Form Submit
+    document.getElementById("biomed-form-resolve-breakdown")?.addEventListener("submit", handleResolveBreakdownSubmit);
 }
 
 /**
@@ -217,9 +286,6 @@ function setupBiomedEventListeners() {
         state.woFilters.work_order_type = e.target.value;
         loadWorkOrders();
     });
-
-    // Work Order Form Submit
-    document.getElementById("biomed-form-workorder")?.addEventListener("submit", handleWorkOrderFormSubmit);
 }
 
 /**
@@ -230,8 +296,16 @@ function setupEventListeners() {
     const btnRefresh = document.getElementById("eq-btn-refresh");
     if (btnRefresh) {
         btnRefresh.onclick = async () => {
-            await Promise.all([loadMetrics(), loadAssets(), loadPMSummary(), loadPMSchedules(), loadWorkOrders()]);
-            showToast("Equipment & Biomedical data refreshed.", "info");
+            await Promise.all([
+                loadMetrics(),
+                loadAssets(),
+                loadPMSummary(),
+                loadPMSchedules(),
+                loadBreakdownSummary(),
+                loadBreakdownTickets(),
+                loadWorkOrders()
+            ]);
+            showToast("Equipment fleet & biomedical tickets refreshed.", "info");
         };
     }
 
@@ -496,6 +570,11 @@ function renderAssetsTable(assets) {
 
         const locationStr = [a.department_name, a.ward_name, a.room_number ? `Rm ${a.room_number}` : null].filter(Boolean).join(" &bull; ") || "Unassigned";
 
+        let statusText = `<span class="eq-badge ${statusClass}">${escapeHtml(a.status)}</span>`;
+        if (a.status === 'Under Repair' && a.status_reason) {
+            statusText += `<div style="font-size: 0.72rem; color: #b91c1c; font-weight: 600; margin-top: 3px; max-width: 200px;">${escapeHtml(a.status_reason)}</div>`;
+        }
+
         return `
             <tr style="border-bottom: 1px solid var(--border-color, #e2e8f0);">
                 <td style="padding: 12px 16px; font-weight: 600; font-family: monospace; color: #2563eb;">
@@ -518,7 +597,7 @@ function renderAssetsTable(assets) {
                     ${calibInfo}
                 </td>
                 <td style="padding: 12px 16px;">
-                    <span class="eq-badge ${statusClass}">${escapeHtml(a.status)}</span>
+                    ${statusText}
                 </td>
                 <td style="padding: 12px 16px; text-align: right; white-space: nowrap;">
                     <button class="btn btn-sm btn-outline eq-btn-action-logs" data-id="${a.id}" data-name="${escapeHtml(a.name)}" data-tag="${escapeHtml(a.asset_tag)}" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer;" title="View / Add Maintenance Log">
@@ -545,6 +624,401 @@ function renderAssetsTable(assets) {
     tbody.querySelectorAll(".eq-btn-action-edit").forEach(b => {
         b.onclick = () => openAssetModal(parseInt(b.getAttribute("data-id"), 10));
     });
+}
+
+/* =====================================================================
+   BREAKDOWN TICKETING WORKBENCH LOGIC
+===================================================================== */
+
+/**
+ * Load Breakdown Summary KPIs
+ */
+async function loadBreakdownSummary() {
+    try {
+        const res = await fetchBreakdownSummary();
+        if (res && res.data) {
+            state.breakdownSummary = res.data;
+            renderBreakdownSummary(res.data);
+        }
+    } catch (err) {
+        console.error("Failed to load breakdown summary:", err);
+    }
+}
+
+function renderBreakdownSummary(s) {
+    const elStat = document.getElementById("biomed-kpi-stat-down");
+    if (elStat) elStat.innerText = s.stat_life_critical_down || 0;
+
+    const elUrgent = document.getElementById("biomed-kpi-urgent-down");
+    if (elUrgent) elUrgent.innerText = s.urgent_down || 0;
+
+    const elLocked = document.getElementById("biomed-kpi-locked-machines");
+    if (elLocked) elLocked.innerText = s.under_repair_assets_count || 0;
+
+    const elDowntime = document.getElementById("biomed-kpi-avg-downtime");
+    if (elDowntime) elDowntime.innerText = `${s.avg_downtime_hours || 0}h`;
+
+    const elCosts = document.getElementById("biomed-kpi-repair-costs");
+    if (elCosts) elCosts.innerText = formatCurrency(s.total_repair_costs || 0);
+
+    // Urgent STAT badge on navigation tab
+    const badgeStat = document.getElementById("biomed-tab-stat-down-badge");
+    if (badgeStat) {
+        if (s.stat_life_critical_down > 0) {
+            badgeStat.innerText = `${s.stat_life_critical_down} 🔴 STAT DOWN`;
+            badgeStat.style.display = "inline-block";
+        } else {
+            badgeStat.style.display = "none";
+        }
+    }
+}
+
+/**
+ * Load Breakdown Tickets
+ */
+async function loadBreakdownTickets() {
+    const tbody = document.getElementById("biomed-tkt-table-body");
+    const countEl = document.getElementById("biomed-tkt-table-count");
+
+    try {
+        const res = await fetchBreakdownTickets(state.tktFilters);
+        if (res && res.data) {
+            state.breakdownTickets = res.data;
+            renderBreakdownTicketsTable(res.data);
+            if (countEl) countEl.innerText = `Showing ${res.data.length} breakdown tickets`;
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="padding: 24px; text-align: center; color: #ef4444;">Failed to load breakdown tickets: ${escapeHtml(err.message)}</td></tr>`;
+    }
+}
+
+function renderBreakdownTicketsTable(tickets) {
+    const tbody = document.getElementById("biomed-tkt-table-body");
+    if (!tickets || tickets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="padding: 32px; text-align: center; color: var(--text-muted, #94a3b8);">No breakdown alerts or active repair tickets found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = tickets.map(t => {
+        // Priority Badge
+        let prioBadge = '';
+        if (t.priority === 'stat_life_critical') {
+            prioBadge = `<span style="background: rgba(220,38,38,0.15); color: #dc2626; border: 1px solid rgba(220,38,38,0.3); font-size: 0.75rem; font-weight: 800; padding: 2px 7px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#dc2626; animation: eq-pulse 1s infinite;"></span>
+                🔴 STAT LIFE CRITICAL
+            </span>`;
+        } else if (t.priority === 'urgent') {
+            prioBadge = `<span style="background: rgba(245,158,11,0.15); color: #d97706; font-size: 0.75rem; font-weight: 700; padding: 2px 7px; border-radius: 9999px;">
+                🟠 HIGH PRIORITY
+            </span>`;
+        } else {
+            prioBadge = `<span style="background: rgba(100,116,139,0.12); color: #475569; font-size: 0.75rem; font-weight: 600; padding: 2px 7px; border-radius: 9999px;">
+                🟡 ROUTINE
+            </span>`;
+        }
+
+        // Lockout & Status Badge
+        let lockoutBadge = '';
+        if (t.equipment_status === 'Under Repair') {
+            lockoutBadge = `<div style="background: rgba(220,38,38,0.1); color: #b91c1c; border: 1px solid rgba(220,38,38,0.25); border-radius: 6px; padding: 4px 8px; font-size: 0.725rem; font-weight: 700;">
+                🔒 CLINICAL LOCKOUT<br>
+                <span style="font-weight: 500; color: #dc2626;">Under Repair &bull; Do Not Assign</span>
+            </div>`;
+        } else if (t.status === 'completed_passed') {
+            lockoutBadge = `<span style="background: rgba(16,185,129,0.15); color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 9999px;">
+                ✅ Repaired &amp; Released
+            </span>`;
+        } else {
+            lockoutBadge = `<span class="eq-badge eq-badge-repair">${escapeHtml(t.equipment_status || 'Under Repair')}</span>`;
+        }
+
+        const costStr = t.total_cost > 0 ? formatCurrency(t.total_cost) : '--';
+        const downtimeStr = t.downtime_hours > 0 ? `${t.downtime_hours}h downtime` : 'Active';
+
+        return `
+            <tr style="border-bottom: 1px solid var(--border-color, #e2e8f0); ${t.priority === 'stat_life_critical' ? 'background: rgba(254,242,242,0.3);' : ''}">
+                <td style="padding: 12px 16px;">
+                    <div style="font-weight: 800; font-family: monospace; color: #2563eb; font-size: 0.9rem;">
+                        ${escapeHtml(t.ticket_number || t.work_order_number)}
+                    </div>
+                    <div style="margin-top: 4px;">${prioBadge}</div>
+                </td>
+                <td style="padding: 12px 16px;">
+                    <div style="font-weight: 700; color: #0f172a;">${escapeHtml(t.equipment_name)}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">
+                        Tag: <strong style="color: #2563eb;">${escapeHtml(t.asset_tag)}</strong> &bull; S/N: ${escapeHtml(t.serial_number || 'N/A')}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #475569; margin-top: 2px;">
+                        Location: <strong>${escapeHtml(t.reporting_ward_or_dept || t.department_name || 'Clinical Bay')}</strong>
+                    </div>
+                </td>
+                <td style="padding: 12px 16px; max-width: 280px;">
+                    <div style="font-weight: 600; color: #b91c1c; font-size: 0.8125rem;">
+                        ${escapeHtml(t.breakdown_symptom || t.findings || 'Unspecified failure')}
+                    </div>
+                    ${t.clinical_impact ? `<div style="font-size: 0.75rem; color: #64748b; margin-top: 3px; font-style: italic;">Impact: ${escapeHtml(t.clinical_impact)}</div>` : ''}
+                </td>
+                <td style="padding: 12px 16px; font-size: 0.8125rem;">
+                    <div style="font-weight: 600; color: #1e293b;">${escapeHtml(t.reported_by_staff_name || 'Clinical Staff')}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(t.reported_by_role || 'Staff')}</div>
+                    <div style="font-size: 0.725rem; color: #94a3b8; margin-top: 2px;">${escapeHtml(t.reported_at || t.scheduled_date)}</div>
+                </td>
+                <td style="padding: 12px 16px;">
+                    ${lockoutBadge}
+                </td>
+                <td style="padding: 12px 16px; font-size: 0.8125rem; max-width: 240px;">
+                    <div style="font-weight: 600; color: #1e293b;">${escapeHtml(t.lead_engineer_name || 'Unassigned')}</div>
+                    ${t.root_cause_diagnostics ? `<div style="font-size: 0.75rem; color: #475569; margin-top: 2px;">Diagnostics: ${escapeHtml(t.root_cause_diagnostics)}</div>` : `<div style="font-size: 0.725rem; color: #94a3b8; font-style: italic;">Awaiting root-cause diagnostics</div>`}
+                    <div style="font-size: 0.725rem; color: #64748b; margin-top: 3px;">Cost: <strong>${costStr}</strong> &bull; ${downtimeStr}</div>
+                </td>
+                <td style="padding: 12px 16px; text-align: right; white-space: nowrap;">
+                    <button class="btn btn-sm btn-primary biomed-btn-resolve-tkt" data-id="${t.id}" style="padding: 5px 12px; font-size: 0.75rem; font-weight: 700; border-radius: 4px; background: #2563eb; color: #fff; border: none; cursor: pointer;">
+                        Diagnose &amp; Resolve
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    tbody.querySelectorAll(".biomed-btn-resolve-tkt").forEach(b => {
+        b.onclick = () => openResolveBreakdownModal(parseInt(b.getAttribute("data-id"), 10));
+    });
+}
+
+/**
+ * Open Report Breakdown Modal
+ */
+function openReportBreakdownModal(assetId = null) {
+    const form = document.getElementById("biomed-form-report-breakdown");
+    form.reset();
+
+    const assetSelect = document.getElementById("biomed-report-asset-id");
+    if (assetSelect) {
+        assetSelect.innerHTML = `<option value="">Select machinery asset...</option>` +
+            state.assets.map(a => `<option value="${a.id}">[${escapeHtml(a.asset_tag)}] ${escapeHtml(a.name)} (${escapeHtml(a.department_name || 'General')} - ${escapeHtml(a.criticality_level)})</option>`).join("");
+        if (assetId) assetSelect.value = assetId;
+    }
+
+    const timeInput = document.getElementById("biomed-report-time");
+    if (timeInput) {
+        timeInput.value = new Date().toISOString().substring(0, 16);
+    }
+
+    openModal("biomed-modal-report-breakdown");
+}
+
+async function handleReportBreakdownSubmit(e) {
+    e.preventDefault();
+
+    const assetId = parseInt(document.getElementById("biomed-report-asset-id").value, 10);
+    const symptom = document.getElementById("biomed-report-symptom").value.trim();
+    const impact = document.getElementById("biomed-report-impact").value.trim();
+    const staffName = document.getElementById("biomed-report-staff-name").value.trim();
+    const staffRole = document.getElementById("biomed-report-staff-role").value.trim();
+    const ward = document.getElementById("biomed-report-ward").value.trim();
+    const reportedAt = document.getElementById("biomed-report-time").value ? document.getElementById("biomed-report-time").value.replace("T", " ") + ":00" : null;
+    const engineer = document.getElementById("biomed-report-engineer").value.trim();
+
+    const priorityRadio = document.querySelector('input[name="breakdown_priority"]:checked');
+    const priority = priorityRadio ? priorityRadio.value : "urgent";
+
+    const payload = {
+        asset_id: assetId,
+        priority: priority,
+        breakdown_symptom: symptom,
+        clinical_impact: impact,
+        reported_by_staff_name: staffName,
+        reported_by_role: staffRole,
+        reporting_ward_or_dept: ward,
+        reported_at: reportedAt,
+        lead_engineer_name: engineer
+    };
+
+    try {
+        const res = await createBreakdownTicket(payload);
+        if (res && res.success) {
+            showToast(res.message || "Breakdown ticket submitted. Machinery locked out to Under Repair.", "success");
+            closeModal("biomed-modal-report-breakdown");
+            await Promise.all([
+                loadBreakdownSummary(),
+                loadBreakdownTickets(),
+                loadAssets(),
+                loadMetrics(),
+                loadWorkOrders()
+            ]);
+            switchBiomedTab("breakdown");
+        } else {
+            showToast(res.message || "Failed to submit breakdown ticket.", "error");
+        }
+    } catch (err) {
+        showToast(err.message || "Network error.", "error");
+    }
+}
+
+/**
+ * Open Resolve Breakdown Modal
+ */
+async function openResolveBreakdownModal(ticketId) {
+    try {
+        const res = await fetchBiomedWorkOrder(ticketId);
+        if (!res || !res.data) {
+            showToast("Failed to load breakdown ticket.", "error");
+            return;
+        }
+
+        const t = res.data;
+        state.selectedTicket = t;
+
+        document.getElementById("biomed-res-id").value = t.id;
+        document.getElementById("biomed-res-header-meta").innerText = `${t.ticket_number || t.work_order_number} &bull; ${t.work_order_type.toUpperCase()}`;
+        document.getElementById("biomed-res-header-title").innerText = `Repair Diagnostics: ${t.equipment_name}`;
+
+        document.getElementById("biomed-res-asset-name").innerText = `${t.equipment_name} (${t.asset_tag}) &bull; S/N: ${t.serial_number || 'N/A'}`;
+        document.getElementById("biomed-res-reporter").innerText = `${t.reported_by_staff_name || 'Staff'} (${t.reported_by_role || 'Nurse'}) &bull; ${t.reporting_ward_or_dept || ''}`;
+        document.getElementById("biomed-res-symptom").innerText = t.breakdown_symptom || t.findings || 'No symptom recorded';
+
+        const impEl = document.getElementById("biomed-res-impact");
+        if (t.clinical_impact) {
+            impEl.innerText = t.clinical_impact;
+            document.getElementById("biomed-res-impact-container").style.display = "block";
+        } else {
+            document.getElementById("biomed-res-impact-container").style.display = "none";
+        }
+
+        document.getElementById("biomed-res-root-cause").value = t.root_cause_diagnostics || "";
+        document.getElementById("biomed-res-actions").value = t.corrective_actions || "";
+        document.getElementById("biomed-res-labor").value = t.labor_hours || 2.0;
+        document.getElementById("biomed-res-downtime").value = t.downtime_hours || 3.0;
+        document.getElementById("biomed-res-cost").value = t.total_cost || 0.0;
+        document.getElementById("biomed-res-engineer").value = t.lead_engineer_name || "Engr. David Santos, CBET";
+
+        document.getElementById("biomed-res-leakage").value = t.chassis_leakage_microamp || "";
+        document.getElementById("biomed-res-resistance").value = t.ground_resistance_ohms || "";
+        document.getElementById("biomed-res-elec-pass").value = t.electrical_safety_passed ? "1" : "0";
+        document.getElementById("biomed-res-calib-pass").value = t.calibration_passed ? "1" : "0";
+
+        document.getElementById("biomed-res-status").value = (t.status === 'completed_passed') ? 'completed_passed' : 'completed_passed';
+        document.getElementById("biomed-res-signoff").value = t.supervisor_signoff_by || "Engr. David Santos, CBET (Biomedical Lead)";
+
+        // Populate spare parts rows
+        const partsContainer = document.getElementById("biomed-parts-container");
+        partsContainer.innerHTML = "";
+        const parts = t.parts_replaced || [];
+        if (parts.length > 0) {
+            parts.forEach(p => addSparePartRow(p.part_name, p.part_number, p.qty, p.cost));
+        } else {
+            addSparePartRow();
+        }
+
+        openModal("biomed-modal-resolve-breakdown");
+    } catch (err) {
+        showToast("Error opening resolution modal: " + err.message, "error");
+    }
+}
+
+function addSparePartRow(name = "", partNo = "", qty = 1, cost = 0) {
+    const container = document.getElementById("biomed-parts-container");
+    const row = document.createElement("div");
+    row.className = "biomed-part-row";
+    row.style = "display: grid; grid-template-columns: 2fr 1.2fr 80px 100px 24px; gap: 8px; align-items: center; background: #fff; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1;";
+    row.innerHTML = `
+        <input type="text" placeholder="Spare Part Name..." value="${escapeHtml(name)}" class="part-name" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px;">
+        <input type="text" placeholder="OEM Part #..." value="${escapeHtml(partNo)}" class="part-no" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px;">
+        <input type="number" min="1" placeholder="Qty" value="${qty}" class="part-qty" style="padding: 4px 6px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px;">
+        <input type="number" step="0.01" min="0" placeholder="Cost ($)" value="${cost}" class="part-cost" style="padding: 4px 6px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px;">
+        <button type="button" class="btn-remove-part" style="background: none; border: none; color: #ef4444; font-size: 1rem; cursor: pointer; padding: 0;">&times;</button>
+    `;
+
+    row.querySelector(".btn-remove-part").onclick = () => {
+        row.remove();
+        calculatePartsTotalCost();
+    };
+
+    row.querySelector(".part-cost").oninput = calculatePartsTotalCost;
+    row.querySelector(".part-qty").oninput = calculatePartsTotalCost;
+
+    container.appendChild(row);
+}
+
+function calculatePartsTotalCost() {
+    let partsTotal = 0;
+    document.querySelectorAll("#biomed-parts-container .biomed-part-row").forEach(r => {
+        const qty = parseFloat(r.querySelector(".part-qty").value) || 0;
+        const cost = parseFloat(r.querySelector(".part-cost").value) || 0;
+        partsTotal += qty * cost;
+    });
+
+    const laborHours = parseFloat(document.getElementById("biomed-res-labor").value) || 0;
+    const laborRate = 75.00; // Standard CBET hourly rate
+    const total = partsTotal + (laborHours * laborRate);
+
+    document.getElementById("biomed-res-cost").value = total.toFixed(2);
+}
+
+async function handleResolveBreakdownSubmit(e) {
+    e.preventDefault();
+
+    const id = parseInt(document.getElementById("biomed-res-id").value, 10);
+    const rootCause = document.getElementById("biomed-res-root-cause").value.trim();
+    const actions = document.getElementById("biomed-res-actions").value.trim();
+    const labor = parseFloat(document.getElementById("biomed-res-labor").value) || 0;
+    const downtime = parseFloat(document.getElementById("biomed-res-downtime").value) || 0;
+    const totalCost = parseFloat(document.getElementById("biomed-res-cost").value) || 0;
+    const engineer = document.getElementById("biomed-res-engineer").value.trim();
+    const leakage = document.getElementById("biomed-res-leakage").value ? parseFloat(document.getElementById("biomed-res-leakage").value) : null;
+    const resistance = document.getElementById("biomed-res-resistance").value ? parseFloat(document.getElementById("biomed-res-resistance").value) : null;
+    const elecPass = document.getElementById("biomed-res-elec-pass").value === "1";
+    const calibPass = document.getElementById("biomed-res-calib-pass").value === "1";
+    const status = document.getElementById("biomed-res-status").value;
+    const signoff = document.getElementById("biomed-res-signoff").value.trim();
+
+    // Collect spare parts
+    const parts = [];
+    document.querySelectorAll("#biomed-parts-container .biomed-part-row").forEach(r => {
+        const name = r.querySelector(".part-name").value.trim();
+        const partNo = r.querySelector(".part-no").value.trim();
+        const qty = parseInt(r.querySelector(".part-qty").value, 10) || 1;
+        const cost = parseFloat(r.querySelector(".part-cost").value) || 0;
+        if (name) {
+            parts.push({ part_name: name, part_number: partNo, qty, cost });
+        }
+    });
+
+    const payload = {
+        is_breakdown: true,
+        status: status,
+        root_cause_diagnostics: rootCause,
+        corrective_actions: actions,
+        labor_hours: labor,
+        downtime_hours: downtime,
+        total_cost: totalCost,
+        lead_engineer_name: engineer,
+        chassis_leakage_microamp: leakage,
+        ground_resistance_ohms: resistance,
+        electrical_safety_passed: elecPass,
+        calibration_passed: calibPass,
+        supervisor_signoff_by: signoff,
+        parts_replaced: parts
+    };
+
+    try {
+        const res = await resolveBreakdownTicket(id, payload);
+        if (res && res.success) {
+            showToast(res.message || "Breakdown ticket resolved. Machinery status synchronized.", "success");
+            closeModal("biomed-modal-resolve-breakdown");
+            await Promise.all([
+                loadBreakdownSummary(),
+                loadBreakdownTickets(),
+                loadAssets(),
+                loadMetrics(),
+                loadWorkOrders()
+            ]);
+        } else {
+            showToast(res.message || "Failed to resolve breakdown ticket.", "error");
+        }
+    } catch (err) {
+        showToast(err.message || "Network error.", "error");
+    }
 }
 
 /* =====================================================================
@@ -575,7 +1049,6 @@ function renderPMSummary(s) {
     document.getElementById("biomed-kpi-due-30").innerText = `${s.due_in_30_days || 0} in next 30 days`;
     document.getElementById("biomed-kpi-compliance").innerText = `${s.compliance_rate || 100}%`;
 
-    // Overdue badge on navigation tab
     const badgeOverdue = document.getElementById("biomed-tab-overdue-count");
     if (badgeOverdue) {
         if (s.overdue_schedules > 0) {
@@ -585,12 +1058,6 @@ function renderPMSummary(s) {
             badgeOverdue.style.display = "none";
         }
     }
-
-    // Work order summary counts
-    document.getElementById("biomed-kpi-wo-total").innerText = s.total_work_orders || 0;
-    document.getElementById("biomed-kpi-wo-open").innerText = s.open_work_orders || 0;
-    document.getElementById("biomed-kpi-wo-completed").innerText = s.completed_work_orders || 0;
-    document.getElementById("biomed-kpi-wo-quarantined").innerText = s.quarantined_work_orders || 0;
 
     const badgeWO = document.getElementById("biomed-tab-open-wo-count");
     if (badgeWO) {
@@ -630,7 +1097,6 @@ function renderPMSchedulesTable(schedules) {
     }
 
     tbody.innerHTML = schedules.map(s => {
-        // Criticality badge
         const critClass = s.criticality_tier === 'life_critical' ? 'eq-criticality-life' :
                          s.criticality_tier === 'high' ? 'eq-criticality-high' :
                          s.criticality_tier === 'medium' ? 'eq-criticality-medium' : 'eq-criticality-low';
@@ -638,14 +1104,12 @@ function renderPMSchedulesTable(schedules) {
                          s.criticality_tier === 'high' ? 'High Criticality' :
                          s.criticality_tier === 'medium' ? 'Medium' : 'Low';
 
-        // Frequency Label
         const freqLabel = s.frequency === 'monthly' ? 'Monthly' :
                          s.frequency === 'bi_monthly' ? 'Bi-Monthly (60d)' :
                          s.frequency === 'quarterly' ? 'Quarterly' :
                          s.frequency === 'semi_annual' ? 'Semi-Annual (6m)' :
                          s.frequency === 'annual' ? 'Annual (12m)' : 'Biennial (2y)';
 
-        // Countdown Days badge
         let dueBadge = '';
         if (s.urgency_status === 'overdue') {
             const overdueDays = Math.abs(s.days_until_due);
@@ -696,16 +1160,16 @@ function renderPMSchedulesTable(schedules) {
                     <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(s.vendor_or_contractor_name || 'In-House')}</div>
                 </td>
                 <td style="padding: 12px 16px; text-align: right; white-space: nowrap;">
-                    <button class="btn btn-sm btn-outline biomed-btn-inspect-checklist" data-id="${s.id}" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer;" title="Inspect Tasks & Tolerances">
+                    <button class="btn btn-sm btn-outline biomed-btn-inspect-checklist" data-id="${s.id}" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer;">
                         Tasks (${taskCount})
                     </button>
-                    <button class="btn btn-sm btn-primary biomed-btn-dispatch-wo" data-id="${s.id}" data-title="${escapeHtml(s.title)}" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; background: #2563eb; color: #fff; border: none; cursor: pointer; margin-left: 4px;" title="Spawn Work Order">
+                    <button class="btn btn-sm btn-primary biomed-btn-dispatch-wo" data-id="${s.id}" data-title="${escapeHtml(s.title)}" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; background: #2563eb; color: #fff; border: none; cursor: pointer; margin-left: 4px;">
                         Dispatch WO
                     </button>
-                    <button class="btn btn-sm btn-outline biomed-btn-edit-sch" data-id="${s.id}" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer; margin-left: 4px;" title="Edit PM Schedule">
+                    <button class="btn btn-sm btn-outline biomed-btn-edit-sch" data-id="${s.id}" style="padding: 4px 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer; margin-left: 4px;">
                         Edit
                     </button>
-                    <button class="btn btn-sm btn-outline biomed-btn-delete-sch" data-id="${s.id}" data-code="${escapeHtml(s.schedule_code)}" style="padding: 4px 6px; font-size: 0.75rem; border: 1px solid #fca5a5; border-radius: 4px; background: #fff; color: #dc2626; cursor: pointer; margin-left: 4px;" title="Delete PM Schedule">
+                    <button class="btn btn-sm btn-outline biomed-btn-delete-sch" data-id="${s.id}" data-code="${escapeHtml(s.schedule_code)}" style="padding: 4px 6px; font-size: 0.75rem; border: 1px solid #fca5a5; border-radius: 4px; background: #fff; color: #dc2626; cursor: pointer; margin-left: 4px;">
                         &times;
                     </button>
                 </td>
@@ -713,7 +1177,6 @@ function renderPMSchedulesTable(schedules) {
         `;
     }).join("");
 
-    // Attach row events
     tbody.querySelectorAll(".biomed-btn-inspect-checklist").forEach(b => {
         b.onclick = () => openChecklistModal(parseInt(b.getAttribute("data-id"), 10));
     });
@@ -777,9 +1240,6 @@ async function openChecklistModal(scheduleId) {
     }
 }
 
-/**
- * Handle dispatching work order from PM schedule
- */
 async function handleDispatchWorkOrder(scheduleId, title) {
     if (!confirm(`Dispatch an immediate Biomedical Work Order for "${title}"?`)) return;
 
@@ -789,7 +1249,6 @@ async function handleDispatchWorkOrder(scheduleId, title) {
         if (res && res.success) {
             showToast(res.message || "Work order generated successfully!", "success");
             await Promise.all([loadPMSummary(), loadPMSchedules(), loadWorkOrders()]);
-            // Switch to work orders tab to view
             switchBiomedTab("workorders");
         } else {
             showToast(res.message || "Failed to dispatch work order.", "error");
@@ -800,13 +1259,12 @@ async function handleDispatchWorkOrder(scheduleId, title) {
 }
 
 /**
- * Open PM Schedule Modal (Create or Edit)
+ * Open PM Schedule Modal
  */
 async function openScheduleModal(id = null) {
     const form = document.getElementById("biomed-form-schedule");
     form.reset();
 
-    // Populate machinery asset select
     const assetSelect = document.getElementById("biomed-sch-asset-id");
     if (assetSelect) {
         assetSelect.innerHTML = `<option value="">Select machinery asset...</option>` +
@@ -828,13 +1286,7 @@ async function openScheduleModal(id = null) {
                 document.getElementById("biomed-sch-title").value = s.title;
                 document.getElementById("biomed-sch-type").value = s.maintenance_type;
                 document.getElementById("biomed-sch-frequency").value = s.frequency;
-                document.getElementById("biomed-sch-duration").value = s.estimated_duration_hours;
                 document.getElementById("biomed-sch-next-due").value = s.next_due_date;
-                document.getElementById("biomed-sch-grace").value = s.grace_period_days;
-                document.getElementById("biomed-sch-last-performed").value = s.last_performed_date || "";
-                document.getElementById("biomed-sch-engineer").value = s.assigned_engineer_name || "";
-                document.getElementById("biomed-sch-vendor").value = s.vendor_or_contractor_name || "";
-                document.getElementById("biomed-sch-standards").value = s.safety_standards_reference || "";
 
                 const tasks = s.task_checklist || [];
                 if (tasks.length > 0) {
@@ -850,7 +1302,6 @@ async function openScheduleModal(id = null) {
     } else {
         document.getElementById("biomed-modal-schedule-title").innerText = "Configure Preventive Maintenance (PM) Schedule";
         document.getElementById("biomed-sch-id").value = "";
-        // Default next due in 30 days
         const d = new Date();
         d.setDate(d.getDate() + 30);
         document.getElementById("biomed-sch-next-due").value = d.toISOString().split("T")[0];
@@ -916,14 +1367,7 @@ async function handleScheduleFormSubmit(e) {
         maintenance_type: document.getElementById("biomed-sch-type").value,
         frequency: document.getElementById("biomed-sch-frequency").value,
         criticality_tier: document.getElementById("biomed-sch-tier").value,
-        estimated_duration_hours: parseFloat(document.getElementById("biomed-sch-duration").value) || 2.0,
         next_due_date: document.getElementById("biomed-sch-next-due").value,
-        grace_period_days: parseInt(document.getElementById("biomed-sch-grace").value, 10) || 14,
-        last_performed_date: document.getElementById("biomed-sch-last-performed").value || null,
-        assigned_engineer_name: document.getElementById("biomed-sch-engineer").value.trim(),
-        vendor_or_contractor_name: document.getElementById("biomed-sch-vendor").value.trim(),
-        safety_standards_reference: document.getElementById("biomed-sch-standards").value.trim(),
-        is_auto_generate_work_order: document.getElementById("biomed-sch-auto-wo").checked ? 1 : 0,
         task_checklist: taskChecklist
     };
 
@@ -1006,7 +1450,7 @@ function renderWorkOrdersTable(orders) {
         }
 
         const prioBadge = wo.priority === 'stat_life_critical'
-            ? `<span style="color: #dc2626; font-weight: 700; font-size: 0.75rem;">STAT Life Critical</span>`
+            ? `<span style="color: #dc2626; font-weight: 700; font-size: 0.75rem;">🔴 STAT Life Critical</span>`
             : `<span style="color: #64748b; font-size: 0.75rem;">${escapeHtml(wo.priority)}</span>`;
 
         const elecPass = wo.electrical_safety_passed == 1
@@ -1021,6 +1465,7 @@ function renderWorkOrdersTable(orders) {
             <tr style="border-bottom: 1px solid var(--border-color, #e2e8f0);">
                 <td style="padding: 12px 16px;">
                     <div style="font-weight: 700; font-family: monospace; color: #2563eb;">${escapeHtml(wo.work_order_number)}</div>
+                    ${wo.ticket_number ? `<div style="font-size: 0.75rem; color: #dc2626; font-weight: 700;">Ticket: ${escapeHtml(wo.ticket_number)}</div>` : ''}
                     <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(wo.scheduled_date)}</div>
                 </td>
                 <td style="padding: 12px 16px;">
@@ -1052,80 +1497,8 @@ function renderWorkOrdersTable(orders) {
     }).join("");
 
     tbody.querySelectorAll(".biomed-btn-execute-wo").forEach(b => {
-        b.onclick = () => openWorkOrderModal(parseInt(b.getAttribute("data-id"), 10));
+        b.onclick = () => openResolveBreakdownModal(parseInt(b.getAttribute("data-id"), 10));
     });
-}
-
-/**
- * Open Work Order Modal for inspection, electrical safety values, and supervisor signoff
- */
-async function openWorkOrderModal(id) {
-    try {
-        const res = await fetchBiomedWorkOrder(id);
-        if (!res || !res.data) {
-            showToast("Failed to load work order.", "error");
-            return;
-        }
-
-        const wo = res.data;
-        document.getElementById("biomed-wo-id").value = wo.id;
-        document.getElementById("biomed-wo-modal-no").innerText = `${wo.work_order_number} &bull; ${wo.work_order_type.toUpperCase()}`;
-        document.getElementById("biomed-wo-modal-title").innerText = `Work Order: ${wo.equipment_name}`;
-
-        document.getElementById("biomed-wo-asset-tag").innerText = `${wo.equipment_name} (${wo.asset_tag}) &bull; S/N: ${wo.serial_number || 'N/A'}`;
-        document.getElementById("biomed-wo-eng-name").innerText = `${wo.lead_engineer_name} (${wo.service_vendor_name || 'In-House Biomed'})`;
-
-        document.getElementById("biomed-wo-status").value = wo.status;
-        document.getElementById("biomed-wo-scheduled-date").value = wo.scheduled_date;
-        document.getElementById("biomed-wo-completed-at").value = wo.completed_at ? wo.completed_at.replace(" ", "T").substring(0, 16) : "";
-
-        document.getElementById("biomed-wo-leakage").value = wo.chassis_leakage_microamp || "";
-        document.getElementById("biomed-wo-resistance").value = wo.ground_resistance_ohms || "";
-        document.getElementById("biomed-wo-elec-pass").value = wo.electrical_safety_passed ? "1" : "0";
-        document.getElementById("biomed-wo-calib-pass").value = wo.calibration_passed ? "1" : "0";
-
-        document.getElementById("biomed-wo-findings").value = wo.findings || "";
-        document.getElementById("biomed-wo-actions").value = wo.corrective_actions || "";
-        document.getElementById("biomed-wo-labor").value = wo.labor_hours || 0;
-        document.getElementById("biomed-wo-cost").value = wo.total_cost || 0;
-        document.getElementById("biomed-wo-signoff").value = wo.supervisor_signoff_by || "";
-
-        openModal("biomed-modal-workorder");
-    } catch (err) {
-        showToast("Error loading work order: " + err.message, "error");
-    }
-}
-
-async function handleWorkOrderFormSubmit(e) {
-    e.preventDefault();
-
-    const id = parseInt(document.getElementById("biomed-wo-id").value, 10);
-    const payload = {
-        status: document.getElementById("biomed-wo-status").value,
-        completed_at: document.getElementById("biomed-wo-completed-at").value ? document.getElementById("biomed-wo-completed-at").value.replace("T", " ") + ":00" : null,
-        chassis_leakage_microamp: document.getElementById("biomed-wo-leakage").value ? parseFloat(document.getElementById("biomed-wo-leakage").value) : null,
-        ground_resistance_ohms: document.getElementById("biomed-wo-resistance").value ? parseFloat(document.getElementById("biomed-wo-resistance").value) : null,
-        electrical_safety_passed: document.getElementById("biomed-wo-elec-pass").value === "1",
-        calibration_passed: document.getElementById("biomed-wo-calib-pass").value === "1",
-        findings: document.getElementById("biomed-wo-findings").value.trim(),
-        corrective_actions: document.getElementById("biomed-wo-actions").value.trim(),
-        labor_hours: parseFloat(document.getElementById("biomed-wo-labor").value) || 0,
-        total_cost: parseFloat(document.getElementById("biomed-wo-cost").value) || 0,
-        supervisor_signoff_by: document.getElementById("biomed-wo-signoff").value.trim()
-    };
-
-    try {
-        const res = await updateBiomedWorkOrder(id, payload);
-        if (res && res.success) {
-            showToast(res.message || "Work order updated successfully.", "success");
-            closeModal("biomed-modal-workorder");
-            await Promise.all([loadPMSummary(), loadPMSchedules(), loadWorkOrders(), loadAssets()]);
-        } else {
-            showToast(res.message || "Failed to update work order.", "error");
-        }
-    } catch (err) {
-        showToast(err.message || "Network error.", "error");
-    }
 }
 
 /* =====================================================================

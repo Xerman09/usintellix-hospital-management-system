@@ -112,3 +112,24 @@ $router->put('/equipment-assets/biomed/work-orders', [BiomedicalController::clas
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+// Breakdown Ticketing & Urgent Repairs
+$router->get('/equipment-assets/biomed/breakdown-summary', [BiomedicalController::class, 'breakdownSummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'pharmacist', 'receptionist']]
+]);
+
+$router->get('/equipment-assets/biomed/tickets', [BiomedicalController::class, 'breakdownTickets'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'pharmacist', 'receptionist']]
+]);
+
+$router->post('/equipment-assets/biomed/tickets', [BiomedicalController::class, 'storeBreakdownTicket'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'pharmacist', 'receptionist']]
+]);
+
+$router->put('/equipment-assets/biomed/tickets/resolve', [BiomedicalController::class, 'resolveBreakdownTicket'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

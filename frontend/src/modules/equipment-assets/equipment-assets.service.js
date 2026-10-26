@@ -175,6 +175,51 @@ export async function generateWorkOrderFromSchedule(scheduleId, scheduledDate, n
 }
 
 /* =====================================================================
+   BIOMEDICAL ENGINEERING: BREAKDOWN TICKETING WORKBENCH API
+===================================================================== */
+
+/**
+ * Fetch summary KPIs for breakdown ticketing.
+ */
+export async function fetchBreakdownSummary() {
+    return await api("/equipment-assets/biomed/breakdown-summary");
+}
+
+/**
+ * Fetch breakdown tickets.
+ */
+export async function fetchBreakdownTickets(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.search) params.set("search", filters.search);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.priority) params.set("priority", filters.priority);
+    if (filters.asset_id) params.set("asset_id", filters.asset_id);
+
+    const qs = params.toString();
+    return await api(`/equipment-assets/biomed/tickets${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * File an emergency or urgent breakdown ticket (locks out machine).
+ */
+export async function createBreakdownTicket(data) {
+    return await api("/equipment-assets/biomed/tickets", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}
+
+/**
+ * Resolve a breakdown ticket, logging diagnostics, parts, labor, and release back to operational.
+ */
+export async function resolveBreakdownTicket(id, data) {
+    return await api("/equipment-assets/biomed/tickets/resolve", {
+        method: "PUT",
+        body: JSON.stringify({ id, ...data })
+    });
+}
+
+/* =====================================================================
    BIOMEDICAL ENGINEERING: WORK ORDERS API
 ===================================================================== */
 

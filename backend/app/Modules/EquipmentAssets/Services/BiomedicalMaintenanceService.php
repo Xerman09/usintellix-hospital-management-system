@@ -59,6 +59,29 @@ class BiomedicalMaintenanceService
     }
 
     /**
+     * Generate sequential Breakdown Ticket number e.g. TKT-2026-0005
+     */
+    public function generateTicketNumber(PDO $pdo): string
+    {
+        $year = (int) date('Y');
+        $stmt = $pdo->prepare("
+            INSERT INTO `billing_tariff_counters` (`counter_type`, `year`, `last_number`)
+            VALUES ('BIOMED_TKT', ?, 1)
+            ON DUPLICATE KEY UPDATE `last_number` = `last_number` + 1
+        ");
+        $stmt->execute([$year]);
+
+        $sel = $pdo->prepare("
+            SELECT `last_number` FROM `billing_tariff_counters`
+            WHERE `counter_type` = 'BIOMED_TKT' AND `year` = ?
+        ");
+        $sel->execute([$year]);
+        $num = (int)$sel->fetchColumn();
+
+        return sprintf("TKT-%d-%04d", $year, $num);
+    }
+
+    /**
      * Retrieve executive summary KPIs for PM Calendar and maintenance fleet.
      */
     public function getPMCalendarSummary(): array
@@ -84,7 +107,9 @@ class BiomedicalMaintenanceService
                 COUNT(*) as total_work_orders,
                 SUM(CASE WHEN status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as open_work_orders,
                 SUM(CASE WHEN status = 'completed_passed' THEN 1 ELSE 0 END) as completed_work_orders,
-                SUM(CASE WHEN status = 'failed_quarantined' THEN 1 ELSE 0 END) as quarantined_work_orders
+                SUM(CASE WHEN status = 'failed_quarantined' THEN 1 ELSE 0 END) as quarantined_work_orders,
+                SUM(CASE WHEN ticket_number IS NOT NULL AND status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as active_breakdown_tickets,
+                SUM(CASE WHEN ticket_number IS NOT NULL AND priority = 'stat_life_critical' AND status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as critical_life_support_down
             FROM biomed_work_orders
         ";
         $woSummary = $pdo->query($woSql)->fetch(PDO::FETCH_ASSOC);
@@ -105,6 +130,48 @@ class BiomedicalMaintenanceService
             'open_work_orders'       => (int)($woSummary['open_work_orders'] ?? 0),
             'completed_work_orders'  => (int)($woSummary['completed_work_orders'] ?? 0),
             'quarantined_work_orders'=> (int)($woSummary['quarantined_work_orders'] ?? 0),
+            'active_breakdown_tickets'=> (int)($woSummary['active_breakdown_tickets'] ?? 0),
+            'critical_life_support_down'=> (int)($woSummary['critical_life_support_down'] ?? 0),
+        ];
+    }
+
+    /**
+     * Retrieve executive summary KPIs specifically for Breakdown Ticketing & Urgent Repairs.
+     */
+    public function getBreakdownSummary(): array
+    {
+        $pdo = Database::connection();
+
+        $sql = "
+            SELECT
+                COUNT(*) as total_tickets,
+                SUM(CASE WHEN status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as active_tickets,
+                SUM(CASE WHEN priority = 'stat_life_critical' AND status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as stat_life_critical_down,
+                SUM(CASE WHEN priority = 'urgent' AND status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as urgent_down,
+                SUM(CASE WHEN priority = 'routine' AND status IN ('scheduled', 'in_progress', 'pending_parts') THEN 1 ELSE 0 END) as routine_down,
+                SUM(CASE WHEN status = 'completed_passed' THEN 1 ELSE 0 END) as completed_tickets,
+                SUM(total_cost) as total_repair_costs,
+                AVG(CASE WHEN downtime_hours > 0 THEN downtime_hours ELSE NULL END) as avg_downtime_hours
+            FROM biomed_work_orders
+            WHERE ticket_number IS NOT NULL OR work_order_type = 'breakdown_emergency_repair'
+        ";
+
+        $summary = $pdo->query($sql)->fetch(PDO::FETCH_ASSOC);
+
+        // Assets currently under repair in hospital
+        $assetSql = "SELECT COUNT(*) FROM hospital_equipment_assets WHERE status = 'Under Repair' AND deleted_at IS NULL";
+        $underRepairCount = (int)$pdo->query($assetSql)->fetchColumn();
+
+        return [
+            'total_tickets'            => (int)($summary['total_tickets'] ?? 0),
+            'active_tickets'           => (int)($summary['active_tickets'] ?? 0),
+            'stat_life_critical_down'  => (int)($summary['stat_life_critical_down'] ?? 0),
+            'urgent_down'              => (int)($summary['urgent_down'] ?? 0),
+            'routine_down'             => (int)($summary['routine_down'] ?? 0),
+            'completed_tickets'        => (int)($summary['completed_tickets'] ?? 0),
+            'total_repair_costs'       => (float)($summary['total_repair_costs'] ?? 0.0),
+            'avg_downtime_hours'       => round((float)($summary['avg_downtime_hours'] ?? 0.0), 1),
+            'under_repair_assets_count'=> $underRepairCount
         ];
     }
 
@@ -581,6 +648,7 @@ class BiomedicalMaintenanceService
             SELECT
                 w.id,
                 w.work_order_number,
+                w.ticket_number,
                 w.work_order_type,
                 w.priority,
                 w.scheduled_date,
@@ -627,6 +695,7 @@ class BiomedicalMaintenanceService
                 e.serial_number,
                 e.model_number,
                 e.manufacturer,
+                e.status AS equipment_status,
                 s.schedule_code,
                 s.title AS schedule_title,
                 s.frequency AS schedule_frequency,
@@ -646,14 +715,20 @@ class BiomedicalMaintenanceService
             $term = '%' . trim($filters['search']) . '%';
             $sql .= " AND (
                 wo.work_order_number LIKE :search_wo OR
+                wo.ticket_number LIKE :search_tkt OR
                 wo.lead_engineer_name LIKE :search_eng OR
+                wo.reported_by_staff_name LIKE :search_rep OR
+                wo.breakdown_symptom LIKE :search_symp OR
                 e.asset_tag LIKE :search_tag OR
                 e.name LIKE :search_name OR
                 e.serial_number LIKE :search_sn OR
                 e.model_number LIKE :search_model
             )";
             $params['search_wo'] = $term;
+            $params['search_tkt'] = $term;
             $params['search_eng'] = $term;
+            $params['search_rep'] = $term;
+            $params['search_symp'] = $term;
             $params['search_tag'] = $term;
             $params['search_name'] = $term;
             $params['search_sn'] = $term;
@@ -680,7 +755,17 @@ class BiomedicalMaintenanceService
             $params['asset_id'] = (int)$filters['asset_id'];
         }
 
-        $sql .= " ORDER BY wo.scheduled_date DESC, wo.id DESC";
+        if (!empty($filters['only_tickets'])) {
+            $sql .= " AND wo.ticket_number IS NOT NULL";
+        }
+
+        $sql .= " ORDER BY 
+            CASE 
+                WHEN wo.priority = 'stat_life_critical' THEN 1 
+                WHEN wo.priority = 'urgent' THEN 2 
+                ELSE 3 
+            END ASC,
+            wo.scheduled_date DESC, wo.id DESC";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -712,6 +797,7 @@ class BiomedicalMaintenanceService
                 e.model_number,
                 e.manufacturer,
                 e.status AS equipment_status,
+                e.status_reason AS equipment_status_reason,
                 s.schedule_code,
                 s.title AS schedule_title,
                 s.frequency AS schedule_frequency,
@@ -819,6 +905,334 @@ class BiomedicalMaintenanceService
         ]);
 
         return $woNumber;
+    }
+
+    /**
+     * Create Breakdown Ticket: Alerts Biomedical Engineering, logs symptom and clinical impact,
+     * and AUTOMATICALLY flips machine status in hospital_equipment_assets to "Under Repair"
+     * with clinical lockout reason so clinicians/nurses cannot assign it to a patient.
+     */
+    public function createBreakdownTicket(array $data, int $userId): array
+    {
+        $pdo = Database::connection();
+
+        if (empty($data['asset_id'])) {
+            return ['success' => false, 'message' => 'Target equipment asset is required.'];
+        }
+        if (empty($data['breakdown_symptom'])) {
+            return ['success' => false, 'message' => 'Breakdown symptom or alarm description is required.'];
+        }
+
+        $assetStmt = $pdo->prepare("SELECT id, asset_tag, name, category, criticality_level, status FROM hospital_equipment_assets WHERE id = ?");
+        $assetStmt->execute([(int)$data['asset_id']]);
+        $asset = $assetStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$asset) {
+            return ['success' => false, 'message' => 'Equipment asset not found.'];
+        }
+
+        // Map urgency priority:
+        // 🔴 stat_life_critical ("Critical Life Support Down")
+        // 🟠 urgent ("High Priority")
+        // 🟡 routine ("Routine")
+        $priority = $data['priority'] ?? 'urgent';
+        if (!in_array($priority, ['stat_life_critical', 'urgent', 'routine'])) {
+            $priority = ($asset['criticality_level'] === 'Life Critical') ? 'stat_life_critical' : 'urgent';
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $ticketNumber = $this->generateTicketNumber($pdo);
+            $woNumber = $this->generateWorkOrderNumber($pdo);
+            $reportedAt = !empty($data['reported_at']) ? $data['reported_at'] : date('Y-m-d H:i:s');
+            $scheduledDate = date('Y-m-d', strtotime($reportedAt));
+
+            $reportedBy = trim($data['reported_by_staff_name'] ?? 'Clinical Staff');
+            $role = trim($data['reported_by_role'] ?? 'Nurse');
+            $dept = trim($data['reporting_ward_or_dept'] ?? 'Clinical Unit');
+            $symptom = trim($data['breakdown_symptom']);
+            $clinicalImpact = trim($data['clinical_impact'] ?? '');
+            $engineer = trim($data['lead_engineer_name'] ?? 'Engr. David Santos, CBET (Biomedical Lead)');
+
+            // 1. Insert Breakdown Work Order
+            $sqlWo = "
+                INSERT INTO biomed_work_orders (
+                    work_order_number,
+                    ticket_number,
+                    asset_id,
+                    work_order_type,
+                    priority,
+                    scheduled_date,
+                    started_at,
+                    lead_engineer_name,
+                    service_vendor_name,
+                    reported_by_staff_name,
+                    reported_by_role,
+                    reporting_ward_or_dept,
+                    reported_at,
+                    breakdown_symptom,
+                    clinical_impact,
+                    electrical_safety_passed,
+                    calibration_passed,
+                    findings,
+                    status
+                ) VALUES (
+                    :wo_no,
+                    :ticket_no,
+                    :asset_id,
+                    'breakdown_emergency_repair',
+                    :priority,
+                    :scheduled_date,
+                    NOW(),
+                    :lead_engineer,
+                    'In-House Biomedical Engineering Bay',
+                    :reported_by,
+                    :reported_role,
+                    :reporting_dept,
+                    :reported_at,
+                    :symptom,
+                    :clinical_impact,
+                    0,
+                    0,
+                    :findings,
+                    'in_progress'
+                )
+            ";
+
+            $stmtWo = $pdo->prepare($sqlWo);
+            $stmtWo->execute([
+                'wo_no'           => $woNumber,
+                'ticket_no'       => $ticketNumber,
+                'asset_id'        => $asset['id'],
+                'priority'        => $priority,
+                'scheduled_date'  => $scheduledDate,
+                'lead_engineer'   => $engineer,
+                'reported_by'     => $reportedBy,
+                'reported_role'   => $role,
+                'reporting_dept'  => $dept,
+                'reported_at'     => $reportedAt,
+                'symptom'         => $symptom,
+                'clinical_impact' => $clinicalImpact,
+                'findings'        => "Emergency Breakdown Ticket logged by {$reportedBy} ({$role}) at {$dept}: {$symptom}"
+            ]);
+
+            $newWoId = (int)$pdo->lastInsertId();
+
+            // 2. AUTOMATICALLY FLIP MACHINE STATUS TO "Under Repair" (CLINICAL LOCKOUT)
+            $lockoutReason = "CLINICAL LOCKOUT: Active Breakdown Ticket {$ticketNumber} ({$symptom}) - Reported by {$reportedBy}";
+            $updAsset = $pdo->prepare("
+                UPDATE hospital_equipment_assets
+                SET status = 'Under Repair',
+                    status_reason = ?
+                WHERE id = ?
+            ");
+            $updAsset->execute([$lockoutReason, $asset['id']]);
+
+            // 3. Log into equipment_maintenance_logs
+            $logSql = "
+                INSERT INTO equipment_maintenance_logs (
+                    equipment_id,
+                    log_type,
+                    performed_by,
+                    performed_date,
+                    result_status,
+                    findings,
+                    actions_taken
+                ) VALUES (
+                    :eq_id,
+                    'Repair',
+                    :performed_by,
+                    CURDATE(),
+                    'Fail',
+                    :findings,
+                    :actions
+                )
+            ";
+            $logStmt = $pdo->prepare($logSql);
+            $logStmt->execute([
+                'eq_id'        => $asset['id'],
+                'performed_by' => "{$reportedBy} ({$role})",
+                'findings'     => "Breakdown Alert: {$symptom}. Clinical Impact: {$clinicalImpact}",
+                'actions'      => "Machine automatically locked out to 'Under Repair'. Dispatched Work Order {$woNumber} to {$engineer}."
+            ]);
+
+            $pdo->commit();
+
+            AuditLogger::log(
+                AuditLogger::CATEGORY_CLINICAL,
+                'BREAKDOWN_TICKET_CREATED',
+                "Breakdown Ticket {$ticketNumber} created for {$asset['asset_tag']}: {$symptom}",
+                null,
+                $userId
+            );
+
+            return [
+                'success' => true,
+                'message' => "Breakdown Ticket {$ticketNumber} created. Machine {$asset['asset_tag']} locked out to Under Repair.",
+                'data'    => $this->getWorkOrder($newWoId)
+            ];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'message' => 'Failed to create breakdown ticket: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Resolve Breakdown Ticket: Logs root-cause diagnostics, spare parts replaced,
+     * labor hours, electrical safety testing, and supervisor signoff.
+     * When completed and verified with electrical safety/calibration pass,
+     * automatically clears the clinical lockout and flips machine back to "Operational".
+     */
+    public function resolveBreakdownTicket(int $id, array $data, int $userId): array
+    {
+        $pdo = Database::connection();
+
+        $existing = $this->getWorkOrder($id);
+        if (!$existing) {
+            return ['success' => false, 'message' => 'Breakdown ticket/work order not found.'];
+        }
+
+        $newStatus = $data['status'] ?? 'completed_passed';
+        $completedAt = !empty($data['completed_at']) ? $data['completed_at'] : date('Y-m-d H:i:s');
+
+        // Calculate downtime hours if reported_at is present
+        $downtimeHours = isset($data['downtime_hours']) ? (float)$data['downtime_hours'] : 0.0;
+        if ($downtimeHours <= 0 && !empty($existing['reported_at'])) {
+            $diffSeconds = strtotime($completedAt) - strtotime($existing['reported_at']);
+            $downtimeHours = round(max(0, $diffSeconds / 3600), 2);
+        }
+
+        $partsJson = isset($data['parts_replaced'])
+            ? json_encode($data['parts_replaced'], JSON_UNESCAPED_UNICODE)
+            : $existing['parts_replaced_json'];
+
+        $elecPass = isset($data['electrical_safety_passed']) ? (int)(bool)$data['electrical_safety_passed'] : 1;
+        $calibPass = isset($data['calibration_passed']) ? (int)(bool)$data['calibration_passed'] : 1;
+
+        $pdo->beginTransaction();
+        try {
+            $sql = "
+                UPDATE biomed_work_orders SET
+                    status = :status,
+                    completed_at = :completed_at,
+                    lead_engineer_name = :lead_engineer_name,
+                    root_cause_diagnostics = :root_cause_diagnostics,
+                    corrective_actions = :corrective_actions,
+                    findings = :findings,
+                    parts_replaced_json = :parts_replaced_json,
+                    labor_hours = :labor_hours,
+                    downtime_hours = :downtime_hours,
+                    total_cost = :total_cost,
+                    chassis_leakage_microamp = :chassis_leakage_microamp,
+                    ground_resistance_ohms = :ground_resistance_ohms,
+                    electrical_safety_passed = :electrical_safety_passed,
+                    calibration_passed = :calibration_passed,
+                    supervisor_signoff_by = :supervisor_signoff_by,
+                    supervisor_signed_at = :supervisor_signed_at
+                WHERE id = :id
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                'status'                 => $newStatus,
+                'completed_at'           => ($newStatus === 'completed_passed') ? $completedAt : null,
+                'lead_engineer_name'     => $data['lead_engineer_name'] ?? $existing['lead_engineer_name'],
+                'root_cause_diagnostics' => $data['root_cause_diagnostics'] ?? $existing['root_cause_diagnostics'],
+                'corrective_actions'     => $data['corrective_actions'] ?? $existing['corrective_actions'],
+                'findings'               => $data['findings'] ?? $existing['findings'],
+                'parts_replaced_json'    => $partsJson,
+                'labor_hours'            => isset($data['labor_hours']) ? (float)$data['labor_hours'] : (float)$existing['labor_hours'],
+                'downtime_hours'         => $downtimeHours,
+                'total_cost'             => isset($data['total_cost']) ? (float)$data['total_cost'] : (float)$existing['total_cost'],
+                'chassis_leakage_microamp' => isset($data['chassis_leakage_microamp']) ? (float)$data['chassis_leakage_microamp'] : $existing['chassis_leakage_microamp'],
+                'ground_resistance_ohms' => isset($data['ground_resistance_ohms']) ? (float)$data['ground_resistance_ohms'] : $existing['ground_resistance_ohms'],
+                'electrical_safety_passed' => $elecPass,
+                'calibration_passed'     => $calibPass,
+                'supervisor_signoff_by'  => $data['supervisor_signoff_by'] ?? $existing['supervisor_signoff_by'],
+                'supervisor_signed_at'   => !empty($data['supervisor_signoff_by']) ? date('Y-m-d H:i:s') : $existing['supervisor_signed_at'],
+                'id'                     => $id
+            ]);
+
+            // If repairs passed electrical safety & calibration, CLEAR CLINICAL LOCKOUT!
+            if ($newStatus === 'completed_passed' && $elecPass === 1 && $calibPass === 1) {
+                $compDate = date('Y-m-d', strtotime($completedAt));
+                $calibDue = date('Y-m-d', strtotime("+12 months", strtotime($compDate)));
+
+                $updAsset = $pdo->prepare("
+                    UPDATE hospital_equipment_assets
+                    SET status = 'Operational',
+                        status_reason = NULL,
+                        last_calibration_date = ?,
+                        next_calibration_due = ?
+                    WHERE id = ?
+                ");
+                $updAsset->execute([$compDate, $calibDue, $existing['asset_id']]);
+
+                // Record maintenance pass log
+                $logSql = "
+                    INSERT INTO equipment_maintenance_logs (
+                        equipment_id,
+                        log_type,
+                        performed_by,
+                        performed_date,
+                        result_status,
+                        cost,
+                        findings,
+                        actions_taken
+                    ) VALUES (
+                        :eq_id,
+                        'Repair',
+                        :performed_by,
+                        :perf_date,
+                        'Pass',
+                        :cost,
+                        :findings,
+                        :actions
+                    )
+                ";
+                $logStmt = $pdo->prepare($logSql);
+                $logStmt->execute([
+                    'eq_id'        => $existing['asset_id'],
+                    'performed_by' => $data['lead_engineer_name'] ?? $existing['lead_engineer_name'],
+                    'perf_date'    => $compDate,
+                    'cost'         => (float)($data['total_cost'] ?? $existing['total_cost']),
+                    'findings'     => "Repair Completed: " . ($data['root_cause_diagnostics'] ?? $existing['root_cause_diagnostics']),
+                    'actions'      => "Parts replaced, IEC 62353 safety analyzer test passed. Machine released back to Operational service."
+                ]);
+            } elseif ($newStatus === 'failed_quarantined' || $elecPass === 0 || $calibPass === 0) {
+                // If electrical safety or calibration failed, KEEP QUARANTINED!
+                $updAsset = $pdo->prepare("
+                    UPDATE hospital_equipment_assets
+                    SET status = 'Needs Calibration',
+                        status_reason = 'QUARANTINE TAG: Failed post-repair electrical safety or calibration verification.'
+                    WHERE id = ?
+                ");
+                $updAsset->execute([$existing['asset_id']]);
+            }
+
+            $pdo->commit();
+
+            AuditLogger::log(
+                AuditLogger::CATEGORY_CLINICAL,
+                'BREAKDOWN_TICKET_RESOLVED',
+                "Breakdown Ticket {$existing['work_order_number']} resolved for {$existing['asset_tag']}. Status: {$newStatus}",
+                null,
+                $userId
+            );
+
+            return [
+                'success' => true,
+                'message' => "Breakdown ticket {$existing['work_order_number']} updated successfully. Equipment status synchronized.",
+                'data'    => $this->getWorkOrder($id)
+            ];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'message' => 'Failed to resolve breakdown ticket: ' . $e->getMessage()];
+        }
     }
 
     /**
@@ -931,6 +1345,11 @@ class BiomedicalMaintenanceService
      */
     public function updateWorkOrder(int $id, array $data, int $userId): array
     {
+        // If this work order is a breakdown ticket, route to resolveBreakdownTicket for specialized handling
+        if (!empty($data['is_breakdown']) || !empty($data['root_cause_diagnostics']) || !empty($data['ticket_number'])) {
+            return $this->resolveBreakdownTicket($id, $data, $userId);
+        }
+
         $pdo = Database::connection();
 
         $existing = $this->getWorkOrder($id);
@@ -1025,7 +1444,8 @@ class BiomedicalMaintenanceService
                     UPDATE hospital_equipment_assets
                     SET last_calibration_date = ?,
                         next_calibration_due = ?,
-                        status = CASE WHEN status IN ('Needs Calibration', 'Under Repair') THEN 'Operational' ELSE status END
+                        status = 'Operational',
+                        status_reason = NULL
                     WHERE id = ?
                 ");
                 $updAsset->execute([$compDate, $calibDue, $existing['asset_id']]);
@@ -1042,7 +1462,13 @@ class BiomedicalMaintenanceService
 
             $pdo->commit();
 
-            AuditLogger::log('update', 'biomed_work_orders', $id, $existing, $data);
+            AuditLogger::log(
+                AuditLogger::CATEGORY_CLINICAL,
+                'WORK_ORDER_COMPLETED',
+                "Work Order {$existing['work_order_number']} completed for {$existing['asset_tag']}. Status: {$newStatus}",
+                null,
+                $userId
+            );
 
             return [
                 'success' => true,
@@ -1050,7 +1476,9 @@ class BiomedicalMaintenanceService
                 'data'    => $this->getWorkOrder($id)
             ];
         } catch (Throwable $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             return ['success' => false, 'message' => 'Failed to update work order: ' . $e->getMessage()];
         }
     }

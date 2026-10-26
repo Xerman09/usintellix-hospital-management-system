@@ -224,7 +224,7 @@ class DispensingService
 
         $stmt = $db->prepare(
             "SELECT p.dispense_status, p.closed_at, p.close_reason, p.refill_until, " . self::userNameSql('p.closed_by') . " AS closed_by_name,
-                    pt.patient_no, pt.first_name, pt.middle_name, pt.last_name, pt.suffix, pt.sex, pt.birthdate
+                    pt.patient_no, pt.first_name, pt.middle_name, pt.last_name, pt.suffix, pt.sex, pt.birthdate, pt.is_indigent
              FROM prescriptions p JOIN patients pt ON pt.id = p.patient_id WHERE p.id = :id"
         );
         $stmt->execute(['id' => $prescriptionId]);
@@ -383,6 +383,12 @@ class DispensingService
                 'sex' => $head['sex'], 'age' => $head['birthdate'] ? (new \DateTime($head['birthdate']))->diff(new \DateTime())->y : null,
                 'latest_weight_kg' => $verificationData['latest_weight_kg'] ?? 68.0,
                 'allergies' => $verificationData['patient_allergies'] ?? [],
+                // Shown so the pharmacist knows before charging. NOTHING in
+                // dispensing or charging acts on it: there is no indigent
+                // discount rule in the pharmacy, and inventing one would be a
+                // policy decision. An indigent patient is discounted, if at
+                // all, through the 'other' discount with a recorded reason.
+                'is_indigent' => (bool) ($head['is_indigent'] ?? false),
             ],
             'clinical_verification' => $clinicalVerification,
             'duplicate_therapy_screen' => $dupScreen,
