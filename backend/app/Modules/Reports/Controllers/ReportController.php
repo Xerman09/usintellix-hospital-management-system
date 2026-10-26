@@ -868,4 +868,30 @@ class ReportController extends Controller
         $data = $this->financialBiService->getMonthlyTrends($limit);
         $this->success($data, 'Financial BI trends retrieved successfully.');
     }
+
+    /**
+     * Departmental Profitability & Cost Center Margins:
+     * Gross collections minus direct operational costs (staff salaries, medications, surgical supplies).
+     */
+    public function departmentCostCenterMargins(): void
+    {
+        $request = new Request();
+        $filters = [
+            'month'            => $request->input('month'),
+            'cost_center_type' => $request->input('cost_center_type')
+        ];
+        $data = $this->financialBiService->getCostCenterMargins($filters);
+        $this->success($data, 'Departmental profitability and cost center margins retrieved successfully.');
+    }
+
+    /**
+     * Recalculate departmental contribution margins on demand.
+     */
+    public function recalculateCostCenterMargins(): void
+    {
+        $request = new Request();
+        $month = (string)($request->input('month') ?? date('Y-m'));
+        $data = $this->financialBiService->recalculateCostCenterMargins($month);
+        $this->success($data, "Departmental cost center margins recalculated for {$month}.");
+    }
 }

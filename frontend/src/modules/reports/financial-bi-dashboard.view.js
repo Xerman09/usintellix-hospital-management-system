@@ -595,6 +595,44 @@ export function FinancialBiDashboardView() {
             </table>
         </div>
     </div>
+
+    <!-- Departmental Cost Center Profitability & Contribution Margin Statement -->
+    <div class="fbi-panel">
+        <div class="fbi-panel-header">
+            <h3>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+                Departmental Profitability &amp; Cost Center Contribution Margins
+            </h3>
+            <span style="font-size: 12px; color: #64748b;" id="fbiCostCenterSummaryLabel">Gross Collections - (Staff Salaries + Medications + Surgical Supplies)</span>
+        </div>
+        <div class="fbi-table-responsive">
+            <table class="fbi-table" id="fbiCostCenterTable">
+                <thead>
+                    <tr>
+                        <th>Cost Center &amp; Department</th>
+                        <th>Category</th>
+                        <th style="text-align:right;">Gross Collections</th>
+                        <th style="text-align:right;">(-) Staff Salaries</th>
+                        <th style="text-align:right;">(-) Medications</th>
+                        <th style="text-align:right;">(-) Surgical Supplies</th>
+                        <th style="text-align:right;">Total Direct Costs</th>
+                        <th style="text-align:right;">Contribution Margin ($)</th>
+                        <th style="text-align:right;">Contribution Margin (%)</th>
+                        <th style="text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="fbiCostCenterTableBody">
+                    <tr>
+                        <td colspan="10" style="text-align:center; padding:20px; color:#94a3b8;">
+                            Loading cost center contribution margins...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 `;
 }

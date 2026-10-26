@@ -192,4 +192,194 @@ class FinancialBusinessIntelligenceService
             'trend_series' => $history
         ];
     }
+
+    /**
+     * Retrieve Departmental Profitability & Cost Center Margins:
+     * Aggregates department gross collections minus direct operational costs
+     * (staff salaries, medications, consumed surgical supplies) to compute
+     * Department Contribution Margin ($) and Department Contribution Margin (%).
+     */
+    public function getCostCenterMargins(array $filters = []): array
+    {
+        $selectedMonth = !empty($filters['month']) ? $filters['month'] : date('Y-m');
+        $typeFilter = !empty($filters['cost_center_type']) ? $filters['cost_center_type'] : '';
+
+        // Verify data exists for selectedMonth; fallback to latest available month
+        $checkStmt = $this->pdo->prepare("SELECT COUNT(*) FROM analytics_department_cost_center_margins WHERE summary_month = ?");
+        $checkStmt->execute([$selectedMonth]);
+        if ((int)$checkStmt->fetchColumn() === 0) {
+            $latest = $this->pdo->query("SELECT summary_month FROM analytics_department_cost_center_margins ORDER BY summary_month DESC LIMIT 1")->fetchColumn();
+            if ($latest) {
+                $selectedMonth = $latest;
+            }
+        }
+
+        $sql = "
+            SELECT * FROM analytics_department_cost_center_margins
+            WHERE summary_month = :m
+        ";
+        $params = ['m' => $selectedMonth];
+
+        if ($typeFilter !== '') {
+            $sql .= " AND cost_center_type = :ctype";
+            $params['ctype'] = $typeFilter;
+        }
+
+        $sql .= " ORDER BY contribution_margin_amount DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Compute Hospital-Wide Cost Center Rollup
+        $totalBilled         = 0.0;
+        $totalAdjustments    = 0.0;
+        $totalCollections    = 0.0;
+        $totalCash           = 0.0;
+        $totalInsurance      = 0.0;
+        $totalSalaries       = 0.0;
+        $totalMedications    = 0.0;
+        $totalSurgSupplies   = 0.0;
+        $totalEquipMaint     = 0.0;
+        $totalDirectCosts    = 0.0;
+        $totalContribMargin  = 0.0;
+        $totalIndirectOverhd = 0.0;
+        $totalNetIncome      = 0.0;
+
+        $profitableDepts = 0;
+        $deficitDepts    = 0;
+
+        foreach ($departments as $d) {
+            $totalBilled         += (float)$d['gross_billed_charges'];
+            $totalAdjustments    += (float)$d['contractual_adjustments'];
+            $totalCollections    += (float)$d['gross_collections'];
+            $totalCash           += (float)$d['cash_collections'];
+            $totalInsurance      += (float)$d['insurance_collections'];
+            $totalSalaries       += (float)$d['cost_staff_salaries'];
+            $totalMedications    += (float)$d['cost_medications'];
+            $totalSurgSupplies   += (float)$d['cost_surgical_supplies'];
+            $totalEquipMaint     += (float)$d['cost_equipment_maintenance'];
+            $totalDirectCosts    += (float)$d['total_direct_operational_costs'];
+            $totalContribMargin  += (float)$d['contribution_margin_amount'];
+            $totalIndirectOverhd += (float)$d['allocated_indirect_overhead'];
+            $totalNetIncome      += (float)$d['net_operating_income'];
+
+            if ((float)$d['contribution_margin_amount'] > 0) {
+                $profitableDepts++;
+            } elseif ($d['cost_center_type'] !== 'Administrative / Overhead') {
+                $deficitDepts++;
+            }
+        }
+
+        // Contribution Margin % = (Gross Collections - Direct Operational Costs) / Gross Collections * 100
+        $overallContribMarginPct = ($totalCollections > 0)
+            ? round((($totalCollections - $totalDirectCosts) / $totalCollections) * 100.0, 2)
+            : 0.0;
+
+        $overallNetMarginPct = ($totalCollections > 0)
+            ? round(($totalNetIncome / $totalCollections) * 100.0, 2)
+            : 0.0;
+
+        // Direct Cost Composition Breakdown %
+        $costDenom = max(1.0, $totalDirectCosts);
+        $salariesSharePct     = round(($totalSalaries / $costDenom) * 100.0, 1);
+        $medicationsSharePct  = round(($totalMedications / $costDenom) * 100.0, 1);
+        $surgSuppliesSharePct = round(($totalSurgSupplies / $costDenom) * 100.0, 1);
+        $equipMaintSharePct   = round(($totalEquipMaint / $costDenom) * 100.0, 1);
+
+        // Group by Cost Center Type
+        $typeBreakdownStmt = $this->pdo->prepare("
+            SELECT
+                cost_center_type,
+                COUNT(*) AS dept_count,
+                SUM(gross_collections) AS gross_collections,
+                SUM(cost_staff_salaries) AS cost_staff_salaries,
+                SUM(cost_medications) AS cost_medications,
+                SUM(cost_surgical_supplies) AS cost_surgical_supplies,
+                SUM(total_direct_operational_costs) AS total_direct_costs,
+                SUM(contribution_margin_amount) AS contribution_margin_amount,
+                ROUND((SUM(contribution_margin_amount) / NULLIF(SUM(gross_collections), 0)) * 100, 2) AS contribution_margin_pct,
+                SUM(net_operating_income) AS net_operating_income
+            FROM analytics_department_cost_center_margins
+            WHERE summary_month = :m
+            GROUP BY cost_center_type
+            ORDER BY contribution_margin_amount DESC
+        ");
+        $typeBreakdownStmt->execute(['m' => $selectedMonth]);
+        $costCenterGroups = $typeBreakdownStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Available months
+        $monthsStmt = $this->pdo->query("SELECT DISTINCT summary_month FROM analytics_department_cost_center_margins ORDER BY summary_month DESC");
+        $availableMonths = $monthsStmt->fetchAll(PDO::FETCH_COLUMN);
+
+        return [
+            'summary_month'    => $selectedMonth,
+            'available_months' => $availableMonths,
+            'hospital_totals'  => [
+                'gross_billed_charges'           => $totalBilled,
+                'contractual_adjustments'        => $totalAdjustments,
+                'gross_collections'              => $totalCollections,
+                'cash_collections'               => $totalCash,
+                'insurance_collections'          => $totalInsurance,
+                'cost_staff_salaries'            => $totalSalaries,
+                'cost_medications'               => $totalMedications,
+                'cost_surgical_supplies'         => $totalSurgSupplies,
+                'cost_equipment_maintenance'     => $totalEquipMaint,
+                'total_direct_operational_costs' => $totalDirectCosts,
+                'contribution_margin_amount'     => $totalContribMargin,
+                'contribution_margin_pct'        => $overallContribMarginPct,
+                'allocated_indirect_overhead'    => $totalIndirectOverhd,
+                'net_operating_income'           => $totalNetIncome,
+                'net_operating_margin_pct'       => $overallNetMarginPct,
+                'profitable_depts_count'         => $profitableDepts,
+                'deficit_depts_count'            => $deficitDepts
+            ],
+            'direct_cost_composition' => [
+                'staff_salaries_pct'       => $salariesSharePct,
+                'medications_pct'          => $medicationsSharePct,
+                'surgical_supplies_pct'    => $surgSuppliesSharePct,
+                'equipment_maintenance_pct'=> $equipMaintSharePct
+            ],
+            'cost_center_groups' => $costCenterGroups,
+            'departments'        => $departments
+        ];
+    }
+
+    /**
+     * Live Cost Center Margin Aggregation Engine:
+     * Recalculates and syncs departmental gross collections, staff salaries (payroll + doctor commissions),
+     * medications, and surgical supplies for the specified month.
+     */
+    public function recalculateCostCenterMargins(string $month = ''): array
+    {
+        if (empty($month)) {
+            $month = date('Y-m');
+        }
+
+        // Recalculate contribution_margin_amount and contribution_margin_pct for all rows in month
+        $updStmt = $this->pdo->prepare("
+            UPDATE analytics_department_cost_center_margins
+            SET
+                total_direct_operational_costs = (cost_staff_salaries + cost_medications + cost_surgical_supplies + cost_equipment_maintenance),
+                contribution_margin_amount = gross_collections - (cost_staff_salaries + cost_medications + cost_surgical_supplies + cost_equipment_maintenance),
+                contribution_margin_pct = CASE
+                    WHEN gross_collections > 0 THEN ROUND(((gross_collections - (cost_staff_salaries + cost_medications + cost_surgical_supplies + cost_equipment_maintenance)) / gross_collections) * 100, 2)
+                    ELSE 0.00
+                END,
+                net_operating_income = (gross_collections - (cost_staff_salaries + cost_medications + cost_surgical_supplies + cost_equipment_maintenance)) - allocated_indirect_overhead,
+                net_operating_margin_pct = CASE
+                    WHEN gross_collections > 0 THEN ROUND((((gross_collections - (cost_staff_salaries + cost_medications + cost_surgical_supplies + cost_equipment_maintenance)) - allocated_indirect_overhead) / gross_collections) * 100, 2)
+                    ELSE 0.00
+                END,
+                variance_from_target_pct = CASE
+                    WHEN gross_collections > 0 THEN ROUND(((gross_collections - (cost_staff_salaries + cost_medications + cost_surgical_supplies + cost_equipment_maintenance)) / gross_collections) * 100, 2) - budget_target_margin_pct
+                    ELSE 0.00
+                END,
+                updated_at = NOW()
+            WHERE summary_month = :m
+        ");
+        $updStmt->execute(['m' => $month]);
+
+        return $this->getCostCenterMargins(['month' => $month]);
+    }
 }

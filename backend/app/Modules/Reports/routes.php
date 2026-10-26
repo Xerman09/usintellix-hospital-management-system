@@ -354,3 +354,13 @@ $router->get('/reports/financial-bi/trends', [ReportController::class, 'financia
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// Departmental Profitability & Cost Center Margins (Gross Collections - Direct Costs = Contribution Margin %)
+$router->get('/reports/financial-bi/cost-center-margins', [ReportController::class, 'departmentCostCenterMargins'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/financial-bi/cost-center-margins/recalculate', [ReportController::class, 'recalculateCostCenterMargins'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

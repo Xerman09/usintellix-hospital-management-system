@@ -14,7 +14,7 @@ function setupEventListeners() {
     const monthSelect = document.getElementById('fbiMonthSelect');
     if (monthSelect) {
         monthSelect.addEventListener('change', (e) => {
-            loadOverview(e.target.value);
+            loadAllData(e.target.value);
         });
     }
 
@@ -50,8 +50,68 @@ function setupEventListeners() {
 async function loadAllData(targetMonth = '') {
     await Promise.all([
         loadOverview(targetMonth),
+        loadCostCenterMargins(targetMonth),
         loadTrends()
     ]);
+}
+
+async function loadCostCenterMargins(month = '') {
+    const params = new URLSearchParams();
+    if (month) params.append('month', month);
+
+    try {
+        const res = await api(`/reports/financial-bi/cost-center-margins?${params.toString()}`);
+        if (res && res.success && res.data) {
+            renderCostCenterMarginsTable(res.data);
+        }
+    } catch (err) {
+        console.error('Failed to load cost center margins', err);
+    }
+}
+
+function renderCostCenterMarginsTable(data) {
+    const tbody = document.getElementById('fbiCostCenterTableBody');
+    const summaryLabel = document.getElementById('fbiCostCenterSummaryLabel');
+    const totals = data.hospital_totals || {};
+    const depts = data.departments || [];
+
+    if (summaryLabel && totals.contribution_margin_pct !== undefined) {
+        summaryLabel.textContent = `Hospital Contribution Margin: ${parseFloat(totals.contribution_margin_pct).toFixed(2)}% (${formatCurrency(totals.contribution_margin_amount)})`;
+    }
+
+    if (!tbody) return;
+    if (depts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#94a3b8;">No cost center records found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = depts.map(d => {
+        const cmAmt = parseFloat(d.contribution_margin_amount) || 0;
+        const cmPct = parseFloat(d.contribution_margin_pct) || 0;
+        const isDeficit = cmAmt < 0;
+
+        const statusBadge = isDeficit
+            ? `<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px;">${escapeHtml(d.profitability_status)}</span>`
+            : `<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-weight:600; font-size:11px;">${escapeHtml(d.profitability_status)}</span>`;
+
+        return `
+            <tr style="${isDeficit ? 'background:#fffbfa;' : ''}">
+                <td>
+                    <strong style="color:#0f172a;">${escapeHtml(d.department_name)}</strong>
+                    <div style="font-size:11px; color:#64748b; font-family:monospace;">${escapeHtml(d.cost_center_code)}</div>
+                </td>
+                <td><span style="font-size:11px; color:#475569;">${escapeHtml(d.cost_center_type)}</span></td>
+                <td style="text-align:right; font-weight:700;">${formatCurrency(d.gross_collections)}</td>
+                <td style="text-align:right; color:#0284c7;">${formatCurrency(d.cost_staff_salaries)}</td>
+                <td style="text-align:right; color:#059669;">${formatCurrency(d.cost_medications)}</td>
+                <td style="text-align:right; color:#d97706;">${formatCurrency(d.cost_surgical_supplies)}</td>
+                <td style="text-align:right; font-weight:600; color:#475569;">${formatCurrency(d.total_direct_operational_costs)}</td>
+                <td style="text-align:right; font-weight:800; color:${isDeficit ? '#dc2626' : '#059669'};">${formatCurrency(cmAmt)}</td>
+                <td style="text-align:right; font-weight:800; color:${isDeficit ? '#dc2626' : '#059669'};">${cmPct.toFixed(2)}%</td>
+                <td style="text-align:center;">${statusBadge}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function loadOverview(month = '') {

@@ -26,6 +26,8 @@ import { ClinicalSafetyScorecardView } from "../modules/reports/clinical-safety-
 import { initClinicalSafetyScorecard } from "../modules/reports/clinical-safety-scorecard.js";
 import { FinancialBiDashboardView } from "../modules/reports/financial-bi-dashboard.view.js";
 import { initFinancialBiDashboard } from "../modules/reports/financial-bi-dashboard.js";
+import { DepartmentalProfitabilityView } from "../modules/reports/departmental-profitability.view.js";
+import { initDepartmentalProfitability } from "../modules/reports/departmental-profitability.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -575,6 +577,10 @@ const routes = {
     "/financial-bi-dashboard": {
         view: FinancialBiDashboardView,
         afterRender: initFinancialBiDashboard
+    },
+    "/departmental-profitability": {
+        view: DepartmentalProfitabilityView,
+        afterRender: initDepartmentalProfitability
     }
 };
 

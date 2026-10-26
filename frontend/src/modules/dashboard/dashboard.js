@@ -289,6 +289,8 @@ import { initClinicalSafetyScorecard } from "../reports/clinical-safety-scorecar
 import { ClinicalSafetyScorecardView } from "../reports/clinical-safety-scorecard.view.js";
 import { initFinancialBiDashboard } from "../reports/financial-bi-dashboard.js";
 import { FinancialBiDashboardView } from "../reports/financial-bi-dashboard.view.js";
+import { initDepartmentalProfitability } from "../reports/departmental-profitability.js";
+import { DepartmentalProfitabilityView } from "../reports/departmental-profitability.view.js";
 import { initOrManagement } from "../or-management/or-management.js?v=29";
 import { OrManagementView } from "../or-management/or-management.view.js?v=5";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=4";
@@ -1472,6 +1474,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Executive Financial & BI', () => {
                 setTimeout(initFinancialBiDashboard, 0);
                 return FinancialBiDashboardView();
+            }, activate);
+        } else if (tabId === 'reports_departmental_profitability') {
+            tabManager.openTab(tabId, title || 'Departmental Profitability & Cost Centers', () => {
+                setTimeout(initDepartmentalProfitability, 0);
+                return DepartmentalProfitabilityView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {
