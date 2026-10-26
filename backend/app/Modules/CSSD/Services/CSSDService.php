@@ -32,6 +32,29 @@ class CSSDService
     }
 
     /**
+     * Generate Sequential Sterilization Batch Number: BATCH-YYYY-0001
+     */
+    public static function generateBatchNumber(PDO $pdo): string
+    {
+        $year = (int)date('Y');
+        $stmt = $pdo->prepare("
+            INSERT INTO `billing_tariff_counters` (`counter_type`, `year`, `last_number`)
+            VALUES ('CSSD_BATCH', ?, 1)
+            ON DUPLICATE KEY UPDATE `last_number` = `last_number` + 1
+        ");
+        $stmt->execute([$year]);
+
+        $sel = $pdo->prepare("
+            SELECT `last_number` FROM `billing_tariff_counters`
+            WHERE `counter_type` = 'CSSD_BATCH' AND `year` = ?
+        ");
+        $sel->execute([$year]);
+        $num = (int)$sel->fetchColumn();
+
+        return sprintf("BATCH-%d-%04d", $year, $num);
+    }
+
+    /**
      * Executive Overview & Instrument Sterilization KPIs
      */
     public function getExecutiveMetrics(): array
@@ -54,6 +77,28 @@ class CSSDService
 
         $totalMasterTrays = (int)$pdo->query("SELECT COUNT(*) FROM `cssd_master_trays` WHERE status = 'active'")->fetchColumn();
         $totalManifestInstruments = (int)$pdo->query("SELECT SUM(quantity_required) FROM `cssd_master_tray_items`")->fetchColumn();
+
+        // Autoclave Batch Breakdown
+        $batchSql = "
+            SELECT
+                COUNT(*) as total_batches,
+                SUM(CASE WHEN batch_status = 'released_sterile' THEN 1 ELSE 0 END) as released_batches_count,
+                SUM(CASE WHEN batch_status = 'cycle_passed_quarantined_bi' THEN 1 ELSE 0 END) as incubating_batches_count,
+                SUM(CASE WHEN batch_status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_batches_count,
+                SUM(CASE WHEN batch_status = 'batch_failed_quarantined' THEN 1 ELSE 0 END) as failed_batches_count
+            FROM `cssd_sterilization_batches`
+        ";
+        $b = $pdo->query($batchSql)->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        // Machines Overview
+        $machSql = "
+            SELECT
+                COUNT(*) as total_machines,
+                SUM(CASE WHEN status IN ('ready', 'in_cycle') THEN 1 ELSE 0 END) as active_machines,
+                SUM(CASE WHEN daily_bowie_dick_passed = 1 THEN 1 ELSE 0 END) as bowie_dick_passed_count
+            FROM `cssd_sterilizer_machines`
+        ";
+        $mac = $pdo->query($machSql)->fetch(PDO::FETCH_ASSOC) ?: [];
 
         // Specialty Breakdown
         $specSql = "
@@ -78,6 +123,14 @@ class CSSDService
             'expired_sterile_count' => (int)($m['expired_sterile_count'] ?? 0),
             'total_cycles_run' => (int)($m['total_cycles_run'] ?? 0),
             'total_manifest_instruments' => $totalManifestInstruments,
+            'total_batches' => (int)($b['total_batches'] ?? 0),
+            'released_batches_count' => (int)($b['released_batches_count'] ?? 0),
+            'incubating_batches_count' => (int)($b['incubating_batches_count'] ?? 0),
+            'in_progress_batches_count' => (int)($b['in_progress_batches_count'] ?? 0),
+            'failed_batches_count' => (int)($b['failed_batches_count'] ?? 0),
+            'total_machines' => (int)($mac['total_machines'] ?? 0),
+            'active_machines' => (int)($mac['active_machines'] ?? 0),
+            'bowie_dick_passed_count' => (int)($mac['bowie_dick_passed_count'] ?? 0),
             'specialty_distribution' => $specialties
         ];
     }
@@ -739,6 +792,39 @@ class CSSDService
 
         $masterTrays = $pdo->query("SELECT id, tray_code, name, department_specialty, total_pieces FROM cssd_master_trays WHERE status = 'active' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+        $machines = $pdo->query("SELECT id, machine_code, machine_name, sterilization_type, status, daily_bowie_dick_passed FROM cssd_sterilizer_machines ORDER BY machine_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+        $cycleTypes = [
+            'wrapped_instruments_134c' => 'Wrapped Surgical Sets (134°C, 2.2 bar, 18 min)',
+            'unwrapped_flash_134c' => 'Emergency Flash Sterilization (134°C, 4 min)',
+            'prion_inactivation_134c' => 'Extended Prion Inactivation (134°C, 18 min)',
+            'delicate_plastics_121c' => 'Delicate Plastics & Rubber (121°C, 30 min)',
+            'plasma_standard' => 'H2O2 Plasma Standard (55°C, 45 min)',
+            'plasma_advanced' => 'H2O2 Plasma Lumen Advanced (55°C, 60 min)'
+        ];
+
+        $batchStatuses = [
+            'released_sterile' => 'Released Sterile (Parameters, Integrator & Spore Pass)',
+            'cycle_passed_quarantined_bi' => 'In Spore Quarantine (Awaiting BI Incubation)',
+            'in_progress' => 'In Sterilization Cycle (Plateau Phase)',
+            'batch_failed_quarantined' => 'Failed & Quarantined (Safety Lockout)',
+            'cycle_aborted' => 'Cycle Aborted (Chamber / Pressure Error)'
+        ];
+
+        $sporeResults = [
+            'no_growth_negative' => 'No Growth / Negative (100% Spore Destruction - PASS)',
+            'growth_positive' => 'Growth / Positive (STERILIZATION FAILURE - CRITICAL ALERT)',
+            'incubating_pending' => 'Incubating (24h Biological Incubator @ 56°C)',
+            'not_run' => 'Not Run for this Cycle'
+        ];
+
+        $chemicalClasses = [
+            'class_5_integrator' => 'Class 5 Chemical Integrator (Steam/Time/Temp)',
+            'class_6_emulating' => 'Class 6 Emulating Indicator (Cycle-Specific)',
+            'class_4_multi_variable' => 'Class 4 Multi-Variable Indicator Strip',
+            'none' => 'None / Ambient'
+        ];
+
         return [
             'specialties' => $specialties,
             'categories' => $categories,
@@ -746,7 +832,610 @@ class CSSDService
             'wrapper_types' => $wrapperTypes,
             'instrument_types' => $instrumentTypes,
             'modalities' => $modalities,
-            'master_trays' => $masterTrays
+            'master_trays' => $masterTrays,
+            'machines' => $machines,
+            'cycle_types' => $cycleTypes,
+            'batch_statuses' => $batchStatuses,
+            'spore_results' => $sporeResults,
+            'chemical_classes' => $chemicalClasses
+        ];
+    }
+
+    /**
+     * List Sterilizer Equipment Machines
+     */
+    public function listMachines(): array
+    {
+        $pdo = Database::connection();
+        $sql = "
+            SELECT
+                m.*,
+                (SELECT COUNT(*) FROM cssd_sterilization_batches WHERE sterilizer_machine_id = m.id) as batch_count,
+                (SELECT COUNT(*) FROM cssd_sterilization_batches WHERE sterilizer_machine_id = m.id AND sterilization_date = CURRENT_DATE) as today_cycles
+            FROM `cssd_sterilizer_machines` m
+            ORDER BY m.machine_code ASC
+        ";
+        return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Save Sterilizer Equipment Machine
+     */
+    public function saveMachine(array $data): array
+    {
+        $pdo = Database::connection();
+        $id = !empty($data['id']) ? (int)$data['id'] : null;
+        $code = trim($data['machine_code'] ?? '');
+        $name = trim($data['machine_name'] ?? '');
+        $type = $data['sterilization_type'] ?? 'steam_autoclave';
+        $location = trim($data['location'] ?? 'CSSD Sterilizer Core');
+        $serial = trim($data['serial_number'] ?? '');
+        $mfg = trim($data['manufacturer'] ?? 'Getinge');
+        $model = trim($data['model_number'] ?? '');
+        $volume = (float)($data['chamber_volume_liters'] ?? 450.00);
+        $temp = (float)($data['max_operating_temp_c'] ?? 138.00);
+        $pressure = (float)($data['max_operating_pressure_bar'] ?? 3.20);
+        $status = $data['status'] ?? 'ready';
+        $notes = $data['notes'] ?? null;
+
+        if (empty($name)) {
+            throw new \InvalidArgumentException("Sterilizer machine name is required.");
+        }
+
+        if (!$id) {
+            if (empty($code)) {
+                $count = (int)$pdo->query("SELECT COUNT(*) FROM cssd_sterilizer_machines")->fetchColumn() + 1;
+                $code = sprintf("STER-%02d", $count);
+            }
+            $stmt = $pdo->prepare("
+                INSERT INTO `cssd_sterilizer_machines` (
+                    `machine_code`, `machine_name`, `sterilization_type`, `location`,
+                    `serial_number`, `manufacturer`, `model_number`, `chamber_volume_liters`,
+                    `max_operating_temp_c`, `max_operating_pressure_bar`, `status`, `notes`
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$code, $name, $type, $location, $serial, $mfg, $model, $volume, $temp, $pressure, $status, $notes]);
+            $id = (int)$pdo->lastInsertId();
+        } else {
+            $stmt = $pdo->prepare("
+                UPDATE `cssd_sterilizer_machines` SET
+                    `machine_code` = ?, `machine_name` = ?, `sterilization_type` = ?,
+                    `location` = ?, `serial_number` = ?, `manufacturer` = ?,
+                    `model_number` = ?, `chamber_volume_liters` = ?, `max_operating_temp_c` = ?,
+                    `max_operating_pressure_bar` = ?, `status` = ?, `notes` = ?,
+                    `updated_at` = NOW()
+                WHERE `id` = ?
+            ");
+            $stmt->execute([$code, $name, $type, $location, $serial, $mfg, $model, $volume, $temp, $pressure, $status, $notes, $id]);
+        }
+
+        return ['id' => $id, 'machine_code' => $code, 'message' => "Sterilizer machine '{$name}' saved successfully."];
+    }
+
+    /**
+     * Record Daily Bowie-Dick Air Removal Test
+     */
+    public function recordBowieDickTest(int $machineId, string $result, string $technician, ?string $notes = null): bool
+    {
+        $pdo = Database::connection();
+        $isPassed = ($result === 'pass') ? 1 : 0;
+        $machineStatus = $isPassed ? 'ready' : 'quarantined_spore_failure';
+
+        $stmt = $pdo->prepare("
+            UPDATE `cssd_sterilizer_machines` SET
+                `daily_bowie_dick_passed` = ?,
+                `last_bowie_dick_at` = NOW(),
+                `status` = ?,
+                `notes` = CONCAT(IFNULL(notes, ''), '\n[Bowie-Dick Test]: ', ?, ' by ', ?, ' at ', NOW())
+            WHERE `id` = ?
+        ");
+        return $stmt->execute([$isPassed, $machineStatus, strtoupper($result) . ($notes ? " - {$notes}" : ''), $technician, $machineId]);
+    }
+
+    /**
+     * List Autoclave Sterilization Batches
+     */
+    public function listBatches(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        $pdo = Database::connection();
+        $where = ["1=1"];
+        $params = [];
+
+        if (!empty($filters['machine_id'])) {
+            $where[] = "b.sterilizer_machine_id = ?";
+            $params[] = (int)$filters['machine_id'];
+        }
+
+        if (!empty($filters['batch_status'])) {
+            $where[] = "b.batch_status = ?";
+            $params[] = $filters['batch_status'];
+        }
+
+        if (!empty($filters['cycle_type'])) {
+            $where[] = "b.cycle_type = ?";
+            $params[] = $filters['cycle_type'];
+        }
+
+        if (!empty($filters['spore_result'])) {
+            $where[] = "b.biological_spore_result = ?";
+            $params[] = $filters['spore_result'];
+        }
+
+        if (!empty($filters['date'])) {
+            $where[] = "b.sterilization_date = ?";
+            $params[] = $filters['date'];
+        }
+
+        if (!empty($filters['q'])) {
+            $term = '%' . trim($filters['q']) . '%';
+            $where[] = "(b.batch_number LIKE ? OR m.machine_name LIKE ? OR b.operator_name LIKE ? OR b.release_notes LIKE ?)";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        $whereClause = implode(" AND ", $where);
+
+        $countStmt = $pdo->prepare("
+            SELECT COUNT(*) FROM `cssd_sterilization_batches` b
+            JOIN `cssd_sterilizer_machines` m ON b.sterilizer_machine_id = m.id
+            WHERE {$whereClause}
+        ");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
+        $offset = ($page - 1) * $perPage;
+        $sql = "
+            SELECT
+                b.*,
+                m.machine_code,
+                m.machine_name,
+                m.sterilization_type,
+                (SELECT COUNT(*) FROM cssd_sterilization_batch_items WHERE batch_id = b.id) as items_loaded_count
+            FROM `cssd_sterilization_batches` b
+            JOIN `cssd_sterilizer_machines` m ON b.sterilizer_machine_id = m.id
+            WHERE {$whereClause}
+            ORDER BY b.cycle_start_time DESC, b.id DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'records' => $records
+        ];
+    }
+
+    /**
+     * Get Sterilization Batch Detail with Loaded Items
+     */
+    public function getBatchDetail(int $id): ?array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("
+            SELECT
+                b.*,
+                m.machine_code,
+                m.machine_name,
+                m.sterilization_type,
+                m.chamber_volume_liters,
+                m.location as machine_location
+            FROM `cssd_sterilization_batches` b
+            JOIN `cssd_sterilizer_machines` m ON b.sterilizer_machine_id = m.id
+            WHERE b.id = ?
+        ");
+        $stmt->execute([$id]);
+        $batch = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$batch) return null;
+
+        // Fetch loaded items
+        $itemStmt = $pdo->prepare("
+            SELECT
+                bi.*,
+                pt.current_status as physical_tray_status,
+                pt.current_location as physical_tray_location,
+                mt.name as master_tray_name,
+                mt.total_pieces as manifest_pieces
+            FROM `cssd_sterilization_batch_items` bi
+            LEFT JOIN `cssd_physical_trays` pt ON bi.physical_tray_id = pt.id
+            LEFT JOIN `cssd_master_trays` mt ON pt.master_tray_id = mt.id
+            WHERE bi.batch_id = ?
+            ORDER BY bi.id ASC
+        ");
+        $itemStmt->execute([$id]);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'batch' => $batch,
+            'items' => $items
+        ];
+    }
+
+    /**
+     * Save / Execute Sterilization Batch
+     */
+    public function saveBatch(array $data, ?int $userId = null): array
+    {
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            $id = !empty($data['id']) ? (int)$data['id'] : null;
+            $machineId = (int)($data['sterilizer_machine_id'] ?? 0);
+            if ($machineId <= 0) {
+                throw new \InvalidArgumentException("Sterilizer equipment selection is required.");
+            }
+
+            $machine = $pdo->query("SELECT * FROM cssd_sterilizer_machines WHERE id = {$machineId}")->fetch(PDO::FETCH_ASSOC);
+            if (!$machine) {
+                throw new \RuntimeException("Sterilizer machine not found.");
+            }
+
+            $batchNumber = !empty($data['batch_number']) ? trim($data['batch_number']) : self::generateBatchNumber($pdo);
+            $cycleNo = max(1, (int)($data['cycle_number'] ?? ($machine['total_completed_cycles'] + 1)));
+            $cycleType = $data['cycle_type'] ?? 'wrapped_instruments_134c';
+            $startTime = !empty($data['cycle_start_time']) ? $data['cycle_start_time'] : date('Y-m-d H:i:s');
+            $endTime = !empty($data['cycle_end_time']) ? $data['cycle_end_time'] : date('Y-m-d H:i:s', strtotime('+55 minutes'));
+            $operator = trim($data['operator_name'] ?? 'CSSD Autoclave Operator');
+            $supervisor = trim($data['supervisor_verified_by'] ?? 'CSSD Supervisor');
+
+            // Physical Parameters
+            $peakTemp = (float)($data['peak_temperature_celsius'] ?? 134.00);
+            $pressure = (float)($data['pressure_bar'] ?? 2.20);
+            $holdDuration = (float)($data['hold_duration_minutes'] ?? 18.00);
+            $vacuumLeak = (float)($data['vacuum_leak_rate_mbar_min'] ?? 0.80);
+
+            // Indicators
+            $bowieDick = $data['bowie_dick_test_result'] ?? 'pass';
+            $chemClass = $data['chemical_indicator_class'] ?? 'class_5_integrator';
+            $chemResult = $data['chemical_indicator_result'] ?? 'pass';
+            $biLot = trim($data['biological_indicator_lot'] ?? '3M-Attest-BI-4921B');
+            $sporeOrg = trim($data['biological_spore_organism'] ?? 'Geobacillus stearothermophilus');
+            $sporeResult = $data['biological_spore_result'] ?? 'no_growth_negative';
+            $sporeHours = (float)($data['spore_incubation_hours'] ?? 24.0);
+            $sporeReadAt = ($sporeResult === 'no_growth_negative' || $sporeResult === 'growth_positive') ? date('Y-m-d H:i:s') : null;
+            $sporeReadBy = $sporeReadAt ? trim($data['spore_read_by'] ?? 'Microbiology QA Officer') : null;
+
+            // Determine Batch Status
+            $status = $data['batch_status'] ?? 'released_sterile';
+            if ($bowieDick === 'fail' || $chemResult === 'fail' || $sporeResult === 'growth_positive') {
+                $status = 'batch_failed_quarantined';
+            } elseif ($sporeResult === 'incubating_pending') {
+                $status = 'cycle_passed_quarantined_bi';
+            }
+
+            $sterDate = !empty($data['sterilization_date']) ? $data['sterilization_date'] : date('Y-m-d');
+            $shelfLifeDays = max(1, (int)($data['sterile_shelf_life_days'] ?? 180)); // 6 months standard
+            $expiryDate = date('Y-m-d', strtotime("{$sterDate} +{$shelfLifeDays} days"));
+            $notes = $data['release_notes'] ?? null;
+
+            $items = $data['items'] ?? [];
+            $totalTrays = 0;
+            $totalPacks = 0;
+            foreach ($items as $it) {
+                if (($it['item_type'] ?? 'instrument_tray') === 'instrument_tray') {
+                    $totalTrays++;
+                } else {
+                    $totalPacks++;
+                }
+            }
+
+            if (!$id) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO `cssd_sterilization_batches` (
+                        `batch_number`, `sterilizer_machine_id`, `cycle_number`, `cycle_type`,
+                        `cycle_start_time`, `cycle_end_time`, `operator_user_id`, `operator_name`,
+                        `supervisor_verified_by`, `peak_temperature_celsius`, `pressure_bar`,
+                        `hold_duration_minutes`, `vacuum_leak_rate_mbar_min`, `bowie_dick_test_result`,
+                        `chemical_indicator_class`, `chemical_indicator_result`, `biological_indicator_lot`,
+                        `biological_spore_organism`, `biological_spore_result`, `spore_incubation_hours`,
+                        `spore_read_at`, `spore_read_by`, `batch_status`, `total_trays_loaded`,
+                        `total_packs_loaded`, `sterilization_date`, `sterile_shelf_life_days`,
+                        `sterility_expiry_date`, `release_notes`
+                    ) VALUES (
+                        ?, ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?
+                    )
+                ");
+                $stmt->execute([
+                    $batchNumber, $machineId, $cycleNo, $cycleType,
+                    $startTime, $endTime, $userId, $operator,
+                    $supervisor, $peakTemp, $pressure,
+                    $holdDuration, $vacuumLeak, $bowieDick,
+                    $chemClass, $chemResult, $biLot,
+                    $sporeOrg, $sporeResult, $sporeHours,
+                    $sporeReadAt, $sporeReadBy, $status, $totalTrays,
+                    $totalPacks, $sterDate, $shelfLifeDays,
+                    $expiryDate, $notes
+                ]);
+                $id = (int)$pdo->lastInsertId();
+
+                // Increment completed cycles on machine
+                $pdo->prepare("UPDATE `cssd_sterilizer_machines` SET `total_completed_cycles` = `total_completed_cycles` + 1 WHERE id = ?")->execute([$machineId]);
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE `cssd_sterilization_batches` SET
+                        `sterilizer_machine_id` = ?, `cycle_number` = ?, `cycle_type` = ?,
+                        `cycle_start_time` = ?, `cycle_end_time` = ?, `operator_name` = ?,
+                        `supervisor_verified_by` = ?, `peak_temperature_celsius` = ?, `pressure_bar` = ?,
+                        `hold_duration_minutes` = ?, `vacuum_leak_rate_mbar_min` = ?, `bowie_dick_test_result` = ?,
+                        `chemical_indicator_class` = ?, `chemical_indicator_result` = ?, `biological_indicator_lot` = ?,
+                        `biological_spore_organism` = ?, `biological_spore_result` = ?, `spore_incubation_hours` = ?,
+                        `spore_read_at` = ?, `spore_read_by` = ?, `batch_status` = ?, `total_trays_loaded` = ?,
+                        `total_packs_loaded` = ?, `sterilization_date` = ?, `sterile_shelf_life_days` = ?,
+                        `sterility_expiry_date` = ?, `release_notes` = ?, `updated_at` = NOW()
+                    WHERE `id` = ?
+                ");
+                $stmt->execute([
+                    $machineId, $cycleNo, $cycleType,
+                    $startTime, $endTime, $operator,
+                    $supervisor, $peakTemp, $pressure,
+                    $holdDuration, $vacuumLeak, $bowieDick,
+                    $chemClass, $chemResult, $biLot,
+                    $sporeOrg, $sporeResult, $sporeHours,
+                    $sporeReadAt, $sporeReadBy, $status, $totalTrays,
+                    $totalPacks, $sterDate, $shelfLifeDays,
+                    $expiryDate, $notes, $id
+                ]);
+            }
+
+            // Sync Loaded Batch Items
+            if (!empty($items)) {
+                $pdo->prepare("DELETE FROM `cssd_sterilization_batch_items` WHERE batch_id = ?")->execute([$id]);
+
+                $stmtItem = $pdo->prepare("
+                    INSERT INTO `cssd_sterilization_batch_items` (
+                        `batch_id`, `physical_tray_id`, `item_barcode`, `item_description`,
+                        `item_type`, `wrapper_type`, `load_rack_shelf`, `item_sterility_expiry_date`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+
+                foreach ($items as $it) {
+                    $physId = !empty($it['physical_tray_id']) ? (int)$it['physical_tray_id'] : null;
+                    $barcode = trim($it['item_barcode'] ?? '');
+                    $desc = trim($it['item_description'] ?? '');
+
+                    if ($physId && (empty($barcode) || empty($desc))) {
+                        $trayRow = $pdo->query("
+                            SELECT pt.tray_barcode, mt.name as master_name
+                            FROM cssd_physical_trays pt
+                            LEFT JOIN cssd_master_trays mt ON pt.master_tray_id = mt.id
+                            WHERE pt.id = {$physId}
+                        ")->fetch(PDO::FETCH_ASSOC);
+
+                        if ($trayRow) {
+                            if (empty($barcode)) $barcode = $trayRow['tray_barcode'];
+                            if (empty($desc)) $desc = $trayRow['master_name'] ?? 'Surgical Instrument Set';
+                        }
+                    }
+
+                    if (empty($barcode)) {
+                        $barcode = 'PKG-' . rand(1000, 9999);
+                    }
+                    if (empty($desc)) {
+                        $desc = 'Surgical Instrument Package';
+                    }
+
+                    $type = $it['item_type'] ?? 'instrument_tray';
+                    $wrapper = $it['wrapper_type'] ?? 'rigid_container';
+                    $shelf = $it['load_rack_shelf'] ?? ($it['shelf_position'] ?? 'Rack 1 - Middle Tier');
+
+                    $stmtItem->execute([
+                        $id, $physId, $barcode, $desc,
+                        $type, $wrapper, $shelf, $expiryDate
+                    ]);
+
+                    // Automatically update linked physical tray lifecycle
+                    if ($physId) {
+                        if ($status === 'released_sterile') {
+                            $pdo->prepare("
+                                UPDATE `cssd_physical_trays` SET
+                                    `current_status` = 'sterile_stored',
+                                    `current_location` = 'CSSD Sterile Core Rack A-1',
+                                    `last_sterilization_batch_id` = ?,
+                                    `last_sterilization_cycle_no` = ?,
+                                    `last_sterilized_at` = NOW(),
+                                    `sterile_expiry_date` = ?,
+                                    `chemical_indicator_result` = 'passed',
+                                    `biological_spore_result` = ?,
+                                    `total_sterilization_cycles` = `total_sterilization_cycles` + 1,
+                                    `updated_at` = NOW()
+                                WHERE id = ?
+                            ")->execute([$batchNumber, "CYC-{$cycleNo}", $expiryDate, $sporeResult, $physId]);
+
+                            // Log event
+                            $pdo->prepare("
+                                INSERT INTO `cssd_tray_lifecycle_events` (
+                                    `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                                    `location`, `operator_name`, `notes`
+                                ) VALUES (?, 'sterilization_passed', 'sterilizing', 'sterile_stored', 'CSSD Sterile Core', ?, ?)
+                            ")->execute([$physId, $operator, "Sterilized in batch {$batchNumber} (134C, 2.2 bar, 18m). 6-month sterile expiry."]);
+                        } elseif ($status === 'batch_failed_quarantined') {
+                            $pdo->prepare("
+                                UPDATE `cssd_physical_trays` SET
+                                    `current_status` = 'quarantined_missing_item',
+                                    `current_location` = 'CSSD Quality Quarantine Shelf Q-1',
+                                    `chemical_indicator_result` = 'failed',
+                                    `biological_spore_result` = ?,
+                                    `notes` = CONCAT('SAFETY QUARANTINE: Batch ', ?, ' failed sterilization quality validation.')
+                                WHERE id = ?
+                            ")->execute([$sporeResult, $batchNumber, $physId]);
+
+                            $pdo->prepare("
+                                INSERT INTO `cssd_tray_lifecycle_events` (
+                                    `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                                    `location`, `operator_name`, `notes`
+                                ) VALUES (?, 'quarantined', 'sterilizing', 'quarantined_missing_item', 'CSSD Quarantine Q-1', ?, ?)
+                            ")->execute([$physId, $operator, "Batch {$batchNumber} failed QA. Spore/indicator lockout."]);
+                        } elseif ($status === 'cycle_passed_quarantined_bi') {
+                            $pdo->prepare("
+                                UPDATE `cssd_physical_trays` SET
+                                    `current_status` = 'sterilizing',
+                                    `current_location` = 'CSSD Cooling & Biological Hold Bay',
+                                    `last_sterilization_batch_id` = ?,
+                                    `chemical_indicator_result` = 'passed',
+                                    `biological_spore_result` = 'incubating'
+                                WHERE id = ?
+                            ")->execute([$batchNumber, $physId]);
+                        }
+                    }
+                }
+            }
+
+            $pdo->commit();
+
+            return [
+                'id' => $id,
+                'batch_number' => $batchNumber,
+                'batch_status' => $status,
+                'sterility_expiry_date' => $expiryDate,
+                'message' => "Autoclave batch #{$batchNumber} saved with status: {$status}."
+            ];
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Verify Biological Spore Indicator (Geobacillus stearothermophilus)
+     */
+    public function verifySporeResult(int $batchId, string $sporeResult, string $readBy, ?string $notes = null): array
+    {
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            $batch = $pdo->query("SELECT * FROM cssd_sterilization_batches WHERE id = {$batchId}")->fetch(PDO::FETCH_ASSOC);
+            if (!$batch) {
+                throw new \RuntimeException("Sterilization batch not found.");
+            }
+
+            $newBatchStatus = ($sporeResult === 'no_growth_negative') ? 'released_sterile' : (($sporeResult === 'growth_positive') ? 'batch_failed_quarantined' : $batch['batch_status']);
+
+            $stmt = $pdo->prepare("
+                UPDATE `cssd_sterilization_batches` SET
+                    `biological_spore_result` = ?,
+                    `spore_read_at` = NOW(),
+                    `spore_read_by` = ?,
+                    `batch_status` = ?,
+                    `release_notes` = CONCAT(IFNULL(release_notes, ''), '\n[Spore Verification]: ', ?, ' by ', ?, ' at ', NOW()),
+                    `updated_at` = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$sporeResult, $readBy, $newBatchStatus, strtoupper($sporeResult) . ($notes ? " ({$notes})" : ''), $readBy, $batchId]);
+
+            // If negative pass: release all associated physical trays
+            if ($sporeResult === 'no_growth_negative') {
+                $trays = $pdo->query("SELECT physical_tray_id FROM cssd_sterilization_batch_items WHERE batch_id = {$batchId} AND physical_tray_id IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($trays as $physId) {
+                    $pdo->prepare("
+                        UPDATE `cssd_physical_trays` SET
+                            `current_status` = 'sterile_stored',
+                            `biological_spore_result` = 'negative_pass',
+                            `updated_at` = NOW()
+                        WHERE id = ?
+                    ")->execute([$physId]);
+
+                    $pdo->prepare("
+                        INSERT INTO `cssd_tray_lifecycle_events` (
+                            `physical_tray_id`, `event_type`, `from_status`, `to_status`,
+                            `location`, `operator_name`, `notes`
+                        ) VALUES (?, 'sterile_shelved', 'sterilizing', 'sterile_stored', 'CSSD Sterile Core', ?, 'Biological spore test NEGATIVE (Geobacillus stearothermophilus: No Growth). Released.')
+                    ")->execute([$physId, $readBy]);
+                }
+            } elseif ($sporeResult === 'growth_positive') {
+                // Spore growth positive: quarantine all trays immediately!
+                $trays = $pdo->query("SELECT physical_tray_id FROM cssd_sterilization_batch_items WHERE batch_id = {$batchId} AND physical_tray_id IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($trays as $physId) {
+                    $pdo->prepare("
+                        UPDATE `cssd_physical_trays` SET
+                            `current_status` = 'quarantined_missing_item',
+                            `biological_spore_result` = 'positive_fail',
+                            `notes` = 'CRITICAL SPORE FAILURE: Biological indicator showed growth. Instrument recall initiated!'
+                        WHERE id = ?
+                    ")->execute([$physId]);
+                }
+            }
+
+            $pdo->commit();
+
+            return [
+                'batch_id' => $batchId,
+                'spore_result' => $sporeResult,
+                'batch_status' => $newBatchStatus,
+                'message' => "Biological indicator spore result recorded as '{$sporeResult}'. Batch status updated to '{$newBatchStatus}'."
+            ];
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Thermal Barcode Label Generator Data
+     */
+    public function getThermalLabelData(int $batchId, ?int $batchItemId = null): array
+    {
+        $pdo = Database::connection();
+        $batch = $this->getBatchDetail($batchId);
+        if (!$batch) {
+            throw new \RuntimeException("Batch not found.");
+        }
+
+        $b = $batch['batch'];
+        $items = $batch['items'];
+        if ($batchItemId) {
+            $items = array_values(array_filter($items, fn($it) => (int)$it['id'] === (int)$batchItemId));
+        }
+
+        $labels = [];
+        foreach ($items as $it) {
+            $labels[] = [
+                'batch_number' => $b['batch_number'],
+                'item_barcode' => $it['item_barcode'],
+                'item_description' => $it['item_description'],
+                'item_type' => $it['item_type'],
+                'wrapper_type' => $it['wrapper_type'],
+                'load_rack_shelf' => $it['load_rack_shelf'],
+                'machine_code' => $b['machine_code'],
+                'machine_name' => $b['machine_name'],
+                'cycle_number' => $b['cycle_number'],
+                'cycle_type' => $b['cycle_type'],
+                'peak_temperature_celsius' => $b['peak_temperature_celsius'],
+                'pressure_bar' => $b['pressure_bar'],
+                'hold_duration_minutes' => $b['hold_duration_minutes'],
+                'sterilization_date' => $b['sterilization_date'],
+                'sterile_shelf_life_days' => $b['sterile_shelf_life_days'],
+                'sterility_expiry_date' => $b['sterility_expiry_date'],
+                'bowie_dick_result' => strtoupper($b['bowie_dick_test_result']),
+                'chemical_indicator_class' => $b['chemical_indicator_class'],
+                'chemical_indicator_result' => strtoupper($b['chemical_indicator_result']),
+                'spore_organism' => $b['biological_spore_organism'],
+                'spore_result' => ($b['biological_spore_result'] === 'no_growth_negative' ? 'NEGATIVE / NO GROWTH (PASS)' : strtoupper($b['biological_spore_result'])),
+                'operator_name' => $b['operator_name'],
+                'supervisor_name' => $b['supervisor_verified_by'] ?? 'CSSD QA Lead',
+                'hospital_name' => 'USINTELLIX HOSPITAL SYSTEM',
+                'department' => 'Central Sterile Supply Department (CSSD)'
+            ];
+        }
+
+        return [
+            'batch' => $b,
+            'labels' => $labels
         ];
     }
 }

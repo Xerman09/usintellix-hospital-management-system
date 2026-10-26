@@ -301,17 +301,38 @@ class DispensingService
             }
         }
 
-        // What each medicine is charged at (catalog selling price, per dispensing unit).
+        // What each medicine is charged at (catalog selling price, per dispensing
+        // unit), plus the safety attributes the dispensing screen has to show
+        // before anything is handed over: high-alert (needs a second check),
+        // look-alike/sound-alike, controlled class, whether it is prescription-only,
+        // and how it has to be stored.
         $prices = [];
         $highAlert = [];
+        $safety = [];
         if ($drugIds) {
-            foreach ($db->query("SELECT id, selling_price, is_high_alert FROM drugs WHERE id IN (" . implode(',', array_map('intval', $drugIds)) . ")")->fetchAll(PDO::FETCH_ASSOC) as $p) {
-                $prices[(int) $p['id']] = $p['selling_price'] !== null ? (float) $p['selling_price'] : null;
-                $highAlert[(int) $p['id']] = (bool) $p['is_high_alert'];
+            $sql = "SELECT id, selling_price, is_high_alert, is_lasa, controlled_class, requires_prescription, storage_condition
+                    FROM drugs WHERE id IN (" . implode(',', array_map('intval', $drugIds)) . ")";
+            foreach ($db->query($sql)->fetchAll(PDO::FETCH_ASSOC) as $p) {
+                $id = (int) $p['id'];
+                $prices[$id] = $p['selling_price'] !== null ? (float) $p['selling_price'] : null;
+                $highAlert[$id] = (bool) $p['is_high_alert'];
+                // controlled_class holds the literal 'None' for ordinary
+                // medicines, so it is normalised to null here -- otherwise every
+                // drug reads as controlled on the screen and the badge that is
+                // meant to single out the 7 dangerous drugs means nothing.
+                $class = trim((string) ($p['controlled_class'] ?? ''));
+                $isControlled = $class !== '' && strcasecmp($class, 'none') !== 0;
+
+                $safety[$id] = [
+                    'is_lasa' => (bool) $p['is_lasa'],
+                    'controlled_class' => $isControlled ? $class : null,
+                    'requires_prescription' => (bool) $p['requires_prescription'],
+                    'storage_condition' => trim((string) ($p['storage_condition'] ?? '')) !== '' ? $p['storage_condition'] : null,
+                ];
             }
         }
 
-        $items = array_map(function ($item) use ($fills, $lots, $recalledLots, $requests, $active, $firstFillOpen, $refillOpen, $prices, $highAlert) {
+        $items = array_map(function ($item) use ($fills, $lots, $recalledLots, $requests, $active, $firstFillOpen, $refillOpen, $prices, $highAlert, $safety) {
             $prescribed = self::parseQuantity($item['quantity'], $item['drug_unit_name']);
             $state = self::lineState($prescribed, (int) ($item['refills'] ?? 0), $fills[$item['id']] ?? []);
             $catalog = $item['drug_id'] !== null;
@@ -337,7 +358,11 @@ class DispensingService
                 // Lots on the shelf that may NOT be given: under active recall.
                 'recalled_lots' => $catalog ? ($recalledLots[$item['drug_id']] ?? []) : [],
                 'unit_price' => $catalog && isset($prices[$item['drug_id']]) ? $prices[$item['drug_id']] : null,
-                'is_high_alert' => $catalog && !empty($highAlert[$item['drug_id']])
+                'is_high_alert' => $catalog && !empty($highAlert[$item['drug_id']]),
+                'is_lasa' => $catalog && !empty($safety[$item['drug_id']]['is_lasa']),
+                'controlled_class' => $catalog ? ($safety[$item['drug_id']]['controlled_class'] ?? null) : null,
+                'requires_prescription' => $catalog ? (bool) ($safety[$item['drug_id']]['requires_prescription'] ?? false) : false,
+                'storage_condition' => $catalog ? ($safety[$item['drug_id']]['storage_condition'] ?? null) : null
             ];
         }, $slip['items']);
 

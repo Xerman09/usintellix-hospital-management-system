@@ -31,3 +31,21 @@ $router->post('/cssd/physical-trays', [CSSDController::class, 'storePhysical'], 
 $router->post('/cssd/physical-trays/update-status', [CSSDController::class, 'updateStatus'], $cssdManage);
 $router->delete('/cssd/physical-trays', [CSSDController::class, 'destroyPhysical'], $cssdManage);
 $router->post('/cssd/physical-trays/delete', [CSSDController::class, 'destroyPhysical'], $cssdManage);
+
+// Sterilizer Equipment Machines & Daily Bowie-Dick Tests
+$router->get('/cssd/machines', [CSSDController::class, 'indexMachines'], $cssdView);
+$router->post('/cssd/machines', [CSSDController::class, 'storeMachine'], $cssdManage);
+$router->post('/cssd/machines/bowie-dick', [CSSDController::class, 'recordBowieDick'], $cssdManage);
+
+// Autoclave Sterilization Batches & Biological Spore Validation
+$router->get('/cssd/batches', [CSSDController::class, 'indexBatches'], $cssdView);
+$router->get('/cssd/batches/show', [CSSDController::class, 'showBatch'], $cssdView);
+$router->get('/cssd/batches/:id', [CSSDController::class, 'showBatch'], $cssdView);
+$router->post('/cssd/batches', [CSSDController::class, 'storeBatch'], $cssdManage);
+$router->post('/cssd/batches/update', [CSSDController::class, 'updateBatch'], $cssdManage);
+$router->put('/cssd/batches', [CSSDController::class, 'updateBatch'], $cssdManage);
+$router->post('/cssd/batches/verify-spore', [CSSDController::class, 'verifySpore'], $cssdManage);
+
+// Thermal Barcode Labels
+$router->get('/cssd/batches/thermal-labels', [CSSDController::class, 'thermalLabels'], $cssdView);
+$router->get('/cssd/batches/:id/thermal-labels', [CSSDController::class, 'thermalLabels'], $cssdView);
