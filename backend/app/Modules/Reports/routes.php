@@ -370,3 +370,25 @@ $router->get('/reports/financial-bi/claim-denial-pareto', [ReportController::cla
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// Regulatory & Statutory Reporting: Notifiable Disease Surveillance Registry & Epidemiological CIF
+$router->get('/reports/regulatory-disease-surveillance', [ReportController::class, 'regulatoryDiseaseSurveillance'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/regulatory-disease-surveillance/scan-icd10', [ReportController::class, 'scanNotifiableIcd10Encounters'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/regulatory-disease-surveillance/cases', [ReportController::class, 'storeRegulatoryDiseaseCase'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/regulatory-disease-surveillance/transmit-cif', [ReportController::class, 'transmitRegulatoryDiseaseCif'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/regulatory-disease-surveillance/cif-form', [ReportController::class, 'regulatoryDiseaseCifDetails'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

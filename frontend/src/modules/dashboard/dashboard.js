@@ -293,6 +293,8 @@ import { initDepartmentalProfitability } from "../reports/departmental-profitabi
 import { DepartmentalProfitabilityView } from "../reports/departmental-profitability.view.js";
 import { initClaimDenialPareto } from "../reports/claim-denial-pareto.js";
 import { ClaimDenialParetoView } from "../reports/claim-denial-pareto.view.js";
+import { initRegulatoryDiseaseSurveillance } from "../reports/regulatory-disease-surveillance.js";
+import { RegulatoryDiseaseSurveillanceView } from "../reports/regulatory-disease-surveillance.view.js";
 import { initOrManagement } from "../or-management/or-management.js?v=29";
 import { OrManagementView } from "../or-management/or-management.view.js?v=5";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=4";
@@ -1486,6 +1488,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Claim Denial Rate & CARC Pareto', () => {
                 setTimeout(initClaimDenialPareto, 0);
                 return ClaimDenialParetoView();
+            }, activate);
+        } else if (tabId === 'regulatory_disease_surveillance') {
+            tabManager.openTab(tabId, title || 'Notifiable Disease Surveillance (CIF)', () => {
+                setTimeout(initRegulatoryDiseaseSurveillance, 0);
+                return RegulatoryDiseaseSurveillanceView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

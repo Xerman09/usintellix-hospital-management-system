@@ -6,6 +6,9 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Modules\Reports\Services\ReportService;
 use App\Modules\Reports\Services\ClinicalQualityAnalyticsService;
+use App\Modules\Reports\Services\ClinicalQualityScorecardService;
+use App\Modules\Reports\Services\FinancialBusinessIntelligenceService;
+use App\Modules\Reports\Services\RegulatoryDiseaseSurveillanceService;
 use App\Modules\Deidentification\Services\DeidentificationService;
 
 class ReportController extends Controller
@@ -15,6 +18,7 @@ class ReportController extends Controller
     private ClinicalQualityAnalyticsService $clinicalQualityService;
     private ClinicalQualityScorecardService $scorecardService;
     private FinancialBusinessIntelligenceService $financialBiService;
+    private RegulatoryDiseaseSurveillanceService $diseaseSurveillanceService;
 
     public function __construct()
     {
@@ -23,6 +27,7 @@ class ReportController extends Controller
         $this->clinicalQualityService = new ClinicalQualityAnalyticsService();
         $this->scorecardService = new ClinicalQualityScorecardService();
         $this->financialBiService = new FinancialBusinessIntelligenceService();
+        $this->diseaseSurveillanceService = new RegulatoryDiseaseSurveillanceService();
     }
 
     /**
@@ -909,5 +914,77 @@ class ReportController extends Controller
         ];
         $data = $this->financialBiService->getClaimDenialParetoAnalytics($filters);
         $this->success($data, 'Claim denial rate and CARC Pareto analytics retrieved successfully.');
+    }
+
+    /**
+     * Regulatory & Statutory Reporting:
+     * Notifiable Disease Surveillance Registry (Category 1 STAT 24h vs Category 2 Weekly)
+     */
+    public function regulatoryDiseaseSurveillance(): void
+    {
+        $request = new Request();
+        $filters = [
+            'category' => $request->input('category'),
+            'status'   => $request->input('status'),
+            'icd10'    => $request->input('icd10'),
+            'search'   => $request->input('search')
+        ];
+        $data = $this->diseaseSurveillanceService->getSurveillanceDashboard($filters);
+        $this->success($data, 'Notifiable disease surveillance registry retrieved successfully.');
+    }
+
+    /**
+     * Automated detection scan of clinical encounters for reportable ICD-10 diagnoses.
+     */
+    public function scanNotifiableIcd10Encounters(): void
+    {
+        $result = $this->diseaseSurveillanceService->scanEncountersForNotifiableDiseases();
+        $this->success($result, 'Automated ICD-10 communicable disease surveillance scan completed.');
+    }
+
+    /**
+     * Register a new notifiable disease case and generate its Epidemiological CIF.
+     */
+    public function storeRegulatoryDiseaseCase(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        if (empty($data['patient_name']) || empty($data['icd10_code'])) {
+            $this->error('Patient name and reportable ICD-10 code are required.', 422);
+            return;
+        }
+        $created = $this->diseaseSurveillanceService->createCase($data);
+        $this->success($created, 'Notifiable disease case registered and CIF generated.', 201);
+    }
+
+    /**
+     * Transmit Epidemiological Case Investigation Form (CIF) to Public Health Unit (DOH PIDSR / RESU).
+     */
+    public function transmitRegulatoryDiseaseCif(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        $id = (int)($data['id'] ?? 0);
+        if ($id <= 0) {
+            $this->error('Valid surveillance case ID is required.', 422);
+            return;
+        }
+        $updated = $this->diseaseSurveillanceService->transmitCifToHealthAuthority($id, $data);
+        $this->success($updated, 'Epidemiological Case Investigation Form (CIF) transmitted to health authority.');
+    }
+
+    /**
+     * Retrieve complete Epidemiological Case Investigation Form (CIF) details for a specific case.
+     */
+    public function regulatoryDiseaseCifDetails(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if ($id <= 0) {
+            $this->error('Valid surveillance case ID is required.', 422);
+            return;
+        }
+        $details = $this->diseaseSurveillanceService->getCifDetails($id);
+        $this->success($details, 'Epidemiological CIF record retrieved successfully.');
     }
 }

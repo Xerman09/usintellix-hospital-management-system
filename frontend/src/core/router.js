@@ -30,6 +30,8 @@ import { DepartmentalProfitabilityView } from "../modules/reports/departmental-p
 import { initDepartmentalProfitability } from "../modules/reports/departmental-profitability.js";
 import { ClaimDenialParetoView } from "../modules/reports/claim-denial-pareto.view.js";
 import { initClaimDenialPareto } from "../modules/reports/claim-denial-pareto.js";
+import { RegulatoryDiseaseSurveillanceView } from "../modules/reports/regulatory-disease-surveillance.view.js";
+import { initRegulatoryDiseaseSurveillance } from "../modules/reports/regulatory-disease-surveillance.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -587,6 +589,10 @@ const routes = {
     "/claim-denial-pareto": {
         view: ClaimDenialParetoView,
         afterRender: initClaimDenialPareto
+    },
+    "/regulatory-disease-surveillance": {
+        view: RegulatoryDiseaseSurveillanceView,
+        afterRender: initRegulatoryDiseaseSurveillance
     }
 };
 
