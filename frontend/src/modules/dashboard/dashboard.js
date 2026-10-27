@@ -1,11 +1,11 @@
-import { initNavOverflow } from "../../core/nav-overflow.js?v=4";
+import { initNavOverflow } from "../../core/nav-overflow.js?v=6";
 import { getUser, clearSession, syncSessionUser } from "../../core/session.js?v=5";
 import { renderAvatar } from "../../core/avatar.js";
 import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=9";
 import { TabManager } from "../../core/tabs.js?v=5";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=193";
+import { getNavLinks } from "./dashboard.view.js?v=194";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";

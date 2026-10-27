@@ -35,8 +35,8 @@ import { initRegulatoryDiseaseSurveillance } from "../modules/reports/regulatory
 import { RegulatoryAhsrExportView } from "../modules/reports/regulatory-ahsr-export.view.js";
 import { initRegulatoryAhsrExport } from "../modules/reports/regulatory-ahsr-export.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=194";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=328";
 import { initLogin } from "../modules/auth/auth.js?v=116";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=104";
 import { initAddEmployee } from "../modules/employees/add-employee.js?v=105";

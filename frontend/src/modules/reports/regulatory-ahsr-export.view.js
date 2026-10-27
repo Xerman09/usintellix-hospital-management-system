@@ -322,7 +322,7 @@ export function RegulatoryAhsrExportView() {
             </div>
         </div>
 
-        <!-- Regulatory Export Batches Ledger (`regulatory_export_batches`) -->
+        <!-- Regulatory Export Batches Ledger (regulatory_export_batches) -->
         <div class="ahsr-panel">
             <div class="ahsr-panel-header">
                 <div>

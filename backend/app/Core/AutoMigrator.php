@@ -202,11 +202,13 @@ class AutoMigrator
                 // Ignore benign idempotency notices on already-migrated databases
                 $benignPatterns = [
                     '1050', // Table already exists
+                    '1054', // Unknown column (e.g., dropped in a later migration like 018_remove_multitenancy)
                     '1060', // Duplicate column name
                     '1061', // Duplicate key name
                     '1062', // Duplicate entry
                     '1091', // Can't drop column/key; check that it exists
                     '1826', // Duplicate foreign key constraint name
+                    '1359', // Trigger already exists
                 ];
                 $isBenign = false;
                 foreach ($benignPatterns as $code) {
@@ -231,33 +233,70 @@ class AutoMigrator
     }
 
     /**
-     * Quote-aware and comment-aware SQL statement splitter.
+     * Quote-aware, comment-aware, UTF-8 BOM-aware, DELIMITER-aware, and BEGIN...END block-aware SQL statement splitter.
      */
     private static function splitSqlStatements(string $sql): array
     {
-        // Strip single-line -- comments and /* */ block comments outside quotes
-        $lines = preg_split("/\r\n|\n|\r/", $sql) ?: [];
-        $cleanLines = [];
-        foreach ($lines as $line) {
-            $trimmedLine = ltrim($line);
-            if (strpos($trimmedLine, '--') === 0 || strpos($trimmedLine, '#') === 0) {
-                continue;
-            }
-            $cleanLines[] = $line;
-        }
-        $cleaned = implode("\n", $cleanLines);
+        // Strip UTF-8 BOM (\xEF\xBB\xBF) if present
+        $sql = preg_replace('/^\xEF\xBB\xBF/', '', $sql) ?? $sql;
+
+        // Normalize MySQL CLI `DELIMITER $$` / `DELIMITER ;` directives and `END$$`
+        $sql = preg_replace('/^\s*DELIMITER\s+\S+\s*$/mi', '', $sql) ?? $sql;
+        $sql = preg_replace('/\bEND\s*\$\$/i', 'END;', $sql) ?? $sql;
 
         $statements = [];
         $buffer = '';
         $inSingle = false;
         $inDouble = false;
         $inBacktick = false;
-        $len = strlen($cleaned);
+        $inLineComment = false;
+        $inBlockComment = false;
+        $beginDepth = 0;
+
+        $len = strlen($sql);
 
         for ($i = 0; $i < $len; $i++) {
-            $ch = $cleaned[$i];
-            $prev = $i > 0 ? $cleaned[$i - 1] : '';
+            $ch = $sql[$i];
+            $next = ($i + 1 < $len) ? $sql[$i + 1] : '';
+            $prev = ($i > 0) ? $sql[$i - 1] : '';
 
+            // Handle active single-line comment
+            if ($inLineComment) {
+                if ($ch === "\n") {
+                    $inLineComment = false;
+                    $buffer .= "\n";
+                }
+                continue;
+            }
+
+            // Handle active /* ... */ block comment
+            if ($inBlockComment) {
+                if ($ch === '*' && $next === '/') {
+                    $inBlockComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            // Detect start of comment when outside quotes
+            if (!$inSingle && !$inDouble && !$inBacktick) {
+                if ($ch === '-' && $next === '-') {
+                    $inLineComment = true;
+                    $i++;
+                    continue;
+                }
+                if ($ch === '#') {
+                    $inLineComment = true;
+                    continue;
+                }
+                if ($ch === '/' && $next === '*') {
+                    $inBlockComment = true;
+                    $i++;
+                    continue;
+                }
+            }
+
+            // Track quotes
             if ($ch === "'" && !$inDouble && !$inBacktick && $prev !== '\\') {
                 $inSingle = !$inSingle;
             } elseif ($ch === '"' && !$inSingle && !$inBacktick && $prev !== '\\') {
@@ -266,7 +305,21 @@ class AutoMigrator
                 $inBacktick = !$inBacktick;
             }
 
-            if ($ch === ';' && !$inSingle && !$inDouble && !$inBacktick) {
+            // Track BEGIN ... END depth for CREATE TRIGGER / CREATE PROCEDURE outside quotes
+            if (!$inSingle && !$inDouble && !$inBacktick) {
+                $slice = substr($sql, $i, 12);
+                if (preg_match('/^BEGIN\b/i', $slice) && ($i === 0 || !ctype_alnum($prev))) {
+                    $beginDepth++;
+                } elseif ($beginDepth > 0 && preg_match('/^END\s*;/i', $slice) && !preg_match('/^END\s+IF\b/i', $slice) && ($i === 0 || !ctype_alnum($prev))) {
+                    // Check that the previous word wasn't IF / CASE / LOOP / WHILE
+                    $before = rtrim(substr($sql, max(0, $i - 12), min(12, $i)));
+                    if (!preg_match('/\b(IF|CASE|LOOP|REPEAT|WHILE)$/i', $before)) {
+                        $beginDepth = max(0, $beginDepth - 1);
+                    }
+                }
+            }
+
+            if ($ch === ';' && !$inSingle && !$inDouble && !$inBacktick && $beginDepth === 0) {
                 $stmt = trim($buffer);
                 if ($stmt !== '') {
                     $statements[] = $stmt;

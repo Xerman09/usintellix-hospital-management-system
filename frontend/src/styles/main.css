@@ -1739,7 +1739,6 @@ body {
     background: #94a3b8;
 }
 
-.nav-dropdown:not(.nav-profile):hover > .dropdown-content,
 .nav-dropdown.nav-open > .dropdown-content,
 .nav-dropdown.nav-locked > .dropdown-content {
     display: flex;
@@ -1858,7 +1857,6 @@ body {
     width: 10px;
 }
 
-.dropdown-submenu:hover > .dropdown-submenu-content,
 .dropdown-submenu.nav-open > .dropdown-submenu-content {
     display: flex;
 }
@@ -1906,8 +1904,13 @@ body {
 }
 
 /* A whole top-level menu moved into "More" becomes a row with a flyout. */
+.nav-more-menu {
+    min-width: 220px;
+}
+
 .nav-more-menu > .nav-dropdown {
     display: block;
+    position: relative;
 }
 
 .nav-more-menu > .nav-dropdown > span {
@@ -1933,17 +1936,19 @@ body {
     opacity: .55;
 }
 
-.nav-more-menu > .nav-dropdown:hover > span {
+.nav-more-menu > .nav-dropdown:hover > span,
+.nav-more-menu > .nav-dropdown.nav-open > span {
     background-color: var(--accent-light);
     color: var(--accent);
 }
 
-/* Flyouts out of "More" open leftward by default -- it sits at the right edge. */
-.nav-more-menu .nav-dropdown > .dropdown-content,
+/* Flyouts out of "More" use fixed positioning so they are NEVER clipped by .nav-more-menu overflow-y: auto */
+.nav-more-menu > .nav-dropdown > .dropdown-content,
 .nav-more-menu .dropdown-submenu-content {
-    top: 0;
-    left: auto;
-    right: 100%;
+    position: fixed;
+    z-index: 108;
+    min-width: 240px;
+    max-width: 360px;
 }
 
 .dropdown-content.nav-open-left {
