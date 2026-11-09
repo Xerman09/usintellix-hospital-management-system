@@ -31,3 +31,9 @@ $router->post('/portal/mail', [
 ], [
     AuthMiddleware::class
 ]);
+
+// Mobile App version check (public for app pre-login/post-login auto-updater)
+$router->get('/portal/app-version', [
+    PortalController::class,
+    'appVersion'
+]);

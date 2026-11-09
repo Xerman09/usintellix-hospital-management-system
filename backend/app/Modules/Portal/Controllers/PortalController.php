@@ -210,4 +210,39 @@ class PortalController extends Controller
 
         $this->success(['id' => (int) $this->db->lastInsertId()], 'Secure message sent successfully.');
     }
+
+    /**
+     * GET /portal/app-version
+     * Returns latest mobile APK version and release metadata for the patient app
+     */
+    public function appVersion(): void
+    {
+        $apkPath = __DIR__ . '/../../../../public/downloads/USIntellix-Patient-Mobile.apk';
+        $apkExists = file_exists($apkPath);
+        $fileSize = $apkExists ? filesize($apkPath) : 0;
+        $fileModified = $apkExists ? date('Y-m-d H:i:s', filemtime($apkPath)) : null;
+
+        // Dynamic base URL builder
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $downloadUrl = $protocol . $host . '/ims/usintellix-hospital-management-system/backend/public/downloads/USIntellix-Patient-Mobile.apk';
+
+        $this->success([
+            'latest_version' => '1.0.1',
+            'version_code' => 2,
+            'min_supported_version' => '1.0.0',
+            'apk_filename' => 'USIntellix-Patient-Mobile.apk',
+            'download_url' => $downloadUrl,
+            'file_size_bytes' => $fileSize,
+            'file_size_mb' => round($fileSize / 1048576, 2),
+            'release_date' => $fileModified ?: date('Y-m-d'),
+            'release_notes' => [
+                'Auto-update & direct OTA download notifications',
+                'Patient portal settings manual check for updates',
+                'Enhanced network stability & physical status bar notch safe insets',
+                'Custom USIntellix branding and logo application icon'
+            ],
+            'is_critical' => false
+        ], 'Mobile application version info retrieved.');
+    }
 }
