@@ -20,6 +20,7 @@ use App\Modules\MyChart\Services\PortalProxyService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
 use App\Modules\MyChart\Services\PortalShareService;
 use App\Modules\MyChart\Services\PortalExplanationService;
+use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -910,6 +911,66 @@ class MyChartController extends Controller
         $user = Session::get('user');
 
         $this->respond(PortalExplanationService::save($request->all(), (int) ($user['id'] ?? 0)));
+    }
+
+    /**
+     * POST /mychart/diagnosis-guides -- what the patient's own diagnoses mean, and
+     * what to do and not do about them.
+     *
+     * A POST because it takes the list of diagnoses the app is rendering. The
+     * service only answers for diagnoses this patient actually has, so the endpoint
+     * cannot be used as an open ICD-10 dictionary -- which also keeps the audit row
+     * this writes meaningful.
+     */
+    public function diagnosisGuides(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Diagnosis Guide Viewed');
+
+        if ($patientId === null) {
+            $this->error('Diagnosis information is not available for this account.', 403);
+            return;
+        }
+
+        $items = $request->input('items', []);
+
+        if (!is_array($items)) {
+            $this->error('Which diagnoses?', 422);
+            return;
+        }
+
+        $this->success(
+            ['guides' => PortalDiagnosisGuideService::forPatient($patientId, $items)],
+            'Diagnosis guides retrieved successfully.'
+        );
+    }
+
+    /**
+     * GET /portal-diagnosis-guides -- the staff screen: every guide a patient can
+     * read, plus the diagnoses patients have actually been given that none covers.
+     */
+    public function portalDiagnosisGuides(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalDiagnosisGuideService::listAll(trim((string) $request->input('q', ''))) + [
+                'can_edit' => \App\Core\RoleAccess::inList((string) ($user['role'] ?? ''), PortalDiagnosisGuideService::EDIT_ROLES),
+            ],
+            'Diagnosis guides retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-diagnosis-guides -- add or reword one guide (admin, doctor). */
+    public function savePortalDiagnosisGuide(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalDiagnosisGuideService::save($request->all(), (int) ($user['id'] ?? 0)));
     }
 
     /** Service result -> JSON, with the status the failure implies (same helper the results inbox uses). */

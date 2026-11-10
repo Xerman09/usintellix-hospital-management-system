@@ -6,6 +6,7 @@ use App\Modules\MyChart\Controllers\RecordShareController;
 use App\Modules\MyChart\Controllers\SelfReadingChartController;
 use App\Modules\MyChart\Services\PortalProxyService;
 use App\Modules\MyChart\Services\PortalExplanationService;
+use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -267,4 +268,24 @@ $router->get('/portal-explanations', [MyChartController::class, 'explanations'],
 $router->post('/portal-explanations', [MyChartController::class, 'saveExplanation'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalExplanationService::EDIT_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// Diagnosis guides: what a diagnosis means and what to do about it.
+// The patient reads them under their own diagnoses; staff author them.
+// ---------------------------------------------------------------
+
+$router->post('/mychart/diagnosis-guides', [MyChartController::class, 'diagnosisGuides'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-diagnosis-guides', [MyChartController::class, 'portalDiagnosisGuides'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalDiagnosisGuideService::VIEW_ROLES]
+]);
+
+$router->post('/portal-diagnosis-guides', [MyChartController::class, 'savePortalDiagnosisGuide'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalDiagnosisGuideService::EDIT_ROLES]
 ]);

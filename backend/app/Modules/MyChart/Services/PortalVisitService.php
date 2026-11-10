@@ -259,7 +259,33 @@ class PortalVisitService
 
         usort($out, static fn($a, $b) => strcmp((string) $b['when'], (string) $a['when']));
 
-        return array_slice($out, 0, 150);
+        $out = array_slice($out, 0, 150);
+
+        // The guide for the diagnosis an ER visit or a hospital stay was given, hung
+        // on the row itself rather than returned as a separate map: this method
+        // returns a plain list that the app iterates, and the shape is not worth
+        // breaking for this. One lookup covers every row.
+        $withDiagnosis = [];
+        foreach ($out as $i => $row) {
+            $text = (string) ($row['kind'] === 'er' ? ($row['diagnosis'] ?? '') : ($row['kind'] === 'admission' ? ($row['reason'] ?? '') : ''));
+            if (trim($text) !== '') {
+                $withDiagnosis[$i] = $text;
+            }
+        }
+
+        if ($withDiagnosis) {
+            $guides = PortalDiagnosisGuideService::forDiagnoses(
+                array_map(static fn(string $t) => ['code' => '', 'text' => $t], array_values($withDiagnosis))
+            );
+
+            foreach ($withDiagnosis as $i => $text) {
+                if (isset($guides[$text])) {
+                    $out[$i]['diagnosis_guide'] = $guides[$text];
+                }
+            }
+        }
+
+        return $out;
     }
 
     // ------------------------------------------------------------------
@@ -305,6 +331,7 @@ class PortalVisitService
              WHERE encounter_id = :e AND deleted_at IS NULL ORDER BY sequence, id"
         );
         $diagnoses->execute(['e' => $encounterId]);
+        $diagnosisRows = $diagnoses->fetchAll(PDO::FETCH_ASSOC);
 
         $instructions = $db->prepare(
             "SELECT instructions, item_date FROM encounter_clinical_instruction_items
@@ -345,7 +372,13 @@ class PortalVisitService
             'doctor' => $enc['doctor'],
             'reason' => $enc['reason_for_visit'],
             'sent_home_as' => $enc['discharge_disposition'],
-            'diagnoses' => $diagnoses->fetchAll(PDO::FETCH_ASSOC),
+            'diagnoses' => $diagnosisRows,
+            // What each diagnosis means, and what to do about it. Keyed by the
+            // description, which is what the app renders the row on. The app shows
+            // the doctor's own instructions above this, never the other way round.
+            'diagnosis_guides' => PortalDiagnosisGuideService::forDiagnoses(
+                array_map(static fn(array $d) => ['code' => $d['code'], 'text' => (string) $d['description']], $diagnosisRows)
+            ),
             'assessment' => self::blank($note['assessment'] ?? null),
             'plan' => self::blank($note['plan'] ?? null),
             'instructions' => array_column($instructions->fetchAll(PDO::FETCH_ASSOC), 'instructions'),
@@ -525,6 +558,12 @@ class PortalVisitService
             'license_no' => $row['physician_license_number'],
             'signed_at' => $row['signature_date'],
             'care_team' => self::careTeam($db, $patientId),
+            // Both diagnoses are free text here, often with the code written into
+            // them ('K80.00 Acute Cholecystitis...'), which the guide service digs out.
+            'diagnosis_guides' => PortalDiagnosisGuideService::forDiagnoses([
+                ['code' => '', 'text' => (string) $row['admitting_diagnosis']],
+                ['code' => '', 'text' => (string) $row['discharge_diagnosis']],
+            ]),
         ];
     }
 }
