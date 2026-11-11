@@ -271,6 +271,38 @@ $router->post('/portal-explanations', [MyChartController::class, 'saveExplanatio
 ]);
 
 // ---------------------------------------------------------------
+// Appointment self-service (Phase M10): moving, cancelling and
+// confirming one's own booking. Deliberately separate from the staff
+// /appointments routes, whose PUT updates any field of any appointment
+// and whose DELETE soft-deletes it.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/appointments', [MyChartController::class, 'myAppointments'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/appointments/slots', [MyChartController::class, 'myAppointmentSlots'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/appointments/reschedule', [MyChartController::class, 'rescheduleMyAppointment'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/appointments/cancel', [MyChartController::class, 'cancelMyAppointment'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/appointments/confirm', [MyChartController::class, 'confirmMyAppointment'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// ---------------------------------------------------------------
 // Diagnosis guides: what a diagnosis means and what to do about it.
 // The patient reads them under their own diagnoses; staff author them.
 // ---------------------------------------------------------------

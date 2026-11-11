@@ -47,6 +47,12 @@ class AppointmentService
                        a.recurrence_group_id, a.recurrence_mode, a.recurrence_position,
                        a.recurrence_day_type, a.recurrence_days_of_week, a.recurrence_until_date,
                        a.reason, a.notes, a.status,
+                       -- What the patient did themselves in My Chart (Phase M10): confirmed
+                       -- attendance, moved it, or cancelled with a reason. The desk needs
+                       -- these on the row, not buried in the portal audit log.
+                       a.patient_confirmed_at, a.cancelled_at, a.cancel_reason, a.cancelled_by_patient,
+                       a.rescheduled_count, a.last_rescheduled_at, a.rescheduled_from_date,
+                       a.rescheduled_from_time, a.rescheduled_by_patient,
                        p.patient_no, p.first_name AS patient_first_name, p.middle_name AS patient_middle_name,
                        p.last_name AS patient_last_name, p.suffix AS patient_suffix,
                        e.first_name AS provider_first_name, e.last_name AS provider_last_name,

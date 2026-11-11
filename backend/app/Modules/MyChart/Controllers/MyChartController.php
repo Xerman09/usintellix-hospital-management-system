@@ -21,6 +21,7 @@ use App\Modules\MyChart\Services\PortalSelfReadingService;
 use App\Modules\MyChart\Services\PortalShareService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
+use App\Modules\MyChart\Services\PortalAppointmentService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -945,6 +946,104 @@ class MyChartController extends Controller
             ['guides' => PortalDiagnosisGuideService::forPatient($patientId, $items)],
             'Diagnosis guides retrieved successfully.'
         );
+    }
+
+    /**
+     * GET /mychart/appointments -- the patient's own upcoming appointments, each
+     * carrying what they may do with it and, where they may not, why not.
+     *
+     * Reading is not gated on the manage capability: a patient should see their
+     * appointments even where the hospital does not let them change them.
+     */
+    public function myAppointments(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Appointments Viewed');
+
+        if ($patientId === null) {
+            $this->error('Appointments are not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalAppointmentService::mine($patientId), 'Appointments retrieved successfully.');
+    }
+
+    /** GET /mychart/appointments/slots?appointment_id= -- free times with the same doctor. */
+    public function myAppointmentSlots(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Appointment Slots Viewed', PortalGuard::CAP_APPOINTMENT_MANAGE);
+
+        if ($patientId === null) {
+            $this->error('Changing appointments is not available for this account.', 403);
+            return;
+        }
+
+        $slots = PortalAppointmentService::slotsFor($patientId, (int) $request->input('appointment_id'));
+
+        if ($slots === null) {
+            $this->error('That appointment is not available for this account.', 404);
+            return;
+        }
+
+        $this->success($slots, 'Available times retrieved successfully.');
+    }
+
+    /** POST /mychart/appointments/reschedule -- move it, same doctor, new date and time. */
+    public function rescheduleMyAppointment(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Appointment Rescheduled', PortalGuard::CAP_APPOINTMENT_MANAGE);
+
+        if ($patientId === null) {
+            $this->error('Changing appointments is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalAppointmentService::reschedule($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/appointments/cancel -- cancel it, with a reason, keeping the row. */
+    public function cancelMyAppointment(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Appointment Cancelled', PortalGuard::CAP_APPOINTMENT_MANAGE);
+
+        if ($patientId === null) {
+            $this->error('Changing appointments is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalAppointmentService::cancel($patientId, $request->all(), $user));
+    }
+
+    /**
+     * POST /mychart/appointments/confirm -- "I am coming".
+     *
+     * Not gated on the manage capability: confirming is not a change to the
+     * booking, and it is most useful to the desk precisely when changes have
+     * closed.
+     */
+    public function confirmMyAppointment(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Appointment Confirmed');
+
+        if ($patientId === null) {
+            $this->error('Appointments are not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalAppointmentService::confirm($patientId, $request->all(), $user));
     }
 
     /**
