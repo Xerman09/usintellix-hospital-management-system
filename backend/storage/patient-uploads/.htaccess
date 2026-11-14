@@ -1,0 +1,18 @@
+# HIPAA § 164.312(a)(1) Direct Access Block
+#
+# Files a patient sent in through My Chart (Phase M11): insurance cards,
+# identification, outside results, photographs. They must only ever be served by
+# PortalUploadService through an endpoint that re-checks who is asking, never
+# fetched by URL.
+#
+# This block is NOT optional and is NOT belt-and-braces. The deployed tree sits
+# under the Apache DocumentRoot (C:/xampp/htdocs), so without it this directory
+# answers plain GETs with the file -- verified returning HTTP 200 before this was
+# added. A deployment on nginx, or with AllowOverride off, gets no protection
+# from this file and must deny the location in the server config instead.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>

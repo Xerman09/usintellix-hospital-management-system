@@ -22,6 +22,7 @@ use App\Modules\MyChart\Services\PortalShareService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalAppointmentService;
+use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -175,7 +176,7 @@ class MyChartController extends Controller
     {
         $user = Session::get('user');
 
-        $patientId = PortalGuard::enter($user, 'Visits Viewed');
+        $patientId = PortalGuard::enter($user, 'Visits Viewed', PortalGuard::CAP_VISITS_VIEW);
 
         if ($patientId === null) {
             $this->error('Visits are not available for this account.', 403);
@@ -191,7 +192,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'After-Visit Summary Viewed');
+        $patientId = PortalGuard::enter($user, 'After-Visit Summary Viewed', PortalGuard::CAP_VISITS_VIEW);
 
         if ($patientId === null) {
             $this->error('Visits are not available for this account.', 403);
@@ -218,7 +219,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Discharge Summary Viewed');
+        $patientId = PortalGuard::enter($user, 'Discharge Summary Viewed', PortalGuard::CAP_VISITS_VIEW);
 
         if ($patientId === null) {
             $this->error('Visits are not available for this account.', 403);
@@ -246,7 +247,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Statement Viewed');
+        $patientId = PortalGuard::enter($user, 'Statement Viewed', PortalGuard::CAP_BILLING_VIEW);
 
         if ($patientId === null) {
             $this->error('Billing is not available for this account.', 403);
@@ -268,7 +269,7 @@ class MyChartController extends Controller
     {
         $user = Session::get('user');
 
-        $patientId = PortalGuard::enter($user, 'Payment History Viewed');
+        $patientId = PortalGuard::enter($user, 'Payment History Viewed', PortalGuard::CAP_BILLING_VIEW);
 
         if ($patientId === null) {
             $this->error('Billing is not available for this account.', 403);
@@ -284,7 +285,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Receipt Viewed');
+        $patientId = PortalGuard::enter($user, 'Receipt Viewed', PortalGuard::CAP_BILLING_VIEW);
 
         if ($patientId === null) {
             $this->error('Billing is not available for this account.', 403);
@@ -352,7 +353,7 @@ class MyChartController extends Controller
     {
         $user = Session::get('user');
 
-        $patientId = PortalGuard::enter($user, 'Account And Sharing Viewed');
+        $patientId = PortalGuard::enter($user, 'Account And Sharing Viewed', PortalGuard::CAP_ACCOUNT_VIEW);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -382,7 +383,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Access Log Viewed');
+        $patientId = PortalGuard::enter($user, 'Access Log Viewed', PortalGuard::CAP_ACCOUNT_VIEW);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -628,7 +629,7 @@ class MyChartController extends Controller
     {
         $user = Session::get('user');
 
-        $patientId = PortalGuard::enter($user, 'To-Do Viewed');
+        $patientId = PortalGuard::enter($user, 'To-Do Viewed', PortalGuard::CAP_NOTIFICATIONS);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -647,7 +648,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Notifications Viewed');
+        $patientId = PortalGuard::enter($user, 'Notifications Viewed', PortalGuard::CAP_NOTIFICATIONS);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -666,7 +667,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Notification Read');
+        $patientId = PortalGuard::enter($user, 'Notification Read', PortalGuard::CAP_NOTIFICATIONS);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -683,7 +684,7 @@ class MyChartController extends Controller
     {
         $user = Session::get('user');
 
-        $patientId = PortalGuard::enter($user, 'Notification Settings Viewed');
+        $patientId = PortalGuard::enter($user, 'Notification Settings Viewed', PortalGuard::CAP_NOTIFICATIONS);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -699,7 +700,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Notification Settings Changed');
+        $patientId = PortalGuard::enter($user, 'Notification Settings Changed', PortalGuard::CAP_NOTIFICATIONS);
 
         if ($patientId === null) {
             $this->error('My Chart is not available for this account.', 403);
@@ -928,7 +929,7 @@ class MyChartController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patientId = PortalGuard::enter($user, 'Diagnosis Guide Viewed');
+        $patientId = PortalGuard::enter($user, 'Diagnosis Guide Viewed', PortalGuard::CAP_DIAGNOSIS_GUIDES);
 
         if ($patientId === null) {
             $this->error('Diagnosis information is not available for this account.', 403);
@@ -959,7 +960,7 @@ class MyChartController extends Controller
     {
         $user = Session::get('user');
 
-        $patientId = PortalGuard::enter($user, 'Appointments Viewed');
+        $patientId = PortalGuard::enter($user, 'Appointments Viewed', PortalGuard::CAP_APPOINTMENTS_VIEW);
 
         if ($patientId === null) {
             $this->error('Appointments are not available for this account.', 403);
@@ -1044,6 +1045,158 @@ class MyChartController extends Controller
         }
 
         $this->respond(PortalAppointmentService::confirm($patientId, $request->all(), $user));
+    }
+
+    /** GET /mychart/uploads -- what this patient has sent in, and where each one stands. */
+    public function myUploads(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Uploads Viewed', PortalGuard::CAP_UPLOADS);
+
+        if ($patientId === null) {
+            $this->error('Sending files is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalUploadService::mine($patientId), 'Uploads retrieved successfully.');
+    }
+
+    /**
+     * POST /mychart/uploads -- send one file in.
+     *
+     * multipart/form-data, field name `file`, with `kind` and an optional
+     * `caption` alongside. It lands pending; a staff member accepts it before it
+     * becomes part of the record.
+     */
+    public function storeMyUpload(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'File Sent In', PortalGuard::CAP_UPLOADS);
+
+        if ($patientId === null) {
+            $this->error('Sending files is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalUploadService::store($patientId, $_FILES['file'] ?? [], $request->all(), $user));
+    }
+
+    /** POST /mychart/uploads/withdraw -- take back a file nobody has reviewed yet. */
+    public function withdrawMyUpload(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'File Withdrawn', PortalGuard::CAP_UPLOADS);
+
+        if ($patientId === null) {
+            $this->error('Sending files is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalUploadService::withdraw($patientId, (int) $request->input('id'), $user));
+    }
+
+    /**
+     * GET /mychart/uploads/file?id= -- the patient's own file back.
+     *
+     * The bytes never come off the filesystem directly: the directory denies
+     * plain GETs, and this re-checks that the file belongs to the caller before
+     * streaming it.
+     */
+    public function myUploadFile(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Upload Opened', PortalGuard::CAP_UPLOADS);
+
+        if ($patientId === null) {
+            $this->error('Sending files is not available for this account.', 403);
+            return;
+        }
+
+        $file = PortalUploadService::pathFor($patientId, (int) $request->input('id'));
+
+        if ($file === null) {
+            $this->error('That file is not available for this account.', 404);
+            return;
+        }
+
+        self::streamFile($file);
+    }
+
+    // ---------------------------------------------------------------
+    // The desk: reviewing what patients have sent in.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-uploads -- the review queue. */
+    public function portalUploads(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalUploadService::queue(
+                trim((string) $request->input('status', 'pending')),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'can_decide' => \App\Core\RoleAccess::inList((string) ($user['role'] ?? ''), PortalUploadService::DECIDE_ROLES),
+            ],
+            'Uploads retrieved successfully.'
+        );
+    }
+
+    /** GET /portal-uploads/file?id= -- staff viewing one submitted file. */
+    public function portalUploadFile(): void
+    {
+        $request = new Request();
+
+        $file = PortalUploadService::staffPath((int) $request->input('id'));
+
+        if ($file === null) {
+            $this->error('That file no longer exists.', 404);
+            return;
+        }
+
+        self::streamFile($file);
+    }
+
+    /** POST /portal-uploads/review -- accept it into the record, or reject it with a reason. */
+    public function portalUploadReview(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalUploadService::review(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /**
+     * Send one stored file to the caller.
+     *
+     * inline rather than attachment so a phone can show a card without saving it,
+     * with nosniff and a filename stripped of quotes so the header cannot be
+     * broken out of. No caching, because these are somebody's identity documents.
+     */
+    private static function streamFile(array $file): void
+    {
+        $name = str_replace(['"', "\r", "\n"], '', $file['filename']);
+
+        header('Content-Type: ' . $file['mime_type']);
+        header('Content-Length: ' . $file['size_bytes']);
+        header('Content-Disposition: inline; filename="' . $name . '"');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: no-store, private');
+
+        readfile($file['path']);
+        exit;
     }
 
     /**

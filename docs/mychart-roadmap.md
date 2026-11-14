@@ -78,7 +78,44 @@ future date, so eligibility checks that itself; and a patient cancel must not us
 Pass). It needs a waitlist table and a notification path, so it is its own phase if
 wanted — see M18 below.
 
-## M11 — Patient uploads
+## M11 — Patient uploads — **backend and desk DONE, app side blocked**
+
+Shipped: schema 335, seed 069, `PortalUploadService`, seven endpoints, and the
+"Patient Uploads" review queue. 38 tests.
+
+Everything a patient sends lands `pending`; accepting copies it into
+`patient_documents`, rejecting requires a reason the patient reads. Images and PDF
+only — no Office formats, and the type is read from the file's own bytes, never the
+name or the client-supplied type. Policy is `portal_allow_uploads`,
+`portal_upload_max_mb` (8) and `portal_upload_max_per_day` (10) in `general_settings`.
+
+**A security finding worth keeping:** the plan said to store these outside the web
+root. There is no outside — the deployed tree sits under the Apache DocumentRoot
+(`C:/xampp/htdocs`), and `backend/storage/patient-uploads` answered a plain `GET`
+with **HTTP 200** before `.htaccess` was added to deny it (403 after, both verified).
+The staff uploader writes to `public/uploads/patient_documents`, which is still
+served straight off the filesystem to anyone with the path — fine for a lab report,
+wrong for an identification card, and worth revisiting separately. On nginx, or with
+`AllowOverride off`, the `.htaccess` does nothing and the location must be denied in
+server config.
+
+**Blocked: the app cannot send files yet.** The project has no picker dependency at
+all (`expo-image-picker` / `expo-document-picker` are absent, and the only expo
+packages are asset, constants, local-authentication and secure-store). Those are
+native modules, so they take effect only in a rebuild — and rebuilds are blocked on
+the Expo free-plan quota until 1 December. Deliberately not installed: adding a
+native dependency that cannot be compiled would leave the tree in a state nobody can
+build. When the quota resets: add the picker, add the upload call against
+`POST /mychart/uploads` (multipart, field `file`, with `kind` and `caption`), and
+check the APK size, since a picker is the first real native addition since the
+~16 MB packaging rules in `GEMINI.md` were written.
+
+Until then the endpoints and the desk queue are live and usable — staff can review
+anything that arrives, and M12 and the medical certificate work can build on this.
+
+---
+
+## M11 (original plan) — Patient uploads
 
 **Size: M. Enables M12.**
 

@@ -7,6 +7,7 @@ use App\Modules\MyChart\Controllers\SelfReadingChartController;
 use App\Modules\MyChart\Services\PortalProxyService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
+use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -300,6 +301,50 @@ $router->post('/mychart/appointments/cancel', [MyChartController::class, 'cancel
 $router->post('/mychart/appointments/confirm', [MyChartController::class, 'confirmMyAppointment'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['patient']]
+]);
+
+// ---------------------------------------------------------------
+// Patient uploads (Phase M11): insurance cards, IDs, outside results,
+// photographs. Everything lands pending and a staff member accepts it
+// before it becomes part of the record. The files are never fetchable
+// by URL -- both file routes re-check who is asking and stream the
+// bytes themselves.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/uploads', [MyChartController::class, 'myUploads'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/uploads', [MyChartController::class, 'storeMyUpload'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/uploads/withdraw', [MyChartController::class, 'withdrawMyUpload'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/uploads/file', [MyChartController::class, 'myUploadFile'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// The desk: what patients have sent in, and the decision.
+$router->get('/portal-uploads', [MyChartController::class, 'portalUploads'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalUploadService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-uploads/file', [MyChartController::class, 'portalUploadFile'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalUploadService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-uploads/review', [MyChartController::class, 'portalUploadReview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalUploadService::DECIDE_ROLES]
 ]);
 
 // ---------------------------------------------------------------

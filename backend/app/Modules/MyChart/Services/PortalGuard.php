@@ -29,6 +29,30 @@ class PortalGuard
     public const CAP_SELF_TRACKING = 'mychart_self_tracking';
     public const CAP_APPOINTMENT_MANAGE = 'mychart_appointment_manage';
 
+    // Backfilled in Phase M9.5. These features shipped ungated, which meant a
+    // hospital could not switch them off per deployment while everything else
+    // could. Granted to the patient role by seed 068 -- a deployment that has not
+    // run that seed denies them, because hasPermission() treats a missing row as
+    // not granted.
+    public const CAP_VISITS_VIEW = 'mychart_visits_view';
+    public const CAP_BILLING_VIEW = 'mychart_billing_view';
+    public const CAP_ACCOUNT_VIEW = 'mychart_account_view';
+    public const CAP_NOTIFICATIONS = 'mychart_notifications';
+    public const CAP_DIAGNOSIS_GUIDES = 'mychart_diagnosis_guides';
+    public const CAP_APPOINTMENTS_VIEW = 'mychart_appointments_view';
+    public const CAP_UPLOADS = 'mychart_uploads';
+
+    /**
+     * Two patient actions are deliberately left ungated, and should stay that way:
+     *
+     *   - Revoking someone's proxy access to your record. A patient must always be
+     *     able to cut off access to their own chart; a capability switch could
+     *     otherwise trap them with a proxy they no longer want.
+     *   - Confirming attendance at an appointment. It changes nothing about the
+     *     booking, and it is most useful to the desk precisely when rescheduling
+     *     and cancelling have closed.
+     */
+
     /**
      * The patient this user may act as: their own record, or the one they switched
      * to with an active proxy grant. Null when the user is not a portal user or
