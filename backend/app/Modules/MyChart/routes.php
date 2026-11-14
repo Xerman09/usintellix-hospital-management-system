@@ -8,6 +8,7 @@ use App\Modules\MyChart\Services\PortalProxyService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalUploadService;
+use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -301,6 +302,38 @@ $router->post('/mychart/appointments/cancel', [MyChartController::class, 'cancel
 $router->post('/mychart/appointments/confirm', [MyChartController::class, 'confirmMyAppointment'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['patient']]
+]);
+
+// ---------------------------------------------------------------
+// Insurance (Phase M12): the cover the hospital holds, and asking for
+// it to be added, corrected or removed. A request is a request --
+// nothing here writes patient_insurances until the desk applies it.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/insurance', [MyChartController::class, 'myInsurance'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/insurance/request', [MyChartController::class, 'requestInsuranceChange'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/insurance/withdraw', [MyChartController::class, 'withdrawInsuranceRequest'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// The desk: the queue, and applying a request to the record.
+$router->get('/portal-insurance-requests', [MyChartController::class, 'portalInsuranceRequests'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalInsuranceService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-insurance-requests/review', [MyChartController::class, 'portalInsuranceReview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalInsuranceService::DECIDE_ROLES]
 ]);
 
 // ---------------------------------------------------------------

@@ -129,7 +129,39 @@ so this is an endpoint, a picker and a review queue rather than a new subsystem.
   patient-supplied document must never silently become part of the legal record.
 - Audited through `PortalAudit` like every other portal action.
 
-## M12 — Insurance self-service
+## M12 — Insurance self-service — **DONE**
+
+Shipped: schema 336, seed 070, `PortalInsuranceService`, five endpoints, the
+"Insurance Requests" desk queue, and `MyChartInsuranceModal` with a dashboard tile.
+51 tests.
+
+The principle comes from e-check-in, which already said it: a patient never edits
+the insurance record — the desk does that with the card in hand. e-Check-in could
+only capture "something changed" as one sentence on one appointment inside the 48
+hours before it. This gives the same idea standing at any time: a request carrying
+the proposed values, which the desk applies or declines. Nothing writes
+`patient_insurances` except an apply, inside a transaction.
+
+Worth keeping in mind:
+
+- **Reading cover is separate from requesting changes.** `portal_allow_insurance_requests`
+  switches the requests off while a patient can still see what will be billed; the
+  capability `mychart_insurance` gates the whole area.
+- **An apply needs a real payer.** A request naming an insurer only in free text
+  (`insurer_name_text`, for the HMO that is not in the list) is refused at apply
+  time with an explanation, rather than guessed at. The desk adds the insurer
+  first, or enters the cover by hand and declines with a note.
+- **The desk sees current beside proposed**, field by field, because a changed
+  digit in a policy number is invisible otherwise.
+- **`portal_insurance_max_pending`** (3) stops a patient stacking requests while
+  the first is still waiting.
+- The card photograph rides on M11 (`upload_id`, validated as that patient's own
+  `insurance_card`), so that part of the flow waits on M11's picker and the
+  1 December rebuild. Everything else works without it.
+
+---
+
+## M12 (original plan) — Insurance self-service
 
 **Size: M. Needs M11.**
 

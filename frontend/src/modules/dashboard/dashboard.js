@@ -332,6 +332,7 @@ import { PortalProxyRequestsView, initPortalProxyRequests } from "../mychart/por
 import { PortalExplanationsView, initPortalExplanations } from "../mychart/portal-explanations.js?v=2";
 import { PortalDiagnosisGuidesView, initPortalDiagnosisGuides } from "../mychart/portal-diagnosis-guides.js?v=1";
 import { PortalUploadsView, initPortalUploads } from "../mychart/portal-uploads.js?v=1";
+import { PortalInsuranceRequestsView, initPortalInsuranceRequests } from "../mychart/portal-insurance-requests.js?v=1";
 import { PortalPaymentsView, initPortalPayments } from "../mychart/portal-payments.js?v=2";
 import { PortalCheckinsView, initPortalCheckins } from "../mychart/portal-checkins.js?v=2";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=3";
@@ -1727,6 +1728,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Patient Uploads', () => {
                 setTimeout(initPortalUploads, 0);
                 return PortalUploadsView();
+            }, activate);
+        } else if (tabId === 'portal_insurance_requests') {
+            tabManager.openTab(tabId, title || 'Insurance Requests', () => {
+                setTimeout(initPortalInsuranceRequests, 0);
+                return PortalInsuranceRequestsView();
             }, activate);
         } else if (tabId === 'lab_critical_ranges') {
             tabManager.openTab(tabId, 'Critical Lab Ranges', () => {

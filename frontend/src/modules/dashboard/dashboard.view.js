@@ -171,6 +171,7 @@ function staffNavLinks(role)
                 ${role === "admin" ? `<a data-tab="portal_explanations">Patient Explanations</a>` : ""}
                 ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_diagnosis_guides">Diagnosis Guides</a>` : ""}
                 ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_uploads">Patient Uploads</a>` : ""}
+                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_insurance_requests">Insurance Requests</a>` : ""}
                 <a data-tab="procedure_load_compendium">Load Compendium</a>
                 <a class="patient-dependent-nav" data-tab="procedure_pending_review">Pending Review</a>
                 <a class="patient-dependent-nav" data-tab="procedure_patient_results">Patient Results</a>

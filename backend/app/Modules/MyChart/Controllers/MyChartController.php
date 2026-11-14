@@ -23,6 +23,7 @@ use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalAppointmentService;
 use App\Modules\MyChart\Services\PortalUploadService;
+use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -1127,6 +1128,90 @@ class MyChartController extends Controller
         }
 
         self::streamFile($file);
+    }
+
+    /**
+     * GET /mychart/insurance -- the coverage the hospital holds, and this
+     * patient's own change requests.
+     *
+     * Reading is gated on the insurance capability but not on the
+     * portal_allow_insurance_requests policy: where a hospital wants changes
+     * handled at the desk, a patient can still see what will be billed.
+     */
+    public function myInsurance(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Insurance Viewed', PortalGuard::CAP_INSURANCE);
+
+        if ($patientId === null) {
+            $this->error('Insurance is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalInsuranceService::mine($patientId), 'Insurance retrieved successfully.');
+    }
+
+    /** POST /mychart/insurance/request -- ask for cover to be added, corrected or removed. */
+    public function requestInsuranceChange(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Insurance Change Requested', PortalGuard::CAP_INSURANCE);
+
+        if ($patientId === null) {
+            $this->error('Insurance is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalInsuranceService::request($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/insurance/withdraw -- cancel a request nobody has reviewed yet. */
+    public function withdrawInsuranceRequest(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Insurance Request Withdrawn', PortalGuard::CAP_INSURANCE);
+
+        if ($patientId === null) {
+            $this->error('Insurance is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalInsuranceService::withdraw($patientId, (int) $request->input('id'), $user));
+    }
+
+    /** GET /portal-insurance-requests -- the desk's queue of change requests. */
+    public function portalInsuranceRequests(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalInsuranceService::queue(
+                trim((string) $request->input('status', 'pending')),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'can_decide' => \App\Core\RoleAccess::inList((string) ($user['role'] ?? ''), PortalInsuranceService::DECIDE_ROLES),
+            ],
+            'Insurance requests retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-insurance-requests/review -- apply it to the record, or decline it. */
+    public function portalInsuranceReview(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalInsuranceService::review(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
     }
 
     // ---------------------------------------------------------------
