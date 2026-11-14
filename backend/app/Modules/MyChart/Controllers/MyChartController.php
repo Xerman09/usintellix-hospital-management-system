@@ -24,6 +24,7 @@ use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalAppointmentService;
 use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalInsuranceService;
+use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -1343,5 +1344,182 @@ class MyChartController extends Controller
         $lines[] = $question;
 
         return implode("\n", $lines);
+    }
+
+    // ---------------------------------------------------------------
+    // Questionnaires between visits (Phase M13). A clinician sends one
+    // with a due date; the patient answers it at home; a scored answer
+    // that crosses the instrument's band reaches the care team as a
+    // real alert. The patient is never shown a score.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/questionnaires -- what is waiting, and what has been answered. */
+    public function myQuestionnaires(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Questionnaires Viewed', PortalGuard::CAP_QUESTIONNAIRES);
+
+        if ($patientId === null) {
+            $this->error('Questionnaires are not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalQuestionnaireService::mine($patientId), 'Questionnaires retrieved successfully.');
+    }
+
+    /** GET /mychart/questionnaires/form -- the questions of one of them. */
+    public function myQuestionnaireForm(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Questionnaire Opened', PortalGuard::CAP_QUESTIONNAIRES);
+
+        if ($patientId === null) {
+            $this->error('Questionnaires are not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalQuestionnaireService::form($patientId, (int) $request->input('id')));
+    }
+
+    /** POST /mychart/questionnaires/submit -- the patient's answers. */
+    public function submitMyQuestionnaire(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Questionnaire Answered', PortalGuard::CAP_QUESTIONNAIRES);
+
+        if ($patientId === null) {
+            $this->error('Questionnaires are not available for this account.', 403);
+            return;
+        }
+
+        $answers = $request->input('answers', []);
+
+        $this->respond(PortalQuestionnaireService::submit(
+            $patientId,
+            (int) $request->input('id'),
+            is_array($answers) ? $answers : [],
+            $user
+        ));
+    }
+
+    // ---------------------------------------------------------------
+    // The clinic's side of M13: sending them out and reading them back.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-questionnaires -- the queue, with what can be sent. */
+    public function portalQuestionnaires(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalQuestionnaireService::queue(
+                trim((string) $request->input('status', 'answered')),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'catalogue' => PortalQuestionnaireService::catalogue(),
+                'can_assign' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalQuestionnaireService::ASSIGN_ROLES
+                ),
+            ],
+            'Questionnaires retrieved successfully.'
+        );
+    }
+
+    /** GET /portal-questionnaires/show -- what one patient answered. */
+    public function portalQuestionnaireShow(): void
+    {
+        $request = new Request();
+        $row = PortalQuestionnaireService::show((int) $request->input('id'));
+
+        if (!$row) {
+            $this->error('That questionnaire could not be found.', 404);
+            return;
+        }
+
+        $this->success($row, 'Questionnaire retrieved successfully.');
+    }
+
+    /** GET /portal-questionnaires/patients -- who to send one to. */
+    public function portalQuestionnairePatients(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            ['items' => PortalQuestionnaireService::findPatients((string) $request->input('q', ''))],
+            'Patients retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-questionnaires/assign -- send one to a patient. */
+    public function portalQuestionnaireAssign(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalQuestionnaireService::assign($request->all(), (int) ($user['id'] ?? 0)));
+    }
+
+    /** POST /portal-questionnaires/cancel -- take back one nobody has answered. */
+    public function portalQuestionnaireCancel(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalQuestionnaireService::cancel(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /** POST /portal-questionnaires/reviewed -- clear it from the queue. */
+    public function portalQuestionnaireReviewed(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalQuestionnaireService::markReviewed(
+            (int) $request->input('id'),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /**
+     * GET /portal-questionnaires/history -- one patient's scores for an
+     * instrument, in-visit and at-home together. Staff only, and the patient
+     * id comes from the request here because a clinician is reading somebody
+     * else's chart; the role gate on the route is what limits that.
+     */
+    public function portalQuestionnaireHistory(): void
+    {
+        $request = new Request();
+
+        $patientId = (int) $request->input('patient_id');
+        $instrument = trim((string) $request->input('instrument', 'phq9'));
+
+        if ($patientId <= 0) {
+            $this->error('Which patient?', 422);
+            return;
+        }
+
+        if (!isset(PortalQuestionnaireService::INSTRUMENTS[$instrument])) {
+            $this->error('That is not a scored instrument.', 422);
+            return;
+        }
+
+        $this->success([
+            'patient_id' => $patientId,
+            'instrument' => $instrument,
+            'label' => PortalQuestionnaireService::INSTRUMENTS[$instrument]['label'],
+            'max' => PortalQuestionnaireService::INSTRUMENTS[$instrument]['max'],
+            'items' => PortalQuestionnaireService::scoreHistory($patientId, $instrument),
+        ], 'Score history retrieved successfully.');
     }
 }

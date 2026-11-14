@@ -44,6 +44,7 @@ class AlertService
         'lab_stat'     => 'STAT lab to collect',
         'imaging_stat' => 'STAT imaging to schedule',
         'patient_reading' => 'Patient-reported reading',
+        'patient_questionnaire' => 'Patient questionnaire answered at home',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

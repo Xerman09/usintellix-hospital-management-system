@@ -9,6 +9,7 @@ use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalInsuranceService;
+use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -398,4 +399,63 @@ $router->get('/portal-diagnosis-guides', [MyChartController::class, 'portalDiagn
 $router->post('/portal-diagnosis-guides', [MyChartController::class, 'savePortalDiagnosisGuide'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalDiagnosisGuideService::EDIT_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// Questionnaires between visits (Phase M13). A clinician sends one
+// with a due date, the patient answers it at home, and a scored
+// answer that crosses the instrument's band reaches the care team
+// as a real alert. The patient's three routes resolve the patient
+// through PortalGuard; the clinic's routes are gated by role.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/questionnaires', [MyChartController::class, 'myQuestionnaires'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/questionnaires/form', [MyChartController::class, 'myQuestionnaireForm'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/questionnaires/submit', [MyChartController::class, 'submitMyQuestionnaire'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// The clinic: the queue, what came back, and sending more out.
+$router->get('/portal-questionnaires', [MyChartController::class, 'portalQuestionnaires'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-questionnaires/show', [MyChartController::class, 'portalQuestionnaireShow'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-questionnaires/history', [MyChartController::class, 'portalQuestionnaireHistory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-questionnaires/assign', [MyChartController::class, 'portalQuestionnaireAssign'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::ASSIGN_ROLES]
+]);
+
+$router->post('/portal-questionnaires/cancel', [MyChartController::class, 'portalQuestionnaireCancel'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::ASSIGN_ROLES]
+]);
+
+$router->post('/portal-questionnaires/reviewed', [MyChartController::class, 'portalQuestionnaireReviewed'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-questionnaires/patients', [MyChartController::class, 'portalQuestionnairePatients'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalQuestionnaireService::ASSIGN_ROLES]
 ]);

@@ -16,6 +16,7 @@ use Throwable;
  *   results to read     released results whose notification is still unread
  *   messages            unread replies from the care team
  *   check-in            an appointment open for e-check-in
+ *   questionnaires      what a clinician has sent to answer at home (Phase M13)
  *   consents            the privacy notice never acknowledged
  *   balance             what the ledger says is owed
  *   appointments        what is booked next
@@ -33,6 +34,7 @@ class PortalTodoService
             self::results($db, $patientId),
             self::messages($db, $patientId),
             self::checkins($patientId),
+            self::questionnaires($patientId),
             self::consents($db, $patientId),
             self::balance($patientId),
             self::appointments($db, $patientId),
@@ -135,6 +137,38 @@ class PortalTodoService
         }
 
         return $items;
+    }
+
+    /**
+     * Questionnaires a clinician has sent to be answered at home (Phase M13).
+     * PortalQuestionnaireService owns what is still open, including the grace
+     * period after the due date, so this list cannot offer one the questionnaire
+     * screen would then refuse.
+     */
+    private static function questionnaires(int $patientId): array
+    {
+        try {
+            $pending = PortalQuestionnaireService::pendingFor($patientId);
+        } catch (Throwable $e) {
+            // A deployment that has not run schema 337 still gets a To-Do list.
+            error_log('questionnaires for the To-Do list failed: ' . $e->getMessage());
+
+            return [];
+        }
+
+        return array_map(static fn(array $q) => self::item(
+            'questionnaire',
+            $q['started'] ? 'Finish "' . $q['title'] . '"' : $q['title'],
+            $q['overdue']
+                ? 'Your care team asked for this by ' . $q['due_date'] . '. You can still answer it.'
+                : ($q['due_date'] !== null
+                    ? 'Your care team would like this by ' . $q['due_date'] . '.'
+                    : 'Your care team has asked you to answer this.'),
+            $q['overdue'] ? 'overdue' : 'todo',
+            'mychart_questionnaires',
+            $q['id'],
+            $q['started'] ? 'Carry on' : 'Answer'
+        ), $pending);
     }
 
     /** The privacy notice, if it has never been acknowledged. */

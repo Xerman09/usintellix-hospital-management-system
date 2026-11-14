@@ -245,13 +245,21 @@ class PortalCheckinService
         ];
     }
 
-    /** The questionnaire for this department, or the general one. */
+    /**
+     * The questionnaire for this department, or the general one.
+     *
+     * use_context keeps the follow-up catalogue (Phase M13, schema 337) out of this:
+     * those are sent out between visits with a due date, and several of them also have
+     * specialty NULL, so without the filter the general fallback could hand a patient
+     * "After your operation" at check-in.
+     */
     public static function questionnaireFor(PDO $db, ?string $department): ?array
     {
         $stmt = $db->prepare(
             "SELECT id, code, name, intro, questions, specialty
              FROM portal_questionnaires
-             WHERE is_active = 1 AND (:dept IS NOT NULL AND specialty = :dept2)
+             WHERE is_active = 1 AND use_context IN ('checkin', 'both')
+               AND (:dept IS NOT NULL AND specialty = :dept2)
              ORDER BY id LIMIT 1"
         );
         $stmt->execute(['dept' => $department, 'dept2' => $department]);
@@ -260,7 +268,8 @@ class PortalCheckinService
         if (!$row) {
             $row = $db->query(
                 "SELECT id, code, name, intro, questions, specialty FROM portal_questionnaires
-                 WHERE is_active = 1 AND specialty IS NULL ORDER BY id LIMIT 1"
+                 WHERE is_active = 1 AND use_context IN ('checkin', 'both') AND specialty IS NULL
+                 ORDER BY id LIMIT 1"
             )->fetch(PDO::FETCH_ASSOC);
         }
 

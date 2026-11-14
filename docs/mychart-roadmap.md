@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M10)
+## Shipped (M0–M13)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -25,6 +25,9 @@ before any code is written.
 | **M8** | Account, proxy requests, Share-Everywhere links, access log | `PortalShareService`, schema 308 |
 | **M9** | Diagnosis guides — what a diagnosis means, do's and don'ts | `PortalDiagnosisGuideService`, schema 333 |
 | **M10** | Appointment self-service — move, cancel, confirm | `PortalAppointmentService`, schema 334 |
+| **M11** | Sending in photos and documents, reviewed before they count | `PortalUploadService`, schema 335 |
+| **M12** | Insurance self-service — see cover, ask for it to be corrected | `PortalInsuranceService`, schema 336 |
+| **M13** | Questionnaires between visits, PHQ-9 and GAD-7 scored and escalated | `PortalQuestionnaireService`, schema 337 |
 
 **M9 is unlabelled in the code.** It was built without a `Phase M9` comment or a capability
 flag. Worth labelling so the sequence stays readable.
@@ -173,7 +176,73 @@ PhilHealth and HMO workflows this is a large share of front-desk time.
 - Submit or replace a card photo (via M11) and request a change to member details.
 - A change request is a request, not a write: staff accept it into `patient_insurances`.
 
-## M13 — Questionnaires between visits
+## M13 — Questionnaires between visits — **DONE**
+
+Shipped: schema 337, seeds 071–073, `PortalQuestionnaireService`, ten endpoints, the
+"Questionnaires" desk screen, `MyChartQuestionnairesModal` with a dashboard tile, and
+a new To-Do item kind. 139 tests.
+
+A clinician picks a questionnaire, a patient and a due date; it lands in the patient's
+To-Do list and they are notified; they answer it at home; the answers come back to the
+people looking after them. Two kinds go out, and the difference is the whole design:
+
+- **Unscored** — the four follow-up questionnaires seeded by 072 (after an operation,
+  after going home from a ward, a new medicine, how this week has been). Read as words.
+- **Scored** — PHQ-9 and GAD-7. Their questions and their bands come from `Phq9Service`
+  and `Gad7Service`, the same code the clinical screens use, so a home score and an
+  in-visit score can never be computed two different ways. Nothing is duplicated as JSON.
+
+Worth keeping in mind:
+
+- **PHQ-9 item 9 escalates on its own.** A patient can answer "nearly every day" to
+  thoughts of being better off dead and still total under 15. A threshold on the total
+  would swallow exactly that case, so item 9 positive is `critical` whatever the total;
+  a total of 15 or more is `urgent`. Both go out through `AlertService::raise()` to the
+  care team resolved by `PortalSelfReadingService::careTeamTargets()` — the same path a
+  nurse keying the score in would take, not a new one.
+- **The patient is never shown a score.** `mine()` returns no `total_score` and no
+  `severity`, and a test asserts it. After submitting they are told their team can see
+  it, and — when it crossed — that the team was told today. A number somebody cannot
+  interpret, with nobody there to interpret it, at the moment they are least able to,
+  is worse than no number.
+- **The home score does not go into `encounter_phq9`.** That table is `encounter_id NOT
+  NULL`, foreign-keyed to `encounters`, one row per encounter. Attaching a home answer
+  to the encounter it followed from would overwrite what the clinician keyed in at that
+  visit; inventing an encounter would put a visit in the record that never happened. So
+  the score is authoritative on the assignment row, and `scoreHistory()` merges in-visit
+  and at-home scores into one timeline, each row labelled with where it came from. The
+  schema 337 header states this at length because it is the one thing a later reader
+  will assume was an oversight.
+- **`portal_questionnaires.use_context`** keeps the two catalogues apart. It defaults to
+  `checkin`, so every questionnaire that existed before this change stays an e-check-in
+  questionnaire, and `PortalCheckinService::questionnaireFor()` now filters on it —
+  three of the four follow-up questionnaires also have `specialty` NULL, so without the
+  filter the general fallback could have handed a patient "After your operation" at
+  check-in.
+- **`portal_questionnaire_grace_days`** (14) keeps a questionnaire answerable after its
+  due date. A patient who answers two days late should still be heard; the alternative
+  is a dead link and a phone call. Whether an answer can still be sent is decided
+  server-side and comes down as `can_answer` plus a `status_text`, so the app never
+  offers a button the server would refuse.
+- **A second send of the same questionnaire while the first is unanswered is refused**
+  as a duplicate rather than written. Two identical rows in a To-Do list read as a
+  mistake the patient has to resolve.
+- **`GET /portal-questionnaires/patients`** exists because `GET /patients` answers
+  admin, receptionist and doctor only, while a nurse and a clinician may send a
+  questionnaire. It returns at most twenty rows and only after two characters, rather
+  than widening that route and handing the whole patient list to roles with no other
+  reason to hold it.
+
+Not done, and deliberately: **no recurrence**. A symptom diary every week means a
+scheduler, and there is no cron runner in this project — a clinician sends the next one.
+Worth revisiting if the four seeded questionnaires get used.
+
+The 45 diagnosis guides already wanted a clinician's read; these four questionnaires
+want the same before they go out to real patients.
+
+---
+
+## M13 (original plan) — Questionnaires between visits
 
 **Size: M.**
 
@@ -269,7 +338,7 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → finish M9.5 → M11 → M12 → M13 → M14 → M16 → M15 → M17 → M18**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → finish M9.5 → M14 → M16 → M15 → M17 → M18**
 
 M10 is done. What is left of M9.5 is the capability backfill and M9's three loose ends,
 all small, and worth clearing before the list grows. M11 unlocks M12 and the medical
