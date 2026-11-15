@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Migration: 333_portal_diagnosis_guides.sql
--- My Chart: what a diagnosis means, in words a patient can read -- and what to
--- do and not do about it.
+-- My Chart Phase M9: what a diagnosis means, in words a patient can read -- and
+-- what to do and not do about it.
 --
 -- One row per condition ("Type 2 diabetes"), shown under the diagnosis wherever
 -- a patient meets one: the After-Visit Summary's diagnosis list, the problem

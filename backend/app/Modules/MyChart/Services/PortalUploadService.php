@@ -3,6 +3,7 @@
 namespace App\Modules\MyChart\Services;
 
 use App\Core\Database;
+use App\Core\Env;
 use PDO;
 
 /**
@@ -417,7 +418,7 @@ class PortalUploadService
             return null;
         }
 
-        $publicDir = dirname(__DIR__, 4) . '/public/uploads/patient_documents';
+        $publicDir = self::documentsDir();
 
         if (!is_dir($publicDir) && !mkdir($publicDir, 0755, true) && !is_dir($publicDir)) {
             return null;
@@ -480,9 +481,35 @@ class PortalUploadService
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
+    /**
+     * Where uploads are kept, and where accepted ones are filed.
+     *
+     * Both hang off one root so a test run can be given a root of its own.
+     * Without that, a test that exercises the review queue writes into the same
+     * backend/storage/patient-uploads the deployment uses and copies accepted
+     * files into the web-served backend/public/uploads/patient_documents -- and
+     * since an accepted file is named doc_from_portal_* whether a patient or a
+     * test produced it, there is then no safe way to tell them apart and clean
+     * up. Keeping them out is the only reliable answer.
+     *
+     * PORTAL_UPLOAD_ROOT is read from the environment, so nothing changes for a
+     * deployment that does not set it.
+     */
+    private static function uploadRoot(): string
+    {
+        $override = trim((string) Env::get('PORTAL_UPLOAD_ROOT', ''));
+
+        return $override !== '' ? rtrim($override, "/\\") : dirname(__DIR__, 4);
+    }
+
     private static function storageDir(): string
     {
-        return dirname(__DIR__, 4) . '/storage/patient-uploads';
+        return self::uploadRoot() . '/storage/patient-uploads';
+    }
+
+    private static function documentsDir(): string
+    {
+        return self::uploadRoot() . '/public/uploads/patient_documents';
     }
 
     /**

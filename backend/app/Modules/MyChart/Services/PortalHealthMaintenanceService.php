@@ -114,7 +114,14 @@ class PortalHealthMaintenanceService
                 'every' => self::everyText((int) $row['recurrence_val'], (string) $row['recurrence_unit']),
                 'status' => $state['status'],
                 'status_text' => $state['text'],
-                'last_done_on' => $row['last_done_on'],
+                // A date, not a datetime. The underlying action row carries a time
+                // that is always midnight (nobody records the hour a mammogram was
+                // taken elsewhere), and stateFor() already trims it for the
+                // sentence it builds -- so handing the app "2026-10-26 00:00:00"
+                // here would have it render a time that means nothing.
+                'last_done_on' => $row['last_done_on'] !== null
+                    ? substr((string) $row['last_done_on'], 0, 10)
+                    : null,
                 'next_due_date' => $state['next_due'],
                 'ever_done' => $row['last_done_on'] !== null,
                 'pending_request' => $pending ? [

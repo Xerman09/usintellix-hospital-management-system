@@ -1,2 +1,3 @@
 backend/.env
 backend/storage/.schema_sync_*.hash
+backend/storage/_test_uploads/

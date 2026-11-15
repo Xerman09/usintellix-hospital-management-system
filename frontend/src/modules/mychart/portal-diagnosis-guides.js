@@ -2,7 +2,7 @@ import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 
 /*
- * Diagnosis Guides (tab "portal_diagnosis_guides").
+ * Diagnosis Guides (Phase M9, tab "portal_diagnosis_guides").
  *
  * What a patient reads under their own diagnosis in My Chart: what the condition is,
  * why it happens, what to do, what not to do, and when to get help the same day.

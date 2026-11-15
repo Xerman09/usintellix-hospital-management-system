@@ -383,7 +383,7 @@ $router->post('/portal-uploads/review', [MyChartController::class, 'portalUpload
 ]);
 
 // ---------------------------------------------------------------
-// Diagnosis guides: what a diagnosis means and what to do about it.
+// Diagnosis guides (Phase M9): what a diagnosis means and what to do about it.
 // The patient reads them under their own diagnoses; staff author them.
 // ---------------------------------------------------------------
 

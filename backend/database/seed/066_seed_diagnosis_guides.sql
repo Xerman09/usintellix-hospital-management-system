@@ -1,4 +1,4 @@
--- Seed 066: plain-language diagnosis guides for My Chart
+-- Seed 066: plain-language diagnosis guides for My Chart (Phase M9)
 -- Subsystem: Patient Portal. One row per condition, shown under the diagnosis wherever a
 -- patient meets one -- the After-Visit Summary, the problem list, a discharge summary, an
 -- ER visit. Each guide says what the condition is, why it happens, what to do, what not to

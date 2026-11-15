@@ -9,7 +9,21 @@
 -- user/employee) are reused via lookup instead of re-inserted.
 -- =============================================
 
-USE usintellix_hospital_management_system;
+-- No USE statement here, deliberately.
+--
+-- This file used to begin "USE usintellix_hospital_management_system;", which
+-- silently overrode whichever database the caller had selected -- including the
+-- one named on the mysql command line, and the one the application's own
+-- connection is bound to. Because this is the lowest-numbered seed, every seed
+-- applied after it in the same session went to that hard-coded name too.
+--
+-- That is wrong in three situations that all exist: a deployment whose database
+-- is named something else, a staging copy restored under a different name, and
+-- a test database. In the last case it was not theoretical -- it sent a full
+-- seed run to the live database while reporting success against the test one.
+--
+-- A seed must inherit the database it is run against. Whoever runs it has
+-- already said which one that is.
 
 -- Role
 INSERT INTO roles (name)

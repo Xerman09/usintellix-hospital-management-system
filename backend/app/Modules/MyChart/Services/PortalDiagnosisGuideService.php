@@ -6,8 +6,8 @@ use App\Core\Database;
 use PDO;
 
 /**
- * The plain-language guide shown under a diagnosis in My Chart: what the condition
- * is, what to do, what not to do, and when to get help now. See schema 333.
+ * The plain-language guide shown under a diagnosis in My Chart (Phase M9): what the
+ * condition is, what to do, what not to do, and when to get help now. See schema 333.
  *
  * Matching is the whole difficulty. A diagnosis reaches a patient in four shapes
  * and only encounter_diagnoses is reliably coded, so a guide is found by, in order:

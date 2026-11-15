@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M14)
+## Shipped (M0–M14, plus M9.5)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -29,33 +29,129 @@ before any code is written.
 | **M12** | Insurance self-service — see cover, ask for it to be corrected | `PortalInsuranceService`, schema 336 |
 | **M13** | Questionnaires between visits, PHQ-9 and GAD-7 scored and escalated | `PortalQuestionnaireService`, schema 337 |
 | **M14** | What you are due for — screenings and vaccinations, with dates | `PortalHealthMaintenanceService`, schema 338 |
+| **M9.5** | Nothing new for the patient — a disposable database, so the write paths are tested | `tests/lib/test_database.php`, `tests/test_portal_writes.php` |
 
-**M9 is unlabelled in the code.** It was built without a `Phase M9` comment or a capability
-flag. Worth labelling so the sequence stays readable.
+**M9 is labelled as of M9.5.** It was built without a `Phase M9` comment or a capability
+flag; both are now in place.
 
 ---
 
-## M9.5 — Housekeeping before the list grows
+## M9.5 — Housekeeping before the list grows — **DONE** (15 November 2026)
 
-**Size: S. Partly done.** Not a feature. Inconsistencies that get more expensive with
-every phase added on top of them.
+Not a feature. The inconsistencies that get more expensive with every phase added on
+top of them. Two of the four items turned out to have been quietly closed by later
+phases, and the two that were real are now done.
 
-1. **Capability flags are applied unevenly.** *Started:* M10 shipped with
-   `mychart_appointment_manage`, so new features now arrive gated. **Still to backfill:**
-   visits, AVS, notifications and the M9 diagnosis guides call `PortalGuard::enter()` with
-   no capability at all, so a hospital cannot switch those four off per deployment. Eight
-   capabilities now exist; four features have none.
-2. **Pending from M9**: the After-Visit Summary path has never run against real coded
-   diagnoses (`encounter_diagnoses` is empty in the dev database), the 45 seeded guides
-   have no clinician sign-off, and the guide modal missed the mobile UI redesign so it
-   still uses the older card styling while the screens around it moved on.
-3. **Pending from M10**: the successful reschedule, cancel and confirm writes are not
-   test-covered — only the refusal paths are, because exercising a write would alter real
-   appointments. Worth one pass against a disposable database.
-4. **Not a portal item but adjacent**: the hosted APK self-update loop is still broken
-   until a 1.0.1 build exists (quota resets 1 December), and the dispensing work in the
-   HMS working tree is uncommitted, including the untracked migration
-   `332_dispensing_client_channel.sql`.
+**1. Capability flags — was already done, and this entry was stale.** The backfill
+landed with seed 068: `mychart_visits_view`, `mychart_billing_view`,
+`mychart_account_view`, `mychart_notifications`, `mychart_diagnosis_guides` and
+`mychart_appointments_view`. All fifteen of those endpoints go through
+`PortalGuard::enter()` with a capability, and the two that stay deliberately ungated
+(revoking someone's proxy access to your own record, and confirming attendance) are
+documented as such in `PortalGuard`. Twelve capabilities now exist and every feature
+has one.
+
+**2. M9 is labelled.** Schema 333, seed 066, `PortalDiagnosisGuideService`, the routes
+block and the desk screen all now carry `Phase M9`, matching how M10–M14 label
+themselves, so the sequence reads straight through.
+
+**3. The successful write paths are covered — `tests/test_portal_writes.php`, 98
+tests.** This was the real item. M10–M14 shipped with their refusals tested and their
+writes not, because the only database available was the live one, and a test that
+proved "cancelling works" would have cancelled a real appointment. M14 demonstrated the
+cost of that: a failing test wrote a care-gap claim against a real patient with a date
+nobody chose, and it had to be found and deleted by hand.
+
+So there is now a disposable database:
+
+- `tests/lib/test_database.php` builds it from the same two directories the real one is
+  built from — `backend/database/schema` via `AutoMigrator`, which the app already runs
+  on every connection, then every `backend/database/seed/*.sql` in order. No fixture
+  dump, because a dump would be a third description of the schema and would rot the
+  first time someone added a migration without remembering it existed.
+- `tests/lib/test_fixtures.php` builds one synthetic patient, provider, encounter and
+  insurer, all prefixed `ZZTEST`/`zz_test`. Nothing is copied from the live database:
+  copying rows would put real names and birthdates into a second database with weaker
+  handling, and no test needs a real person to prove a cancel writes a cancelled row.
+  Reminders come from `PatientReminderService::processForPatient()`, the same path the
+  nightly job uses.
+- `tests/build_test_database.php` creates it (`--fresh` to rebuild, `--drop` to remove).
+  About 50 seconds for a full build.
+
+What that bought, beyond coverage:
+
+- **A patient cancel does not soft-delete.** M10's own comment warns about this and
+  nothing enforced it. Now asserted directly: `status = 'cancelled'`,
+  `cancelled_by_patient = 1`, `deleted_at` still NULL, so the freed slot stays on the
+  desk's day.
+- **Confirming works inside the cut-off while cancelling does not** — the deliberate
+  asymmetry from M10, now pinned by two assertions that would both have to be changed
+  to break it.
+- **Accepting an upload copies it into `patient_documents`; accepting an insurance
+  request is what puts cover on the record.** Both previously untested, and both are
+  the point of the review queue.
+- **M9's After-Visit Summary path has finally run against a coded diagnosis.**
+  `encounter_diagnoses` is empty in every database this project has, so the guide
+  matcher had never met a coded row. The fixture encounter carries E11.9, which
+  exercises the 3-character category step (the seeded guide is E11), and an unknown
+  code still returns nothing rather than a near-miss.
+
+**4. Still open, and not closable here:**
+
+- **The 45 seeded diagnosis guides, the 4 seeded follow-up questionnaires and M14's
+  item wording and intervals have no clinician sign-off.** Unchanged, and not something
+  code can settle.
+- **The PHQ-9 severity label needs a clinician's eye.** The write tests pinned a case
+  worth looking at: a patient who answers "more than half the days" to thoughts of
+  being better off dead, with everything else low, scores 4 of 27 and is stored with
+  `severity = 'No depressive disorder'`. The escalation is correct and visible — the
+  alert is raised on item 9 regardless of the total, the row sorts to the top of the
+  desk queue, carries a "Care team alerted" pill, and the reader says when the team was
+  alerted. But the severity *text* beside it reads as reassurance. The label is a
+  faithful reading of the PHQ-9 total, so changing it is a clinical decision, not a
+  code one. Flagged rather than reworded.
+- **The APK self-update loop** is still broken until a 1.0.1 build exists (Expo quota
+  resets 1 December), which also gates M11's picker and M12's card-photo flow.
+- **The dispensing work in the HMS tree is still uncommitted**, including the untracked
+  migration `332_dispensing_client_channel.sql`, which exists nowhere but that disk.
+
+### A bug this phase found: `USE` in a seed file
+
+`007_seed_admin.sql` began with `USE usintellix_hospital_management_system;`. Because it
+is the lowest-numbered seed, every seed run after it in the same session went to that
+hard-coded database — whatever database the caller had actually selected, including the
+one named on the `mysql` command line and the one the application's connection is bound
+to.
+
+It was found the worst possible way: the first test-database build reported success
+against the test database having re-seeded the **live** one. Nothing in the output said
+so, because the connection genuinely was pointed at the test database when the run
+started. The live database survived because the seeds are idempotent — every count was
+verified unchanged afterwards — but one unguarded `UPDATE` in `057_seed_patient_identity_verification.sql`
+reset `verified_at` on patient 2 to that day's timestamp.
+
+Fixed: the `USE` is gone, replaced by a comment saying why it must not come back.
+`applySeeds()` now refuses any seed containing a `USE` statement and re-reads
+`SELECT DATABASE()` after every file, so a silent switch stops the run instead of
+redirecting it.
+
+Two related things found while confirming the damage, both left alone deliberately
+because fixing them means changing configured data:
+
+- **`049_seed_department_org_mapping.sql` sets `head_of_department_id` by hard-coded
+  department id** (`WHERE id = 4` → head 101, and seven more), with no `IS NULL` guard.
+  Those ids only line up on the live database, whose numbering comes from hand-created
+  rows; on a database built from the seeds alone, Internal Medicine is id 2 rather than
+  3, so the heads land on the wrong departments. Re-running that seed on a live
+  deployment would also overwrite whatever heads an admin had set.
+- **`057_seed_patient_identity_verification.sql` overwrites identity verification on
+  patients 2, 3 and 4 unconditionally**, with sample passport and licence numbers. It is
+  labelled "sample" and those happen to be test accounts, but it writes to real patient
+  columns by id.
+
+Neither belongs in a test-infrastructure change. Worth a pass of its own over the seed
+directory asking which files are reference data and which are demo data — they are
+mixed together now, and only the first kind is safe to re-run.
 
 ---
 
@@ -413,10 +509,11 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → finish M9.5 → M16 → M15 → M17 → M18**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → M16 → M15 → M17 → M18**
 
-M10 is done. What is left of M9.5 is the capability backfill and M9's three loose ends,
-all small, and worth clearing before the list grows. M11 unlocks M12 and the medical
+M9.5 is done: the capability backfill turned out to have landed already, M9 is
+labelled, and the write paths have a disposable database to run against. What remains of
+it is the clinician sign-off on seeded wording, which no amount of code will settle. M11 unlocks M12 and the medical
 certificate work. M15 sits late despite being the most valuable, because starting it
 before the decisions are made means building the wrong thing; if an asynchronous e-visit
 is acceptable, bring that part forward to sit beside M13. M18 only makes sense after M10
