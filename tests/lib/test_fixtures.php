@@ -329,6 +329,133 @@ final class TestFixtures
     }
 
     /**
+     * Two priced packages built so that reconciliation has something definite to
+     * decide (Phase M16).
+     *
+     * The live database's four packages are not usable as a test fixture: exactly
+     * one of them reconciles, and only against its discounted price, which is an
+     * accident of data entry rather than a property anyone chose. A test that
+     * asserted on it would be asserting on a typo. These two are explicit:
+     *
+     *   ZZTEST-PKG-OK    items sum to BOTH prices' bases cleanly -- the covered
+     *                    amounts total the discounted price, and quantity x unit
+     *                    totals the standard price, so both bases reconcile and
+     *                    each exercises a different branch of reconcile().
+     *   ZZTEST-PKG-OFF   items deliberately 100.00 short, so neither basis
+     *                    reconciles and the "no breakdown" path is exercised.
+     *
+     * A third case -- a package with no items at all -- is whatever the schema
+     * files already inserted, so it needs no fixture.
+     *
+     * @return array{ok:int, off:int, empty:int}
+     */
+    public static function packages(): array
+    {
+        $db = Database::connection();
+
+        $ok = self::package(
+            $db,
+            'ZZTEST-PKG-OK',
+            'Zz Test Package (reconciles)',
+            '10000.00',
+            '9000.00',
+            [
+                // covered_amount sums to 9,000 (the discounted price);
+                // quantity x unit_price sums to 10,000 (the standard price).
+                ['Zz room and board', 2, '2500.00', '4000.00'],
+                ['Zz theatre fee', 1, '3500.00', '3000.00'],
+                ['Zz surgeon fee', 1, '1500.00', '2000.00'],
+            ]
+        );
+
+        $off = self::package(
+            $db,
+            'ZZTEST-PKG-OFF',
+            'Zz Test Package (does not reconcile)',
+            '20000.00',
+            '18000.00',
+            [
+                // 100 short of the discounted price and 2,100 short of the
+                // standard one, so neither basis can show a breakdown.
+                ['Zz room and board', 2, '4000.00', '8000.00'],
+                ['Zz theatre fee', 1, '9900.00', '9900.00'],
+            ]
+        );
+
+        $empty = (int) $db->query(
+            "SELECT id FROM billing_service_packages
+              WHERE package_code NOT LIKE 'ZZTEST%' ORDER BY id LIMIT 1"
+        )->fetchColumn();
+
+        return ['ok' => $ok, 'off' => $off, 'empty' => $empty];
+    }
+
+    /**
+     * One package plus its items. Items are rewritten on every call so a changed
+     * fixture definition takes effect without needing the database rebuilt.
+     */
+    private static function package(
+        PDO $db,
+        string $code,
+        string $name,
+        string $standard,
+        string $discounted,
+        array $items
+    ): int {
+        $stmt = $db->prepare('SELECT id FROM billing_service_packages WHERE package_code = ? LIMIT 1');
+        $stmt->execute([$code]);
+        $id = $stmt->fetchColumn();
+
+        if ($id === false) {
+            $stmt = $db->prepare(
+                "INSERT INTO billing_service_packages
+                    (package_code, package_name, package_type, standard_package_price,
+                     discounted_price, included_bed_days, included_room_type,
+                     inclusions_summary, exclusions_summary, is_active, created_at)
+                 VALUES (:code, :name, 'surgical_procedure', :std, :disc, 2, 'Zz Test Room',
+                         'Zz test inclusions: room, theatre, surgeon.',
+                         'Zz test exclusions: anything not listed.', 1, NOW())"
+            );
+            $stmt->execute(['code' => $code, 'name' => $name, 'std' => $standard, 'disc' => $discounted]);
+            $id = (int) $db->lastInsertId();
+        }
+
+        $id = (int) $id;
+
+        $db->prepare('DELETE FROM billing_package_items WHERE package_id = ?')->execute([$id]);
+
+        $line = $db->prepare(
+            "INSERT INTO billing_package_items
+                (package_id, item_code, item_name, category, quantity, unit_price, covered_amount, is_mandatory)
+             VALUES (:p, :code, :name, 'service', :qty, :unit, :covered, 1)"
+        );
+
+        foreach ($items as $i => [$itemName, $qty, $unit, $covered]) {
+            $line->execute([
+                'p' => $id,
+                // Deliberately NOT a real tariff code. In the live data these
+                // codes collide with billing_tariff_master while naming a
+                // different service, and nothing may join on them.
+                'code' => 'ZZTEST-ITEM-' . ($i + 1),
+                'name' => $itemName,
+                'qty' => $qty,
+                'unit' => $unit,
+                'covered' => $covered,
+            ]);
+        }
+
+        // Visible to patients, so the catalogue and request paths can be tested.
+        $db->prepare(
+            "INSERT INTO portal_package_visibility
+                (package_id, patient_label, patient_blurb, is_patient_visible, sequence, created_at)
+             VALUES (:p, :label, 'A test package, not a real one.', 1, 900, NOW())
+             ON DUPLICATE KEY UPDATE patient_label = VALUES(patient_label), is_patient_visible = 1"
+        )->execute(['p' => $id, 'label' => $name]);
+
+        return $id;
+    }
+
+    /**
      * An insurer the desk can actually apply.
      *
      * PortalInsuranceService lets a patient type an insurer name it does not

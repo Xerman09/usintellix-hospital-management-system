@@ -11,6 +11,7 @@ use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
+use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -502,4 +503,73 @@ $router->get('/portal-health-maintenance-items', [MyChartController::class, 'por
 $router->post('/portal-health-maintenance-items', [MyChartController::class, 'savePortalHealthMaintenanceItem'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalHealthMaintenanceService::EDIT_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// What this will cost (Phase M16). The patient's five routes resolve
+// the patient through PortalGuard. On the clinic's side the split is
+// deliberate: anyone on the desk may READ the queue and the package
+// list, but issuing an estimate puts a figure in a patient's hands
+// and sits with billing and reception, while changing the wording
+// patients are shown sits with admin alone.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/estimates', [MyChartController::class, 'myEstimates'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/estimates/catalogue', [MyChartController::class, 'myEstimateCatalogue'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/estimates/show', [MyChartController::class, 'myEstimateShow'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/estimates/request', [MyChartController::class, 'requestEstimate'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/estimates/withdraw', [MyChartController::class, 'withdrawEstimateRequest'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-estimates', [MyChartController::class, 'portalEstimates'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-estimates/issue', [MyChartController::class, 'portalEstimateIssue'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::ISSUE_ROLES]
+]);
+
+$router->post('/portal-estimates/decline', [MyChartController::class, 'portalEstimateDecline'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::ISSUE_ROLES]
+]);
+
+$router->post('/portal-estimates/withdraw', [MyChartController::class, 'portalEstimateWithdraw'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::ISSUE_ROLES]
+]);
+
+$router->get('/portal-estimate-packages', [MyChartController::class, 'portalEstimatePackages'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-estimate-packages', [MyChartController::class, 'savePortalEstimatePackage'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::EDIT_ROLES]
+]);
+
+$router->get('/portal-estimate-patients', [MyChartController::class, 'portalEstimatePatients'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCostEstimateService::ISSUE_ROLES]
 ]);

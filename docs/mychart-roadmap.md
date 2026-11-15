@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M14, plus M9.5)
+## Shipped (M0–M16)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -30,6 +30,7 @@ before any code is written.
 | **M13** | Questionnaires between visits, PHQ-9 and GAD-7 scored and escalated | `PortalQuestionnaireService`, schema 337 |
 | **M14** | What you are due for — screenings and vaccinations, with dates | `PortalHealthMaintenanceService`, schema 338 |
 | **M9.5** | Nothing new for the patient — a disposable database, so the write paths are tested | `tests/lib/test_database.php`, `tests/test_portal_writes.php` |
+| **M16** | What planned care costs — priced packages, and written estimates that hold | `PortalCostEstimateService`, schema 339 |
 
 **M9 is labelled as of M9.5.** It was built without a `Phase M9` comment or a capability
 flag; both are now in place.
@@ -456,15 +457,130 @@ consultation is billed, and what bandwidth patients actually have.
 - Consider an asynchronous e-visit (symptom questionnaire → clinician reply) first: it
   reuses M13, needs no video stack, and covers much of the demand.
 
-## M16 — Cost estimates
+## M16 — Cost estimates — **DONE** (15 November 2026)
 
-**Size: M.**
+A patient can browse the hospital's priced packages, ask the billing desk what
+something will cost, and read the written estimate they are issued. The desk answers
+from a queue, and every figure is copied onto the estimate at the moment it is issued.
 
-`TariffMaster`, `BillingManager` and the bundled-package tables exist, so a pre-visit
-estimate is feasible. It matters most where patients pay out of pocket.
+Schema 339 (`portal_cost_estimates`, `portal_cost_estimate_lines`,
+`portal_estimate_requests`, `portal_package_visibility`), seeds 076–078,
+`PortalCostEstimateService`, twelve endpoints, the Cost Estimates desk screen, and the
+mobile Costs panel. 131 tests.
 
-- An estimate for a planned procedure or admission, with what is and is not included.
-- Must read as an estimate and record the tariff version it was produced from.
+### The plan asked for a tariff version. There isn't one.
+
+"Must read as an estimate and record the tariff version it was produced from" — there is
+no tariff version in this database to record. In `billing_tariff_master`,
+`effective_start_date` and `effective_end_date` are NULL on all 17 rows and every row
+shares one `updated_at`. `billing_tariff_counters` sounds like it versions tariffs and
+does not: it is the document numbering table (`ATTENDANCE_LOG`, `BIOMED_CAL`,
+`CSSD_BATCH`…).
+
+So an estimate **snapshots** instead. Prices, currency, inclusions prose and a SHA-256
+fingerprint of the source rows are copied onto the estimate row and its lines. That
+gives what a version number would have been used for:
+
+- re-reading an estimate shows what the patient was told, not today's price list;
+- `isStale()` compares a fresh fingerprint against the stored one, so the desk can see
+  that a package has been repriced since an estimate went out.
+
+Asserted directly, because the phase rests on it: repricing the package leaves the
+patient's figure and lines unchanged, and flips the estimate to stale.
+
+The currency is snapshotted for the same reason, and the service formats money from the
+snapshot rather than from `business_settings`. An estimate issued in one currency must
+not silently re-read as another.
+
+### The package itemisation does not add up, and is not shown when it doesn't
+
+Of the four packages on file, exactly one reconciles:
+
+| Package | Items total | Standard | Discounted | Verdict |
+| --- | --- | --- | --- | --- |
+| PKG-MAT-001 | 24,500 | 28,000 | **24,500** | reconciles against the discounted price |
+| PKG-SUR-001 | 50,350 | 65,000 | 58,000 | short by 7,650 |
+| PKG-EXC-001 | 9,950 | 12,500 | 9,999 | short by 49 |
+| PKG-MAT-002 | **no items at all** | 48,000 | 42,000 | nothing to show |
+
+A breakdown that does not sum to the total above it is worse than no breakdown: it
+invites the patient to ask why the hospital's own list disagrees with the hospital's own
+price, and there is no good answer. So `reconcile()` decides before anything is copied,
+trying both candidate line totals (`covered_amount`, and `quantity × unit_price`) against
+the price basis being quoted, and matching to the cent. **Nothing is scaled, apportioned
+or rounded into place** — a breakdown that had to be massaged to fit is not a breakdown,
+and a test asserts that the 100-short fixture still fails.
+
+Where it does not reconcile the patient sees the bundle price and the written inclusions
+and exclusions, which are sound on all four packages and are the genuinely useful part.
+
+**The diagnostic is for the desk only.** The stored note says "the itemised list comes to
+17900.00 against a discounted price of 18000.00, a difference of 100.00". That is written
+for somebody who can fix the data; handing it to a patient would tell them the hospital
+cannot add up, in raw unformatted figures. The patient is told the package is priced as
+one bundle. Three tests pin that split, including one asserting no raw figure leaks.
+
+### `billing_package_items.item_code` looks like a tariff code and is not one
+
+`tariff_id` is NULL on all 14 package item rows, and the codes collide with real tariff
+codes while naming something else entirely:
+
+```
+package 1   TAR-CNS-001   "Attending Obstetrician Delivery Care"    9,000
+tariff      TAR-CNS-001   "General Physician / OPD Consultation"      500
+```
+
+Joining those would show a patient the wrong service at the wrong price. Nothing in this
+phase joins package items to the tariff master, and the lines table keeps its own
+snapshotted label and price so it never needs to.
+
+### Other decisions worth keeping
+
+- **Both prices are published, labelled.** Every package carries a standard and a
+  discounted price differing by thousands, and which applies is a billing decision. The
+  catalogue shows both; `price_basis` is recorded on the estimate; the issue form shows
+  the arithmetic for each basis so the choice is made with it visible.
+- **Surcharges are not applied.** Tariff rows carry emergency (20–35%), night (15–25%)
+  and holiday (20–50%) percentages. Planned care is priced at the standard rate and the
+  patient is told in words that out-of-hours care costs more — the usual reason a bill
+  exceeds an estimate.
+- **Tax is honoured, not assumed.** Every tariff and package row currently has
+  `taxability_flag = 0`, so tax is 0.00 today; `business_settings` carries a 12% VAT rate
+  that would apply if that changed.
+- **Nothing is inferred about insurance.** The estimate records whether cover is on file
+  at the moment of issue and says the full price is what is quoted, because whether an
+  insurer pays is the insurer's decision. Both branches are tested, including that an
+  estimate issued before a card was added does not start claiming cover afterwards.
+- **An estimate expires.** `portal_estimate_valid_days` (30) sets the window, computed on
+  read so nothing needs a nightly job. An expired estimate is still shown, marked, because
+  a patient should be able to see what they were quoted and that it has lapsed.
+- **A withdrawn estimate is kept.** A patient may have planned around a figure, and "we
+  told you 58,000 on the 4th and withdrew it on the 9th" has to be answerable.
+- **Declining needs a reason.** "We cannot price this until your surgeon decides" is a
+  real answer and the patient needs to know that is what happened.
+- **Estimate numbers are the portal's own** (`EST-2026-0001`), not borrowed from
+  `billing_tariff_counters` — quietly taking a `counter_type` from the hospital's document
+  numbering would put portal rows in a sequence the billing office believes it owns.
+- **The notification carries no figure.** A money amount in an email or SMS is read by
+  whoever picks up the phone, and an estimate for a caesarean says something about the
+  patient before they chose to share it. The message says the estimate is ready; the
+  number lives behind the login.
+
+### Still open
+
+- **NEEDS SIGN-OFF from a billing lead** on the four patient-facing package labels and
+  blurbs in seed 076, and in particular on whether publishing both the standard and the
+  discounted price is intended.
+- **The itemisation of three packages should be corrected** so a patient can see a
+  breakdown. The desk screen prints the arithmetic for exactly this purpose. PKG-MAT-002
+  having a 48,000 price and no line items at all is the most worth fixing.
+- **Itemised estimates are not built yet.** `source_type` allows `itemised` and the schema
+  supports lines with no package, but there is no desk form for composing one from tariff
+  rows — so anything without a package gets a declined request rather than a figure. That
+  is the obvious next increment and it needs the tariff surcharge rules thought through,
+  since a one-off estimate is where "is this elective or emergency?" actually bites.
+
+---
 
 ## M17 — Device and health-app import
 
@@ -509,11 +625,14 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → M16 → M15 → M17 → M18**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → M15 → M17 → M18**
 
-M9.5 is done: the capability backfill turned out to have landed already, M9 is
-labelled, and the write paths have a disposable database to run against. What remains of
-it is the clinician sign-off on seeded wording, which no amount of code will settle. M11 unlocks M12 and the medical
+M9.5 and M16 are done. What remains of M9.5 is the clinician sign-off on seeded wording,
+which no amount of code will settle; what remains of M16 is a billing sign-off on the
+package labels and a correction to three packages whose itemisation does not add up.
+Next is M15, and the question to settle before any of it is built is whether an
+asynchronous e-visit (symptom questionnaire -> clinician reply) covers enough of the
+demand to be worth doing first -- it reuses M13 and needs no video stack. M11 unlocks M12 and the medical
 certificate work. M15 sits late despite being the most valuable, because starting it
 before the decisions are made means building the wrong thing; if an asynchronous e-visit
 is acceptable, bring that part forward to sit beside M13. M18 only makes sense after M10

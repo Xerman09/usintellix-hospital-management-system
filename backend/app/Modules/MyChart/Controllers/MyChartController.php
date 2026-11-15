@@ -26,6 +26,7 @@ use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
+use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -1642,5 +1643,204 @@ class MyChartController extends Controller
         $user = Session::get('user');
 
         $this->respond(PortalHealthMaintenanceService::saveItem($request->all(), (int) ($user['id'] ?? 0)));
+    }
+
+    // ---------------------------------------------------------------
+    // What this will cost (Phase M16). The patient reads prices and
+    // their own estimates; the billing desk prepares them. No endpoint
+    // here computes a price on the fly -- an estimate is a snapshot
+    // taken when it is issued, because a figure that moves between
+    // readings is not something a patient can plan around.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/estimates -- the estimates issued to me, and my open questions. */
+    public function myEstimates(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Cost Estimates Viewed', PortalGuard::CAP_COST_ESTIMATES);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalCostEstimateService::mine($patientId), 'Estimates retrieved successfully.');
+    }
+
+    /** GET /mychart/estimates/catalogue -- the priced packages a patient may browse. */
+    public function myEstimateCatalogue(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Price List Viewed', PortalGuard::CAP_COST_ESTIMATES);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalCostEstimateService::catalogue(), 'Packages retrieved successfully.');
+    }
+
+    /**
+     * POST /mychart/estimates/show -- one estimate in full, with its lines.
+     *
+     * A POST because it carries an id, and the service resolves the patient
+     * itself: show() will not return an estimate belonging to anybody else, so
+     * an id guessed from another chart answers nothing.
+     */
+    public function myEstimateShow(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Cost Estimate Opened', PortalGuard::CAP_COST_ESTIMATES);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $estimate = PortalCostEstimateService::show($patientId, (int) $request->input('id'));
+
+        if ($estimate === null) {
+            $this->error('That estimate is not available for this account.', 404);
+            return;
+        }
+
+        $this->success($estimate, 'Estimate retrieved successfully.');
+    }
+
+    /** POST /mychart/estimates/request -- ask the desk what something will cost. */
+    public function requestEstimate(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Cost Estimate Requested', PortalGuard::CAP_COST_ESTIMATES);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalCostEstimateService::request($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/estimates/withdraw -- take back an unanswered question. */
+    public function withdrawEstimateRequest(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Cost Estimate Request Withdrawn', PortalGuard::CAP_COST_ESTIMATES);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalCostEstimateService::withdrawRequest($patientId, (int) $request->input('id'), $user));
+    }
+
+    // ---------------------------------------------------------------
+    // The billing desk's side of M16.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-estimates -- questions waiting, and what has been issued. */
+    public function portalEstimates(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalCostEstimateService::queue(
+                trim((string) $request->input('status', 'pending')),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'can_issue' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalCostEstimateService::ISSUE_ROLES
+                ),
+                'can_edit_packages' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalCostEstimateService::EDIT_ROLES
+                ),
+            ],
+            'Estimate requests retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-estimates/issue -- prepare and issue an estimate. */
+    public function portalEstimateIssue(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalCostEstimateService::issue($request->all(), (int) ($user['id'] ?? 0)));
+    }
+
+    /** POST /portal-estimates/decline -- answer a question without a figure. */
+    public function portalEstimateDecline(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalCostEstimateService::decline(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /** POST /portal-estimates/withdraw -- pull back an estimate already issued. */
+    public function portalEstimateWithdraw(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalCostEstimateService::withdrawEstimate(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /** GET /portal-estimate-packages -- the packages, and whether each adds up. */
+    public function portalEstimatePackages(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalCostEstimateService::packages(trim((string) $request->input('q', ''))) + [
+                'can_edit' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalCostEstimateService::EDIT_ROLES
+                ),
+            ],
+            'Packages retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-estimate-packages -- change what patients are shown. */
+    public function savePortalEstimatePackage(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalCostEstimateService::saveVisibility($request->all(), (int) ($user['id'] ?? 0)));
+    }
+
+    /** GET /portal-estimate-patients -- patient lookup for the issue form. */
+    public function portalEstimatePatients(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            ['items' => PortalCostEstimateService::findPatients((string) $request->input('q', ''))],
+            'Patients retrieved successfully.'
+        );
     }
 }
