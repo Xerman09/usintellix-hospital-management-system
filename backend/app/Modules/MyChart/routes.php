@@ -12,6 +12,7 @@ use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCostEstimateService;
+use App\Modules\MyChart\Services\PortalEvisitService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -572,4 +573,91 @@ $router->post('/portal-estimate-packages', [MyChartController::class, 'savePorta
 $router->get('/portal-estimate-patients', [MyChartController::class, 'portalEstimatePatients'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalCostEstimateService::ISSUE_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// Asynchronous e-visits (Phase M15a). The patient's seven routes
+// resolve the patient through PortalGuard.
+//
+// On the clinic's side the split follows who is accountable for what:
+// the whole desk including nurses may READ the queue, because knowing
+// what is waiting is operational; replying creates an encounter in the
+// patient record and is limited to admin, doctors and clinicians; and
+// changing what patients may raise an e-visit about is a clinical
+// safety decision, so it sits with admin and doctors.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/evisits', [MyChartController::class, 'myEvisits'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/evisits/reasons', [MyChartController::class, 'myEvisitReasons'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/evisits/form', [MyChartController::class, 'myEvisitForm'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/evisits', [MyChartController::class, 'submitEvisit'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/evisits/show', [MyChartController::class, 'myEvisitShow'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/evisits/follow-up', [MyChartController::class, 'followUpEvisit'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/evisits/withdraw', [MyChartController::class, 'withdrawEvisit'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-evisits', [MyChartController::class, 'portalEvisits'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-evisits/open', [MyChartController::class, 'portalEvisitOpen'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-evisits/claim', [MyChartController::class, 'portalEvisitClaim'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::ANSWER_ROLES]
+]);
+
+$router->post('/portal-evisits/release', [MyChartController::class, 'portalEvisitRelease'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::ANSWER_ROLES]
+]);
+
+$router->post('/portal-evisits/reply', [MyChartController::class, 'portalEvisitReply'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::ANSWER_ROLES]
+]);
+
+$router->post('/portal-evisits/close', [MyChartController::class, 'portalEvisitClose'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::ANSWER_ROLES]
+]);
+
+$router->get('/portal-evisit-reasons', [MyChartController::class, 'portalEvisitReasons'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-evisit-reasons', [MyChartController::class, 'savePortalEvisitReason'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalEvisitService::EDIT_ROLES]
 ]);

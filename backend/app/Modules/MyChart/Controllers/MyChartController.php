@@ -27,6 +27,7 @@ use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCostEstimateService;
+use App\Modules\MyChart\Services\PortalEvisitService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -1842,5 +1843,271 @@ class MyChartController extends Controller
             ['items' => PortalCostEstimateService::findPatients((string) $request->input('q', ''))],
             'Patients retrieved successfully.'
         );
+    }
+
+    // ---------------------------------------------------------------
+    // Asynchronous e-visits (Phase M15a). A patient answers a
+    // questionnaire, a clinician replies, and the reply creates a real
+    // encounter. The red-flag screening in submitEvisit() is the part
+    // that matters: it refuses rather than queues, so nobody with chest
+    // pain is left waiting for a message.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/evisits -- my online visits. */
+    public function myEvisits(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'e-Visits Viewed', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalEvisitService::mine($patientId), 'e-Visits retrieved successfully.');
+    }
+
+    /** GET /mychart/evisits/reasons -- what an e-visit can be raised about. */
+    public function myEvisitReasons(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'e-Visit Reasons Viewed', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalEvisitService::reasons(), 'Reasons retrieved successfully.');
+    }
+
+    /** GET /mychart/evisits/form?reason=<code> -- the questions to answer. */
+    public function myEvisitForm(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Visit Form Opened', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $form = PortalEvisitService::form($patientId, trim((string) $request->input('reason', '')));
+
+        if ($form === null) {
+            $this->error('That is not something we can deal with online.', 404);
+            return;
+        }
+
+        $this->success($form, 'Form retrieved successfully.');
+    }
+
+    /**
+     * POST /mychart/evisits -- raise one.
+     *
+     * Not routed through respond(): a red-flag refusal is not a validation
+     * error and must not arrive as one. It carries an `urgent` block the app
+     * renders as a full-screen "get help now", and respond() would discard it.
+     * The status is 200 because the request was understood and answered -- the
+     * answer is "go to hospital" -- and a 4xx would have the app show its
+     * generic error toast instead of the words that matter.
+     */
+    public function submitEvisit(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Visit Raised', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $result = PortalEvisitService::submit($patientId, $request->all(), $user);
+
+        if (!empty($result['refused'])) {
+            $this->json([
+                'success' => false,
+                'refused' => true,
+                'message' => $result['message'] ?? 'This needs to be seen in person, now.',
+                'urgent' => $result['urgent'] ?? null,
+            ], 200);
+            return;
+        }
+
+        $this->respond($result);
+    }
+
+    /** POST /mychart/evisits/show -- one of mine, with the thread. */
+    public function myEvisitShow(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Visit Opened', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $evisit = PortalEvisitService::show($patientId, (int) $request->input('id'));
+
+        if ($evisit === null) {
+            $this->error('That is not available for this account.', 404);
+            return;
+        }
+
+        $this->success($evisit, 'e-Visit retrieved successfully.');
+    }
+
+    /** POST /mychart/evisits/follow-up -- one follow-up question after a reply. */
+    public function followUpEvisit(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Visit Follow-up Asked', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalEvisitService::followUp(
+            $patientId,
+            (int) $request->input('id'),
+            $request->all(),
+            $user
+        ));
+    }
+
+    /** POST /mychart/evisits/withdraw -- take back one nobody has answered. */
+    public function withdrawEvisit(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Visit Withdrawn', PortalGuard::CAP_EVISITS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalEvisitService::withdraw($patientId, (int) $request->input('id'), $user));
+    }
+
+    // ---------------------------------------------------------------
+    // The clinician's side of M15a.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-evisits -- the queue. */
+    public function portalEvisits(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalEvisitService::queue(
+                trim((string) $request->input('status', 'waiting')),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'can_answer' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalEvisitService::ANSWER_ROLES
+                ),
+                'can_edit_reasons' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalEvisitService::EDIT_ROLES
+                ),
+            ],
+            'e-Visits retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-evisits/open -- one in full, for reading. */
+    public function portalEvisitOpen(): void
+    {
+        $request = new Request();
+
+        $evisit = PortalEvisitService::open((int) $request->input('id'));
+
+        if ($evisit === null) {
+            $this->error('That e-visit no longer exists.', 404);
+            return;
+        }
+
+        $this->success($evisit, 'e-Visit retrieved successfully.');
+    }
+
+    /** POST /portal-evisits/claim -- say you are dealing with it. */
+    public function portalEvisitClaim(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalEvisitService::claim((int) $request->input('id'), (int) ($user['id'] ?? 0)));
+    }
+
+    /** POST /portal-evisits/release -- put it back. */
+    public function portalEvisitRelease(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalEvisitService::release((int) $request->input('id'), (int) ($user['id'] ?? 0)));
+    }
+
+    /** POST /portal-evisits/reply -- answer it, which creates the encounter. */
+    public function portalEvisitReply(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalEvisitService::reply(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /** POST /portal-evisits/close -- finish it, so no more follow-ups. */
+    public function portalEvisitClose(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalEvisitService::close((int) $request->input('id'), (int) ($user['id'] ?? 0)));
+    }
+
+    /** GET /portal-evisit-reasons -- what patients can raise, and the screening behind it. */
+    public function portalEvisitReasons(): void
+    {
+        $user = Session::get('user');
+
+        $this->success(
+            PortalEvisitService::reasonsForDesk() + [
+                'can_edit' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalEvisitService::EDIT_ROLES
+                ),
+            ],
+            'Reasons retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-evisit-reasons -- change one. */
+    public function savePortalEvisitReason(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalEvisitService::saveReason($request->all(), (int) ($user['id'] ?? 0)));
     }
 }

@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M16)
+## Shipped (M0–M16, plus M9.5 and M15a)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -31,6 +31,7 @@ before any code is written.
 | **M14** | What you are due for — screenings and vaccinations, with dates | `PortalHealthMaintenanceService`, schema 338 |
 | **M9.5** | Nothing new for the patient — a disposable database, so the write paths are tested | `tests/lib/test_database.php`, `tests/test_portal_writes.php` |
 | **M16** | What planned care costs — priced packages, and written estimates that hold | `PortalCostEstimateService`, schema 339 |
+| **M15a** | Ask a doctor in writing — e-visits, screened for red flags, answered into a real encounter (ships OFF) | `PortalEvisitService`, schema 340 |
 
 **M9 is labelled as of M9.5.** It was built without a `Phase M9` comment or a capability
 flag; both are now in place.
@@ -440,22 +441,156 @@ screening compliance.
 - Due, overdue and completed, per patient, from the practice rules already seeded.
 - Ties to M10 so "due for a Pap smear" ends in a booked appointment rather than a note.
 
-## M15 — Telehealth and video visits
+## M15a — Asynchronous e-visits — **DONE** (15 November 2026, switched OFF)
 
-**Size: L. Highest value, latest start.**
+A patient picks what is wrong, answers a structured questionnaire, and a clinician reads
+it and replies in writing. The reply creates a real encounter. No video.
 
-Nothing exists anywhere in either codebase. This is the biggest functional gap against
-modern MyChart, and for a hospital with a provincial catchment it is plausibly worth
-more than several phases already shipped. It is placed here only because it needs
-decisions before code: which video provider, what happens on a dropped call, how the
-consultation is billed, and what bandwidth patients actually have.
+Schema 340 (`portal_evisits`, `portal_evisit_messages`, `portal_evisit_reasons`, plus
+`'evisit'` added to `portal_questionnaires.use_context`), seeds 079–082,
+`PortalEvisitService`, fifteen endpoints, the Online Visits queue, and the mobile
+"Ask a Doctor" panel. 177 tests.
+
+**It ships switched off.** `portal_allow_evisits` defaults to 0 — the only My Chart
+feature that does. Everything else shows a patient their own data; this one puts clinical
+triage in front of them, and the questionnaires below need a clinician's signature before
+anybody can reach them. Granting the capability (seed 081) does not make it live.
+
+### Why this and not video
+
+M15 as planned is video visits, blocked on decisions nobody has made: which provider,
+what happens on a dropped call, how it is billed, what bandwidth patients have. The
+plan's own third bullet said to consider the asynchronous e-visit first because it reuses
+M13, needs no video stack, and covers much of the demand. That is what this is.
+
+Nothing here gets in the way of video later: a video visit is an appointment of a new
+visit type and M10's reschedule and cancel apply to it unchanged.
+
+### The one property that matters
+
+The dangerous failure is not a missed diagnosis. It is a patient typing "crushing chest
+pain" into a form, reading *"thank you, a doctor will reply"*, and waiting at home.
+
+So every e-visit questionnaire opens with the same six screening questions — cardiac
+chest pain, respiratory failure, stroke, uncontrolled bleeding, altered consciousness,
+suicidal ideation — each carrying a `red_flag` object naming the answers that trip it and
+the sentence the patient is shown. A tripped flag **refuses the submission** before
+anything exists that a clinician could pick up:
+
+- status is `refused` and the row is in no queue;
+- `due_by` is NULL, so it can never later read as overdue;
+- the patient's own list does not show it and they cannot open it;
+- it does not count against their open-visit limit;
+- the refusal screen takes over the whole sheet, offers no "try again", and says in
+  plain words: go now, **do not wait for a reply**, nobody is reading this, and no online
+  visit has been opened for you.
+
+Sixteen assertions cover that refusal, including that the wording never promises contact.
+
+**The refusal is still recorded**, because a patient who was turned away and then did not
+go to hospital is exactly the case somebody needs to find afterwards. An alert goes to the
+care team saying the e-visit was refused, is in no queue, and that the patient was *not*
+told anyone would contact them. The alert is a record and a chance, never a promise.
+
+Screening is server-side and the device is never told what trips a flag — a test asserts
+the form payload contains no `red_flag` or `because` key, because a client that knew the
+triggers could be made to route around them. Comparison is case- and
+whitespace-insensitive for the same reason, and `choice` answers must be one of the
+offered options, so a crafted request cannot answer a screening question with a value
+that matches no trigger.
+
+The safety questions are also asked on their own first step in the app, so somebody who
+has to be turned away is turned away before typing out a history nobody will read.
+
+### The clinical record goes through the normal encounter path
+
+The plan is explicit that a parallel telehealth record would be a second source of truth.
+So `reply()` calls `EncounterService::store()` and keeps the encounter id on the e-visit.
+The note, any orders and any billing hang off a normal encounter, found by the normal
+screens, under a visit category of its own: **"e-Visit (online, no examination)"** — named
+that way so anybody reading the chart later understands why there are no observations.
+
+If that category is missing the reply is **refused** rather than filed under something
+else. An encounter in the wrong category is worse than one not yet written, because nobody
+will know to look for it.
+
+### Two bugs the tests caught
+
+- **Replying to a follow-up created a second encounter.** `COALESCE(encounter_id, …)`
+  kept the first id on the e-visit, so the new one was left orphaned in the patient
+  record, attached to nothing. Now one encounter per e-visit; a follow-up reply reuses it.
+- **`date_of_service` came from PHP's clock** while every other column used MySQL's
+  `NOW()`. The two were seven hours apart here, so the encounter was stamped well away
+  from the reply that created it. Both now use the database clock, and a test asserts the
+  drift is under two minutes.
+
+### Other decisions
+
+- **No prescribing.** There is deliberately no `prescribed` outcome, and the patient is
+  told not to stop or change a medicine while waiting. A prescription from a questionnaire
+  with no examination is a clinical governance decision, not a schema one.
+- **No triage.** The queue is ordered by how long somebody has waited against the
+  hospital's own promise (`portal_evisit_reply_hours`, 24) and by nothing else. Sorting by
+  a computed severity would be code deciding who is sickest from a questionnaire.
+- **Overdue is said out loud.** A patient past the promise is told it has waited longer
+  than aimed for and to call the clinic — not shown a reassurance that has stopped being
+  true. The queue counts and flags them too.
+- **One open visit at a time** (`portal_evisit_max_open`, 1). A patient with four open
+  consultations about four problems is a patient who should be seen.
+- **One follow-up, inside a window** (`portal_evisit_followup_days`, 7). It re-enters the
+  queue with a fresh deadline, because a follow-up nobody is measured against waits for
+  ever. `answered_at` stays on the first reply, so the window cannot be extended by
+  replying again.
+- **Claiming is advisory, not a lock.** The update only succeeds when nobody holds it, but
+  nothing stops a second clinician replying. A hard lock on clinical work goes wrong the
+  first time somebody goes home with a case claimed.
+- **A reason cannot be published without screening.** `saveReason()` refuses to set
+  `is_patient_visible` when the questionnaire behind it has no red-flag questions. That is
+  the one way this design fails quietly, so it is enforced rather than documented.
+- **The notification carries no clinical content at all** — not the reply, not the
+  complaint, not the outcome. An e-visit about a water infection says something about the
+  patient, and a notification is read by whoever picks the phone up. There is deliberately
+  no notification for a refused e-visit: following "go to hospital now" with an email
+  would imply there is something to come back and read.
+- **M5 and M13 are untouched.** The new `use_context` value works because M13 added
+  explicit filters to both the e-check-in resolution and the follow-up catalogue; tests
+  assert both still see exactly 5 and 4 questionnaires.
+
+### Still open
+
+- **NEEDS CLINICAL SIGN-OFF before `portal_allow_evisits` is switched on.** Specifically:
+  the six red-flag questions and their wording; the four complaint questionnaires; and the
+  four accepted reasons with their "not for this" text. This is not a formality — the
+  red-flag list is the whole safety case.
+- **Video is still unbuilt**, and still needs the four decisions above before it should
+  be. If the e-visit covers enough of the demand, that is worth knowing before committing
+  to a video provider.
+- **No clinician-initiated e-visit.** A clinician cannot start one to follow something up;
+  M13's questionnaires cover part of that need.
+- **Nothing rate-limits a patient across time.** One open visit at a time is enforced, but
+  somebody could raise one a day indefinitely. Worth watching once it is live rather than
+  guessing a limit now.
+
+---
+
+## M15b — Video visits — still to do
+
+**Size: L. Still blocked on decisions, not on code.**
+
+M15a (above) shipped the asynchronous half. What is left is video, and it is left because
+the same four questions are still unanswered: which video provider, what happens on a
+dropped call, how the consultation is billed, and what bandwidth patients actually have.
 
 - A video visit is an appointment of a new visit type, so M10's reschedule and cancel
-  apply to it unchanged.
-- The clinical note, orders and billing must go through the normal encounter path. A
-  parallel telehealth record would be a second source of truth.
-- Consider an asynchronous e-visit (symptom questionnaire → clinician reply) first: it
-  reuses M13, needs no video stack, and covers much of the demand.
+  apply to it unchanged. Nothing in M15a gets in the way.
+- The clinical note, orders and billing must go through the normal encounter path, the
+  way M15a's replies already do. A parallel telehealth record would be a second source of
+  truth.
+- Worth asking before committing to a provider: how much of the demand M15a actually
+  absorbs. If written replies cover most of it, the video decision gets easier and
+  cheaper.
+
+---
 
 ## M16 — Cost estimates — **DONE** (15 November 2026)
 
@@ -625,14 +760,16 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → M15 → M17 → M18**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → M17 → M18 → M15b**
 
 M9.5 and M16 are done. What remains of M9.5 is the clinician sign-off on seeded wording,
 which no amount of code will settle; what remains of M16 is a billing sign-off on the
 package labels and a correction to three packages whose itemisation does not add up.
-Next is M15, and the question to settle before any of it is built is whether an
-asynchronous e-visit (symptom questionnaire -> clinician reply) covers enough of the
-demand to be worth doing first -- it reuses M13 and needs no video stack. M11 unlocks M12 and the medical
+M15a answered that question by being built: the asynchronous e-visit is done and waiting
+on a clinician to sign off its red-flag screening. M15b (video) moves to last, not because
+it matters least -- it is still the biggest gap against modern MyChart -- but because it is
+the only phase left whose blocker is a decision rather than work, and because how much
+demand M15a absorbs is worth knowing before choosing a video provider. M11 unlocks M12 and the medical
 certificate work. M15 sits late despite being the most valuable, because starting it
 before the decisions are made means building the wrong thing; if an asynchronous e-visit
 is acceptable, bring that part forward to sit beside M13. M18 only makes sense after M10

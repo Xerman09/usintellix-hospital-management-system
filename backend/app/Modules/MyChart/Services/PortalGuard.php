@@ -45,6 +45,7 @@ class PortalGuard
     public const CAP_QUESTIONNAIRES = 'mychart_questionnaires';
     public const CAP_HEALTH_MAINTENANCE = 'mychart_health_maintenance';
     public const CAP_COST_ESTIMATES = 'mychart_cost_estimates';
+    public const CAP_EVISITS = 'mychart_evisits';
 
     /**
      * Two patient actions are deliberately left ungated, and should stay that way:

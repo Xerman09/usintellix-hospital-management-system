@@ -45,6 +45,7 @@ class AlertService
         'imaging_stat' => 'STAT imaging to schedule',
         'patient_reading' => 'Patient-reported reading',
         'patient_questionnaire' => 'Patient questionnaire answered at home',
+        'portal_evisit_red_flag' => 'e-Visit refused on a red-flag answer',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */
