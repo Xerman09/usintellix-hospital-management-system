@@ -516,7 +516,13 @@ class PortalQuestionnaireService
         $dueDate = trim((string) ($input['due_date'] ?? ''));
 
         if ($dueDate !== '') {
-            $ts = strtotime($dueDate);
+            // strtotime('2027-02-30') does not fail -- it rolls forward to
+            // 2 March, which is a different day from the one the clinician
+            // picked. A plain Y-m-d has to be a day that exists.
+            $realDay = preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $dueDate, $d)
+                ? checkdate((int) $d[2], (int) $d[3], (int) $d[1])
+                : strtotime($dueDate) !== false;
+            $ts = $realDay ? strtotime($dueDate) : false;
 
             if ($ts === false) {
                 $errors['due_date'] = 'That is not a date we can read.';

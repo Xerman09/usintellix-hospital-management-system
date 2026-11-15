@@ -3,7 +3,6 @@
 namespace App\Modules\MyChart\Services;
 
 use App\Core\Database;
-use App\Modules\PatientReminders\Services\PatientReminderService;
 use PDO;
 use Throwable;
 
@@ -20,7 +19,7 @@ use Throwable;
  *   consents            the privacy notice never acknowledged
  *   balance             what the ledger says is owed
  *   appointments        what is booked next
- *   health maintenance  patient_reminders, from the practice rules engine
+ *   health maintenance  what you are due for, via PortalHealthMaintenanceService
  */
 class PortalTodoService
 {
@@ -38,7 +37,7 @@ class PortalTodoService
             self::consents($db, $patientId),
             self::balance($patientId),
             self::appointments($db, $patientId),
-            self::healthMaintenance($db, $patientId),
+            self::healthMaintenance($patientId),
         ] as $group) {
             foreach ($group as $item) {
                 $items[] = $item;
@@ -233,43 +232,37 @@ class PortalTodoService
     }
 
     /**
-     * Vaccinations and screenings that are due, from the practice rules engine -- which
-     * already matches each rule against the patient's age and sex. The rules are run for
-     * this patient first, so the list is current rather than whatever was last saved.
+     * Screenings and vaccinations that are due (Phase M14).
+     *
+     * This used to query patient_reminders directly, with two problems that
+     * PortalHealthMaintenanceService now owns in one place: item_label is
+     * clinical text, so the list read "Assessment - Pap Smear is due"; and the
+     * rules engine matches on age and sex alone, so the only thing standing
+     * between a healthy patient and a diabetic eye exam reminder was a flag.
+     * Going through that service means the To-Do list and the "what you are due
+     * for" panel cannot disagree about what somebody is due for, and the gates
+     * live in one WHERE clause rather than two.
      */
-    private static function healthMaintenance(PDO $db, int $patientId): array
+    private static function healthMaintenance(int $patientId): array
     {
         try {
-            (new PatientReminderService())->processForPatient($patientId);
+            $due = PortalHealthMaintenanceService::dueFor($patientId);
         } catch (Throwable $e) {
-            // A rule that cannot be evaluated must not take the whole To-Do list down.
+            // A deployment that has not run schema 338 still gets a To-Do list.
             error_log('health maintenance for the To-Do list failed: ' . $e->getMessage());
+
+            return [];
         }
 
-        // Only rules the hospital has marked as patient-facing (practice_rules.is_patient_reminder)
-        // are shown. The engine matches on age and sex alone, so without this gate a patient
-        // with no diabetes would be told their "Diabetes Eye Exam" is due, and administrative
-        // rules ("Data Entry - Social Security Number") would reach them as well. Switching a
-        // rule on for patients is a clinical decision, made per rule by the hospital.
-        $stmt = $db->prepare(
-            "SELECT r.item_label, r.due_status
-             FROM patient_reminders r
-             JOIN practice_rules pr ON pr.id = r.practice_rule_id AND pr.deleted_at IS NULL
-             WHERE r.patient_id = :p AND r.deleted_at IS NULL AND r.due_status IN ('due', 'past_due')
-               AND pr.is_patient_reminder = 1
-             ORDER BY r.due_status DESC, r.item_label"
-        );
-        $stmt->execute(['p' => $patientId]);
-
-        return array_map(static fn(array $r) => self::item(
+        return array_map(static fn(array $d) => self::item(
             'health_maintenance',
-            $r['due_status'] === 'past_due' ? $r['item_label'] . ' is overdue' : $r['item_label'] . ' is due',
-            $r['due_status'] === 'past_due'
-                ? 'This was due a while ago. Please book an appointment when you can.'
-                : 'Please book an appointment when it suits you.',
-            $r['due_status'] === 'past_due' ? 'overdue' : 'todo',
-            'appointments', null, 'Book'
-        ), $stmt->fetchAll(PDO::FETCH_ASSOC));
+            $d['status'] === 'overdue' ? $d['label'] . ' is overdue' : $d['label'] . ' is due',
+            $d['text'],
+            $d['status'] === 'overdue' ? 'overdue' : 'todo',
+            'mychart_health_maintenance',
+            $d['id'],
+            'See what to do'
+        ), $due);
     }
 
     private static function money(float $v, array $m): string

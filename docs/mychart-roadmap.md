@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M13)
+## Shipped (M0–M14)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ before any code is written.
 | **M11** | Sending in photos and documents, reviewed before they count | `PortalUploadService`, schema 335 |
 | **M12** | Insurance self-service — see cover, ask for it to be corrected | `PortalInsuranceService`, schema 336 |
 | **M13** | Questionnaires between visits, PHQ-9 and GAD-7 scored and escalated | `PortalQuestionnaireService`, schema 337 |
+| **M14** | What you are due for — screenings and vaccinations, with dates | `PortalHealthMaintenanceService`, schema 338 |
 
 **M9 is unlabelled in the code.** It was built without a `Phase M9` comment or a capability
 flag. Worth labelling so the sequence stays readable.
@@ -257,7 +258,81 @@ exists as the `Phq9`, `Gad7`, `ScreeningTools` and `FormDefinitions` modules.
 - A scored instrument crossing a threshold should raise the same alert it would if a
   nurse had keyed it in — reuse the existing alert escalation, do not invent a path.
 
-## M14 — Health maintenance and preventive care
+## M14 — Health maintenance and preventive care — **DONE**
+
+Shipped: schema 338, seeds 074–075, `PortalHealthMaintenanceService`, seven endpoints, the
+"Health Maintenance" desk screen with its items tab, `MyChartHealthMaintenanceModal` with a
+dashboard tile, and the To-Do list rewired through the same service. 137 tests.
+
+The engine was already there — `practice_rules` decides who should be reminded,
+`patient_reminders` records that someone is due, `patient_reminder_actions` records staff
+having dealt with it. None of it could be shown to a patient, for three reasons that took
+longer to find than the feature took to build:
+
+1. **There was no recurrence interval anywhere.** `practice_rules.reminder_intervals`
+   holds only warning and past-due *offsets*, and every seeded rule carries the same
+   "2 Week / 1 Month" placeholder. Nothing said a Pap smear is due every three years, so
+   there was no next-due date to show. `portal_health_maintenance_items.recurrence_val`
+   is that number.
+2. **`item_label` is clinical text.** It comes from `actions_list[0].category_title`, so
+   the To-Do list was literally saying "Assessment - Pap Smear is due". Same lesson as the
+   M9 diagnosis guides.
+3. **Seven of the thirteen seeded rules have no demographic criteria at all**, and
+   `matchesDemographics([])` returns true for everybody. So every patient in this database
+   already carries reminders for four diabetes items, Coumadin INR monitoring, a penicillin
+   allergy assessment and a social security number. "Show patients their reminders" would
+   have told a healthy twenty-year-old to book a diabetic eye exam.
+
+Worth keeping in mind:
+
+- **Three switches, all required.** An item reaches a patient only when the rule's own
+  `is_patient_reminder` is on (the hospital's existing master switch), the item's
+  `is_patient_visible` is on (the patient wording has been written), and `needs_condition`
+  is off. They are in one WHERE clause, so there is no code path that returns an
+  unapproved item. The desk screen shows all three side by side and states plainly whether
+  an item reaches patients, because three switches are easy to get wrong one at a time.
+  `saveItem()` refuses to switch on anything still marked `needs_condition`.
+- **Seed 074 records a decision for every rule, including the ones left off**, with the
+  reason in `condition_note`. Five are shown: mammogram, cervical screening, prostate
+  check, blood pressure, flu vaccine — the ones where age and sex genuinely do decide.
+  Bowel screening is seeded ready but its rule is typed `Passive Alert`, so the engine
+  creates no reminders for it; changing the type is all that is needed.
+- **Nothing is inferred from lab or imaging orders.** Matching "Cancer Screening: Pap
+  Smear" to an order name is a guess, and a guess in the direction of "you are up to date"
+  is the dangerous direction. Evidence is a completed `patient_reminder_actions` row. Where
+  there is none, the panel says "we have no record of you having this" rather than showing
+  nothing, because a quiet panel reads as reassurance.
+- **The next-due date is computed on read, never stored.** `patient_reminders.due_status`
+  already demonstrates what a stored derived value does between runs.
+- **"I had this done elsewhere" is a claim, not a fact.** It stays showing as due until the
+  desk accepts it, and the app says so. Accepting writes through
+  `PatientReminderService::addAction()` — the module's own way of closing a reminder — so
+  there stays one path by which an item is satisfied, whether a nurse logged it or a
+  patient reported it.
+- **"Please arrange this" is a request, not a booking.** M10 deliberately gave patients
+  reschedule, cancel and confirm but not the power to create an appointment, and M14 does
+  not quietly add it. Accepting records that the desk took it on; the booking happens on
+  the appointments screen. This is the one place M14 falls short of the original plan's
+  "ends in a booked appointment rather than a note" — patient-facing booking is its own
+  phase, and worth naming as one.
+- **A bug this turn's tests found in M13 as well.** `strtotime('2027-02-30')` does not
+  fail — it rolls forward to 2 March. Both services now require a plain `Y-m-d` to be a
+  day that exists. The M13 test that supposedly covered this had been passing for the
+  wrong reason: its impossible date rolled into the past and tripped the past-date check
+  instead, so the calendar was never consulted.
+- **Everything reads as overdue in this database**, because no completion has ever been
+  recorded against any reminder and the engine's own `due_status` flips to `past_due` once
+  a row is older than its placeholder month. That is accurate rather than alarming — but
+  it means the panel will look bleak until real completions exist, and the first thing a
+  clinic should do is log what it has already done.
+
+Still wanted, and now cheap: a real condition check (`patient_medical_problems`, coded
+diagnoses) would let the five `needs_condition` items come on, and those rows already carry
+their wording.
+
+---
+
+## M14 (original plan) — Health maintenance and preventive care
 
 **Size: M.**
 
@@ -338,7 +413,7 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → finish M9.5 → M14 → M16 → M15 → M17 → M18**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → finish M9.5 → M16 → M15 → M17 → M18**
 
 M10 is done. What is left of M9.5 is the capability backfill and M9's three loose ends,
 all small, and worth clearing before the list grows. M11 unlocks M12 and the medical

@@ -10,6 +10,7 @@ use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalQuestionnaireService;
+use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -458,4 +459,47 @@ $router->post('/portal-questionnaires/reviewed', [MyChartController::class, 'por
 $router->get('/portal-questionnaires/patients', [MyChartController::class, 'portalQuestionnairePatients'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalQuestionnaireService::ASSIGN_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// What you are due for (Phase M14). The patient's three routes
+// resolve the patient through PortalGuard. The clinic's routes are
+// gated by role: anyone on the desk may read and decide a request,
+// but changing what patients are told, and how often an item comes
+// round, is a clinical act and sits with admin and doctors.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/health-maintenance', [MyChartController::class, 'myHealthMaintenance'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/health-maintenance/request', [MyChartController::class, 'requestCareGap'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/health-maintenance/withdraw', [MyChartController::class, 'withdrawCareGapRequest'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-care-gaps', [MyChartController::class, 'portalCareGaps'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalHealthMaintenanceService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-care-gaps/review', [MyChartController::class, 'portalCareGapReview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalHealthMaintenanceService::DECIDE_ROLES]
+]);
+
+$router->get('/portal-health-maintenance-items', [MyChartController::class, 'portalHealthMaintenanceItems'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalHealthMaintenanceService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-health-maintenance-items', [MyChartController::class, 'savePortalHealthMaintenanceItem'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalHealthMaintenanceService::EDIT_ROLES]
 ]);

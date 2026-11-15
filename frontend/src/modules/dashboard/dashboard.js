@@ -334,6 +334,7 @@ import { PortalDiagnosisGuidesView, initPortalDiagnosisGuides } from "../mychart
 import { PortalUploadsView, initPortalUploads } from "../mychart/portal-uploads.js?v=1";
 import { PortalInsuranceRequestsView, initPortalInsuranceRequests } from "../mychart/portal-insurance-requests.js?v=1";
 import { PortalQuestionnairesView, initPortalQuestionnaires } from "../mychart/portal-questionnaires.js?v=1";
+import { PortalCareGapsView, initPortalCareGaps } from "../mychart/portal-care-gaps.js?v=1";
 import { PortalPaymentsView, initPortalPayments } from "../mychart/portal-payments.js?v=2";
 import { PortalCheckinsView, initPortalCheckins } from "../mychart/portal-checkins.js?v=2";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=3";
@@ -1739,6 +1740,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Questionnaires', () => {
                 setTimeout(initPortalQuestionnaires, 0);
                 return PortalQuestionnairesView();
+            }, activate);
+        } else if (tabId === 'portal_care_gaps') {
+            tabManager.openTab(tabId, title || 'Health Maintenance', () => {
+                setTimeout(initPortalCareGaps, 0);
+                return PortalCareGapsView();
             }, activate);
         } else if (tabId === 'lab_critical_ranges') {
             tabManager.openTab(tabId, 'Critical Lab Ranges', () => {

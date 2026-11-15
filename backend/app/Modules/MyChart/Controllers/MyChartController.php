@@ -25,6 +25,7 @@ use App\Modules\MyChart\Services\PortalAppointmentService;
 use App\Modules\MyChart\Services\PortalUploadService;
 use App\Modules\MyChart\Services\PortalInsuranceService;
 use App\Modules\MyChart\Services\PortalQuestionnaireService;
+use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -1521,5 +1522,125 @@ class MyChartController extends Controller
             'max' => PortalQuestionnaireService::INSTRUMENTS[$instrument]['max'],
             'items' => PortalQuestionnaireService::scoreHistory($patientId, $instrument),
         ], 'Score history retrieved successfully.');
+    }
+
+    // ---------------------------------------------------------------
+    // What you are due for (Phase M14). The rules engine decides who
+    // needs what; portal_health_maintenance_items decides which of
+    // those a patient may be told about, and in what words.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/health-maintenance -- due, overdue and up to date. */
+    public function myHealthMaintenance(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Health Maintenance Viewed', PortalGuard::CAP_HEALTH_MAINTENANCE);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalHealthMaintenanceService::mine($patientId), 'Health maintenance retrieved successfully.');
+    }
+
+    /** POST /mychart/health-maintenance/request -- ask us to arrange it, or say it is done. */
+    public function requestCareGap(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Health Maintenance Request Sent', PortalGuard::CAP_HEALTH_MAINTENANCE);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalHealthMaintenanceService::request($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/health-maintenance/withdraw -- take back an unanswered request. */
+    public function withdrawCareGapRequest(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Health Maintenance Request Withdrawn', PortalGuard::CAP_HEALTH_MAINTENANCE);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalHealthMaintenanceService::withdraw($patientId, (int) $request->input('id')));
+    }
+
+    // ---------------------------------------------------------------
+    // The clinic's side of M14.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-care-gaps -- what patients have asked about. */
+    public function portalCareGaps(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalHealthMaintenanceService::queue(
+                trim((string) $request->input('status', 'pending')),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'can_decide' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalHealthMaintenanceService::DECIDE_ROLES
+                ),
+                'can_edit_items' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalHealthMaintenanceService::EDIT_ROLES
+                ),
+            ],
+            'Requests retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-care-gaps/review -- accept or decline one. */
+    public function portalCareGapReview(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalHealthMaintenanceService::review(
+            (int) $request->input('id'),
+            $request->all(),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /** GET /portal-health-maintenance-items -- the per-rule patient wording and intervals. */
+    public function portalHealthMaintenanceItems(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalHealthMaintenanceService::items(trim((string) $request->input('q', ''))) + [
+                'can_edit' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalHealthMaintenanceService::EDIT_ROLES
+                ),
+            ],
+            'Items retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-health-maintenance-items -- change one. */
+    public function savePortalHealthMaintenanceItem(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalHealthMaintenanceService::saveItem($request->all(), (int) ($user['id'] ?? 0)));
     }
 }

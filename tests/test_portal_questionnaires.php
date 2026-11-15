@@ -425,10 +425,15 @@ if ($anyPatient) {
     ], 1);
     check('a due date in the past is refused', empty($res['success']) && isset($res['errors']['due_date']));
 
+    // A FUTURE impossible day, deliberately. '2026-02-30' rolls to 2 March,
+    // which is in the past, so it would trip the past-date check and pass this
+    // assertion without the calendar ever being consulted.
     $res = PortalQuestionnaireService::assign([
-        'patient_id' => $anyPatient, 'instrument' => 'phq9', 'due_date' => '2026-02-30',
+        'patient_id' => $anyPatient, 'instrument' => 'phq9', 'due_date' => '2027-02-30',
     ], 1);
-    check('a date that is not a real day is refused', empty($res['success']) && isset($res['errors']['due_date']));
+    check('a date that is not a real day is refused',
+        empty($res['success']) && ($res['errors']['due_date'] ?? '') === 'That is not a date we can read.',
+        'got ' . json_encode($res['errors'] ?? $res['message']));
 
     $res = PortalQuestionnaireService::assign([
         'patient_id' => $anyPatient, 'instrument' => 'phq9', 'reason' => str_repeat('x', 501),
