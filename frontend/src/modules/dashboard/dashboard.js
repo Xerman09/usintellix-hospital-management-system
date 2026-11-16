@@ -337,6 +337,7 @@ import { PortalQuestionnairesView, initPortalQuestionnaires } from "../mychart/p
 import { PortalCareGapsView, initPortalCareGaps } from "../mychart/portal-care-gaps.js?v=1";
 import { PortalEstimatesView, initPortalEstimates } from "../mychart/portal-estimates.js?v=1";
 import { PortalEvisitsView, initPortalEvisits } from "../mychart/portal-evisits.js?v=1";
+import { PortalReadingImportsView, initPortalReadingImports } from "../mychart/portal-reading-imports.js?v=1";
 import { PortalPaymentsView, initPortalPayments } from "../mychart/portal-payments.js?v=2";
 import { PortalCheckinsView, initPortalCheckins } from "../mychart/portal-checkins.js?v=2";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=3";
@@ -1757,6 +1758,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Online Visits', () => {
                 setTimeout(initPortalEvisits, 0);
                 return PortalEvisitsView();
+            }, activate);
+        } else if (tabId === 'portal_reading_imports') {
+            tabManager.openTab(tabId, title || 'Imported Readings', () => {
+                setTimeout(initPortalReadingImports, 0);
+                return PortalReadingImportsView();
             }, activate);
         } else if (tabId === 'lab_critical_ranges') {
             tabManager.openTab(tabId, 'Critical Lab Ranges', () => {

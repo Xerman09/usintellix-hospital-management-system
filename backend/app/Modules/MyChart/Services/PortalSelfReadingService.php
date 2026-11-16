@@ -445,7 +445,8 @@ class PortalSelfReadingService
         }
 
         $stmt = Database::connection()->prepare(
-            "SELECT id, kind, value_1, value_2, units, taken_at, note, source, out_of_band, alerted_at
+            "SELECT id, kind, value_1, value_2, units, taken_at, note, source, out_of_band, alerted_at,
+                    source_app, device_name
              FROM patient_self_readings
              WHERE patient_id = :p AND kind = :k AND deleted_at IS NULL
                AND taken_at >= DATE_SUB(NOW(), INTERVAL :d DAY)
@@ -468,6 +469,11 @@ class PortalSelfReadingService
             'taken_at' => $r['taken_at'],
             'note' => $r['note'],
             'source' => $r['source'],
+            // M17a. 'source' says whether a human typed it; these say which app
+            // or monitor produced it, which is the clinician's next question and
+            // the patient's only way to spot a reading that is not theirs.
+            'source_app' => $r['source_app'],
+            'device_name' => $r['device_name'],
             'out_of_band' => (int) $r['out_of_band'] === 1,
             'care_team_told' => $r['alerted_at'] !== null,
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));

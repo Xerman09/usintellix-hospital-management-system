@@ -46,6 +46,7 @@ class AlertService
         'patient_reading' => 'Patient-reported reading',
         'patient_questionnaire' => 'Patient questionnaire answered at home',
         'portal_evisit_red_flag' => 'e-Visit refused on a red-flag answer',
+        'patient_reading_import' => 'Imported device readings outside the safety band',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

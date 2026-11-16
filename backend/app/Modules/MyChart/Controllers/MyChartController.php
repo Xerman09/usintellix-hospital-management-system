@@ -28,6 +28,7 @@ use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalEvisitService;
+use App\Modules\MyChart\Services\PortalReadingImportService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -2109,5 +2110,144 @@ class MyChartController extends Controller
         $user = Session::get('user');
 
         $this->respond(PortalEvisitService::saveReason($request->all(), (int) ($user['id'] ?? 0)));
+    }
+
+    // ---------------------------------------------------------------
+    // Readings from a health app or device (Phase M17a).
+    //
+    // importMyReadings() is the endpoint the native bridge will call
+    // when it exists (M17b, blocked on the build quota). The same
+    // service backs the staff screen, so a clinic can load a patient's
+    // exported readings today.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/readings/imports -- what has been brought in for me. */
+    public function myReadingImports(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Imported Readings Viewed', PortalGuard::CAP_READING_IMPORT);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalReadingImportService::mine($patientId), 'Imports retrieved successfully.');
+    }
+
+    /**
+     * POST /mychart/readings/import -- bring a batch in.
+     *
+     * The patient (or their phone) is the caller, so the patient is resolved
+     * from the session and never taken from the request. $patientInitiated is
+     * true here and false on the staff route, which is what lets a clinician
+     * tell a phone sync from somebody at the desk pasting figures in.
+     */
+    public function importMyReadings(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Readings Imported', PortalGuard::CAP_READING_IMPORT);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalReadingImportService::import($patientId, $request->all(), $user, true));
+    }
+
+    // ---------------------------------------------------------------
+    // The clinic's side of M17a.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-reading-imports -- recent imports across patients. */
+    public function portalReadingImports(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalReadingImportService::recent(trim((string) $request->input('q', ''))) + [
+                'can_import' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalReadingImportService::IMPORT_ROLES
+                ),
+            ],
+            'Imports retrieved successfully.'
+        );
+    }
+
+    /** GET /portal-reading-imports/patient -- one patient's import history. */
+    public function portalReadingImportHistory(): void
+    {
+        $request = new Request();
+
+        $patientId = (int) $request->input('patient_id');
+
+        if ($patientId <= 0) {
+            $this->error('Which patient?', 422);
+            return;
+        }
+
+        $this->success(PortalReadingImportService::history($patientId), 'History retrieved successfully.');
+    }
+
+    /** POST /portal-reading-imports/readings -- what one import brought in. */
+    public function portalReadingImportReadings(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            ['items' => PortalReadingImportService::readingsOf((int) $request->input('id'))],
+            'Readings retrieved successfully.'
+        );
+    }
+
+    /**
+     * POST /portal-reading-imports -- load readings for a patient.
+     *
+     * Accepts either a parsed `readings` array or pasted `text`, which is
+     * parsed server-side so the browser and the native bridge cannot disagree
+     * about what a line means.
+     */
+    public function savePortalReadingImport(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $patientId = (int) $request->input('patient_id');
+
+        if ($patientId <= 0) {
+            $this->error('Choose a patient.', 422);
+            return;
+        }
+
+        $payload = $request->all();
+        $text = trim((string) ($payload['text'] ?? ''));
+
+        if ($text !== '') {
+            $payload['readings'] = PortalReadingImportService::parseDelimited(
+                $text,
+                trim((string) ($payload['default_kind'] ?? ''))
+            );
+        }
+
+        // false: a staff member did this, not the patient. It is why the patient
+        // gets a notification for this route and not for their own sync.
+        $this->respond(PortalReadingImportService::import($patientId, $payload, $user, false));
+    }
+
+    /** GET /portal-reading-import-patients -- patient lookup for the import form. */
+    public function portalReadingImportPatients(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            ['items' => PortalReadingImportService::findPatients((string) $request->input('q', ''))],
+            'Patients retrieved successfully.'
+        );
     }
 }

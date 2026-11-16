@@ -13,6 +13,7 @@ use App\Modules\MyChart\Services\PortalQuestionnaireService;
 use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalEvisitService;
+use App\Modules\MyChart\Services\PortalReadingImportService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -660,4 +661,51 @@ $router->get('/portal-evisit-reasons', [MyChartController::class, 'portalEvisitR
 $router->post('/portal-evisit-reasons', [MyChartController::class, 'savePortalEvisitReason'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalEvisitService::EDIT_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// Readings from a health app or device (Phase M17a).
+//
+// The patient's two routes resolve the patient through PortalGuard and
+// never take a patient id from the request -- /mychart/readings/import
+// is what the native bridge will call once it can be built (M17b).
+//
+// On the clinic's side, anyone who may look at the self-reading chart
+// may read import history, but loading readings into somebody's record
+// is a write to the chart and is limited to the clinical roles.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/readings/imports', [MyChartController::class, 'myReadingImports'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/readings/import', [MyChartController::class, 'importMyReadings'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-reading-imports', [MyChartController::class, 'portalReadingImports'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalReadingImportService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-reading-imports/patient', [MyChartController::class, 'portalReadingImportHistory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalReadingImportService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-reading-imports/readings', [MyChartController::class, 'portalReadingImportReadings'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalReadingImportService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-reading-imports', [MyChartController::class, 'savePortalReadingImport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalReadingImportService::IMPORT_ROLES]
+]);
+
+$router->get('/portal-reading-import-patients', [MyChartController::class, 'portalReadingImportPatients'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalReadingImportService::IMPORT_ROLES]
 ]);

@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M16, plus M9.5 and M15a)
+## Shipped (M0–M17a)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -32,6 +32,7 @@ before any code is written.
 | **M9.5** | Nothing new for the patient — a disposable database, so the write paths are tested | `tests/lib/test_database.php`, `tests/test_portal_writes.php` |
 | **M16** | What planned care costs — priced packages, and written estimates that hold | `PortalCostEstimateService`, schema 339 |
 | **M15a** | Ask a doctor in writing — e-visits, screened for red flags, answered into a real encounter (ships OFF) | `PortalEvisitService`, schema 340 |
+| **M17a** | Readings from a health app or device, deduplicated, without paging anybody about history | `PortalReadingImportService`, schema 341 |
 
 **M9 is labelled as of M9.5.** It was built without a `Phase M9` comment or a capability
 flag; both are now in place.
@@ -717,16 +718,148 @@ snapshotted label and price so it never needs to.
 
 ---
 
-## M17 — Device and health-app import
+## M17a — Importing readings from a device — **DONE** (16 November 2026)
 
-**Size: L.**
+Track My Health (M7) was manual entry only, and typing a blood pressure every day does
+not last. This is the server side of importing: a batch endpoint with deduplication,
+per-reading plausibility checks, provenance a clinician can read, and a rule about when
+an imported reading may page somebody.
 
-Track My Health (M7) is manual entry only. Epic leans on Apple Health and Google Fit for
-blood-pressure and glucose adherence, because typing readings daily does not last.
+Schema 341 (`portal_reading_imports`, plus `source_app`, `device_name`, `external_id`,
+`dedupe_hash` and `import_id` on `patient_self_readings`), seeds 083–084,
+`PortalReadingImportService`, seven endpoints, the Imported Readings desk screen with a
+paste-in form, and provenance on the patient's own log. 114 tests.
 
-- Import into the existing `patient_self_readings`, flagged by source so a clinician can
-  tell a device reading from a typed one.
-- Needs native modules on both platforms, which is the reason for the L.
+### What is and is not here
+
+M17 as planned needs native modules on both platforms (Apple HealthKit, Google Fit) to
+read the phone's health store. Those cannot be compiled until the Expo build quota
+resets, which also still blocks M11's picker. **That is M17b and remains outstanding.**
+
+What is here is the contract that bridge will call — `POST /mychart/readings/import` —
+which is the hard part and is fully testable without it. The same service backs a staff
+screen that takes pasted readings, so a clinic can load a patient's figures today rather
+than after the quota resets.
+
+`source` already existed on `patient_self_readings` as `enum('patient','device')` from
+M7, which answers a clinician's first question: did a human type this, or did a machine
+produce it. It did not answer the second — *which* machine — so `source_app` and
+`device_name` were added, and M7's own reader now carries both through to the patient's
+log and the clinician's chart panel.
+
+### An import must not page anybody about history
+
+This is the whole reason import does not simply loop over
+`PortalSelfReadingService::record()`.
+
+`record()` raises one urgent care-team alert per out-of-band reading, with no
+deduplication. That is correct for somebody typing in a reading they just took. Applied
+to a phone handing over three months of blood pressure it would have raised **dozens of
+urgent alerts about readings from six weeks ago** and buried the one that mattered.
+
+So:
+
+- every out-of-band reading is still flagged, so nothing is hidden from the chart;
+- only readings taken within `portal_import_alert_hours` (24) can raise an alert at all;
+- and those produce **one** alert for the whole batch, naming the most recent.
+
+Verified directly: eleven out-of-band historical readings raise **zero** alerts; one
+recent reading raises exactly one; a mixed batch of eight raises exactly one. The alert
+body says so out loud —
+
+> 4 further readings in this import were outside the band but older than 24 hours. They
+> are flagged on the chart and deliberately did not raise an alert — importing history
+> must not page anybody about it.
+
+— because a clinician who sees a flagged run and only one alert should know that was a
+decision rather than a fault. The import row keeps `flagged_count` and `alertable_count`
+separately so the desk screen can show the difference, and setting the window to 0 is
+allowed and means "never alert on device data", which is a defensible choice for a
+hospital to make.
+
+A bug caught here: the alert originally stamped only the reading it was *named* after,
+leaving the other recent out-of-band readings looking as though nobody had been told
+about them. It now stamps every reading the alert covers, scoped by the window.
+
+### A re-sync is the normal case, not an error
+
+A health app asked for "everything since January" hands over the same samples every
+time. Two keys guard against doubling the chart:
+
+- **`external_id`** — the app's own identifier, which HealthKit and Google Fit both
+  provide and which survives the patient editing a note;
+- **`dedupe_hash`** — a content hash of measure, minute and values, for sources with no
+  identifier. Minute precision rather than second, because a watch re-reporting one
+  sample with a different sub-minute stamp would otherwise land twice.
+
+Both are unique per patient and **only ever set on imported rows**, so a patient
+recording something by hand is never blocked by them — asserted explicitly, because the
+unique indexes would otherwise have quietly broken M7's own entry path.
+
+A duplicate is reported as skipped, not as a failure, and "0 readings saved, 11 already
+in your record" is replaced by *"Nothing new — we already had all 11 of these."*
+
+### Time, which is where M15a was bitten
+
+PHP and MySQL are not in the same timezone on every deployment — they are **seven hours
+apart on this machine**, which is what stamped an M15a encounter well away from the reply
+that created it. M7 compares readings against the database's `NOW()` throughout, so:
+
+- a timestamp carrying an explicit zone (`...Z`, `...+08:00`) names an absolute moment and
+  is re-expressed on the database's wall clock, with the offset **measured** rather than
+  assumed;
+- a naive timestamp (`2026-11-14 08:30`) is taken at face value, because it came from a
+  clinic pasting its own figures and shifting it would move every reading by hours.
+
+Tested both ways, including that two spellings of the same moment land identically.
+
+### Other decisions
+
+- **One bad sample must not lose the batch.** Each reading is accepted, skipped as a
+  duplicate, or refused with a reason, and the reasons come back line by line. A refused
+  reading never reaches the chart — an impossible value stored and then flagged would put
+  a fault on the patient's record.
+- **The bounds are M7's own `KINDS` bounds**, not a second set that could drift.
+- **The paste format is simple and documented**, not an Apple Health export reader. That
+  export is hundreds of megabytes of XML and needs a file upload this project cannot do
+  yet. A nurse pasting a column of figures a patient read off their monitor is the
+  workflow that works today.
+- **Parsing never silently drops a line.** A header is only recognised as the *first*
+  line with no digits; the first version treated any digit-free line as a header, which
+  swallowed a malformed line mid-paste with nothing said about it.
+- **The notification is in-app only, not email**, and carries counts rather than values —
+  a blood sugar in an email says something about the patient to whoever picks the phone
+  up. It is sent only when a staff member loaded the readings; a patient whose own phone
+  synced does not need telling they synced, and a daily sync would mean a daily message.
+
+### Still open
+
+- **M17b: the native bridge.** Blocked on the Expo build quota alongside M11's picker.
+  When it lands it needs no server change — it posts to the endpoint this phase defines.
+- **No file upload path**, for the same reason, so an Apple Health export cannot be
+  loaded wholesale.
+- **Nothing reconciles a device reading against a clinical one.** If a patient's monitor
+  and the clinic's cuff disagree, both sit in the record and a human decides. That is
+  probably correct, but it is a decision nobody has written down.
+
+---
+
+## M17b — The native health-store bridge — still to do
+
+**Size: M, and blocked rather than hard.**
+
+M17a shipped the server contract, the dedupe, the alerting rule and a staff paste-in
+path. What is left is the phone reading its own health store and posting to
+`/mychart/readings/import`, which needs native modules (Apple HealthKit, Google Fit /
+Health Connect) that cannot be compiled until the Expo build quota resets -- the same
+blocker as M11's picker.
+
+- No server change is needed. The endpoint, the dedupe keys and the alerting rule are
+  done and tested; the bridge is a client of them.
+- Worth doing in the same rebuild as M11's picker, since both are native additions and
+  the APK size should be checked once rather than twice.
+- A file-upload path would also unlock loading an Apple Health export wholesale, which
+  the paste format deliberately does not attempt.
 
 ---
 
@@ -760,16 +893,22 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → M17 → M18 → M15b**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → ~~M17a~~ → M18 → (M11 app + M17b, one rebuild) → M15b**
 
 M9.5 and M16 are done. What remains of M9.5 is the clinician sign-off on seeded wording,
 which no amount of code will settle; what remains of M16 is a billing sign-off on the
 package labels and a correction to three packages whose itemisation does not add up.
 M15a answered that question by being built: the asynchronous e-visit is done and waiting
-on a clinician to sign off its red-flag screening. M15b (video) moves to last, not because
-it matters least -- it is still the biggest gap against modern MyChart -- but because it is
-the only phase left whose blocker is a decision rather than work, and because how much
-demand M15a absorbs is worth knowing before choosing a video provider. M11 unlocks M12 and the medical
+on a clinician to sign off its red-flag screening. M17a did the same for device readings --
+the server contract, the dedupe and the alerting rule are done, and the native bridge is a
+client of them.
+
+M18 is next and is the last phase that is only work. After it, the two native pieces
+(M11's picker and M17b's health-store bridge) should go in one rebuild once the Expo quota
+resets, so the APK size is checked once. M15b (video) stays last: not because it matters
+least -- it is still the biggest gap against modern MyChart -- but because it is the only
+phase whose blocker is a decision rather than work, and because how much demand M15a
+absorbs is worth knowing before choosing a provider. M11 unlocks M12 and the medical
 certificate work. M15 sits late despite being the most valuable, because starting it
 before the decisions are made means building the wrong thing; if an asynchronous e-visit
 is acceptable, bring that part forward to sit beside M13. M18 only makes sense after M10
