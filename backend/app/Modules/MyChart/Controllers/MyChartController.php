@@ -29,6 +29,7 @@ use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalEvisitService;
 use App\Modules\MyChart\Services\PortalReadingImportService;
+use App\Modules\MyChart\Services\PortalFastPassService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -2249,5 +2250,202 @@ class MyChartController extends Controller
             ['items' => PortalReadingImportService::findPatients((string) $request->input('q', ''))],
             'Patients retrieved successfully.'
         );
+    }
+
+    // ---------------------------------------------------------------
+    // Fast Pass (Phase M18).
+    //
+    // Nothing here moves an appointment on its own. acceptFastPass()
+    // is the only path into a move, and it needs a patient to have
+    // POSTed an answer to a specific offer -- an offer that goes
+    // unanswered expires and changes nothing.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/fastpass -- any live offer, my list entries, what I could add. */
+    public function myFastPass(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Fast Pass Viewed', PortalGuard::CAP_FASTPASS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalFastPassService::mine($patientId), 'Fast Pass retrieved successfully.');
+    }
+
+    /** POST /mychart/fastpass/join -- ask to be offered anything earlier. */
+    public function joinFastPass(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Fast Pass Joined', PortalGuard::CAP_FASTPASS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalFastPassService::join($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/fastpass/leave -- come off the list. */
+    public function leaveFastPass(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Fast Pass Left', PortalGuard::CAP_FASTPASS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalFastPassService::leave($patientId, $request->all(), $user));
+    }
+
+    /**
+     * POST /mychart/fastpass/accept -- take the offered slot.
+     *
+     * Takes an offer id and nothing else. The appointment that moves, the
+     * slot it moves into and the patient are all read from the offer row,
+     * so a crafted request cannot aim this at somebody else's booking.
+     */
+    public function acceptFastPass(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Fast Pass Accepted', PortalGuard::CAP_FASTPASS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalFastPassService::accept($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/fastpass/decline -- turn this one down, stay on the list. */
+    public function declineFastPass(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Fast Pass Declined', PortalGuard::CAP_FASTPASS);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalFastPassService::decline($patientId, $request->all(), $user));
+    }
+
+    // ---------------------------------------------------------------
+    // The clinic's side of M18.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-fastpass -- the board of freed slots and what became of them. */
+    public function portalFastPass(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalFastPassService::board(
+                trim((string) $request->input('q', '')),
+                (string) $request->input('scope', 'live')
+            ) + [
+                'can_manage' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalFastPassService::MANAGE_ROLES
+                ),
+            ],
+            'Fast Pass board retrieved successfully.'
+        );
+    }
+
+    /** GET /portal-fastpass/slot -- one slot and every offer it produced. */
+    public function portalFastPassSlot(): void
+    {
+        $request = new Request();
+
+        $detail = PortalFastPassService::slotDetail((int) $request->input('id'));
+
+        if ($detail === null) {
+            $this->error('That slot was not found.', 404);
+            return;
+        }
+
+        $this->success($detail, 'Slot retrieved successfully.');
+    }
+
+    /** GET /portal-fastpass/waitlist -- the queue, in the order it will be offered to. */
+    public function portalFastPassWaitlist(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            PortalFastPassService::waitlistBoard(trim((string) $request->input('q', ''))),
+            'Queue retrieved successfully.'
+        );
+    }
+
+    /** GET /portal-fastpass/providers -- doctor lookup for the publish form. */
+    public function portalFastPassProviders(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            ['items' => PortalFastPassService::findProviders((string) $request->input('q', ''))],
+            'Providers retrieved successfully.'
+        );
+    }
+
+    /** POST /portal-fastpass/publish -- put a gap on the board by hand. */
+    public function publishFastPassSlot(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalFastPassService::publishManual($request->all(), $user));
+    }
+
+    /** POST /portal-fastpass/withdraw -- pull a slot back. */
+    public function withdrawFastPassSlot(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalFastPassService::withdrawSlot($request->all(), $user));
+    }
+
+    /**
+     * POST /portal-fastpass/sweep -- run one pass of the engine.
+     *
+     * Exposed as an endpoint because nothing schedules it yet: whatever runs
+     * the existing portal cron should call this, and until something does, the
+     * desk can press a button. Idempotent, so pressing it twice is harmless.
+     */
+    public function sweepFastPass(): void
+    {
+        $user = Session::get('user');
+        $done = PortalFastPassService::sweep();
+
+        PortalAudit::action($user, null, 'Fast Pass Swept', sprintf(
+            'Sweep: %d offers expired, %d voided, %d slots closed, %d found, %d offers sent.',
+            $done['expired_offers'],
+            $done['voided_offers'],
+            $done['closed_slots'],
+            $done['found_slots'],
+            $done['offers_sent']
+        ));
+
+        $this->success($done, 'Sweep complete.');
     }
 }

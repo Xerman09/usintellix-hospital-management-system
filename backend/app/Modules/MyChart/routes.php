@@ -14,6 +14,7 @@ use App\Modules\MyChart\Services\PortalHealthMaintenanceService;
 use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalEvisitService;
 use App\Modules\MyChart\Services\PortalReadingImportService;
+use App\Modules\MyChart\Services\PortalFastPassService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -708,4 +709,81 @@ $router->post('/portal-reading-imports', [MyChartController::class, 'savePortalR
 $router->get('/portal-reading-import-patients', [MyChartController::class, 'portalReadingImportPatients'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalReadingImportService::IMPORT_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// Fast Pass (Phase M18).
+//
+// The patient's five routes all resolve the patient through
+// PortalGuard and take no patient id. Note what is NOT here: there
+// is no route that moves an appointment without the patient having
+// answered an offer. Accepting is the only path into a move, and it
+// is a POST the patient makes.
+//
+// On the clinic's side, the board and the queue are readable by
+// anyone who works a desk or a clinic, because "is anything waiting
+// to be offered" is a question the whole front of house asks.
+// Publishing a gap, withdrawing one and running the sweep change
+// what patients are told, so they are limited to the roles that run
+// the diary.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/fastpass', [MyChartController::class, 'myFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/fastpass/join', [MyChartController::class, 'joinFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/fastpass/leave', [MyChartController::class, 'leaveFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/fastpass/accept', [MyChartController::class, 'acceptFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/fastpass/decline', [MyChartController::class, 'declineFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-fastpass', [MyChartController::class, 'portalFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-fastpass/slot', [MyChartController::class, 'portalFastPassSlot'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-fastpass/waitlist', [MyChartController::class, 'portalFastPassWaitlist'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-fastpass/providers', [MyChartController::class, 'portalFastPassProviders'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::MANAGE_ROLES]
+]);
+
+$router->post('/portal-fastpass/publish', [MyChartController::class, 'publishFastPassSlot'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::MANAGE_ROLES]
+]);
+
+$router->post('/portal-fastpass/withdraw', [MyChartController::class, 'withdrawFastPassSlot'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::MANAGE_ROLES]
+]);
+
+$router->post('/portal-fastpass/sweep', [MyChartController::class, 'sweepFastPass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalFastPassService::MANAGE_ROLES]
 ]);

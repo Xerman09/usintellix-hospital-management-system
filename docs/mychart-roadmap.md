@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M17a)
+## Shipped (M0–M18)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -33,6 +33,7 @@ before any code is written.
 | **M16** | What planned care costs — priced packages, and written estimates that hold | `PortalCostEstimateService`, schema 339 |
 | **M15a** | Ask a doctor in writing — e-visits, screened for red flags, answered into a real encounter (ships OFF) | `PortalEvisitService`, schema 340 |
 | **M17a** | Readings from a health app or device, deduplicated, without paging anybody about history | `PortalReadingImportService`, schema 341 |
+| **M18** | Fast Pass — a freed slot offered to somebody who already holds a later appointment | `PortalFastPassService`, schema 342 |
 
 **M9 is labelled as of M9.5.** It was built without a `Phase M9` comment or a capability
 flag; both are now in place.
@@ -178,8 +179,9 @@ future date, so eligibility checks that itself; and a patient cancel must not us
 `remove()`, which soft-deletes and would hide the freed slot from the desk.
 
 **Not included, deliberately:** offering a freed slot to someone waiting (Epic's Fast
-Pass). It needs a waitlist table and a notification path, so it is its own phase if
-wanted — see M18 below.
+Pass). It needed a waitlist table and a notification path, so it became its own phase —
+**M18, now done.** M10's cut-off deliberately does not apply there; see that section for
+why reusing it would have gutted the feature.
 
 ## M11 — Patient uploads — **backend and desk DONE, app side blocked**
 
@@ -863,18 +865,213 @@ blocker as M11's picker.
 
 ---
 
-## M18 — Fast Pass (offer a freed slot)
+## M18 — Fast Pass — **DONE** (16 November 2026)
 
-**Size: M. Optional, and only worth it once M10 has produced cancellations.**
+M10 made cancelling possible and left the hole in the day to the desk. This fills it:
+when a slot comes free it is offered to patients who already hold a later appointment
+with the same doctor and have asked to come in sooner, and accepting **moves** the
+appointment they already have.
 
-When a patient cancels through M10 the slot simply goes back to the desk. Epic offers it
-to patients on a waitlist, first come first served, which is how a cancellation becomes
-somebody else's earlier appointment instead of an empty chair.
+Schema 342 (`portal_fastpass_waitlist`, `portal_fastpass_slots`, `portal_fastpass_offers`,
+six settings), seeds 085–086, `PortalFastPassService`, eleven endpoints, the Fast Pass
+desk screen with its own queue view, and a "Come in Sooner" screen in the app. 255 tests.
 
-Needs a waitlist table, a rule for who gets offered what and for how long, and a
-notification path (M6 already has the channels). Deliberately left out of M10, which only
-had to make cancelling possible — there is no point building the offer mechanism before
-there are cancellations to offer.
+### Moving an appointment, not giving one
+
+This is deliberately not a general waitlist, and that single decision removes most of the
+ways the feature could go wrong:
+
+- **the number of appointments never changes**, so nobody ends up with two;
+- **no clinical decision is made by this code** — a clinician already agreed who needed
+  to be seen, by whom, for how long, when the appointment was booked;
+- **accepting is a reschedule**, so it goes through `AppointmentService::update()` and
+  gets the same double-booking, roster, capacity and operating-hours checks the desk
+  gets, and keeps the same provider (M10's rule: changing doctor is a new booking
+  decision, not a reschedule);
+- and **a patient who ignores every offer keeps the appointment they had.** The worst
+  outcome of the whole feature is that nothing happens.
+
+Nothing offers a slot to somebody with no appointment yet. That needs a clinician to
+decide who is waiting for what, and it is a different phase if ever.
+
+### M10's cut-off is the wrong rule here
+
+`portal_appointment_cutoff_hours` (24) stops a patient moving their own appointment at
+short notice, which protects the desk from churn it cannot absorb. Applying it to a Fast
+Pass offer would have made the feature nearly useless, because **short notice is exactly
+when cancellations happen** — a slot freed tomorrow morning is the one worth offering.
+
+The difference is who is asking. A reschedule is the patient changing their mind; a Fast
+Pass offer is the hospital asking the patient to come in sooner, about a gap the hospital
+would rather not have. So `portal_fastpass_min_lead_hours` (4) takes its place: a slot
+closer than that is never offered, because nobody can rearrange a morning in an hour and
+offering it only produces a message the patient cannot act on.
+
+A second guard follows from it: an offer's deadline is `min(now + offer_hours,
+slot − min_lead)`, so an offer always expires while the slot is still real. If that leaves
+under half an hour, nothing is offered at all — an eight-minute window burns the slot's
+round for nothing, and the board says it expired unoffered rather than pretending somebody
+was asked.
+
+### First come first served, in small rounds
+
+Two obvious designs, both worse:
+
+- **One at a time, cascading.** Kindest, and the slot sits unoffered while an expiry ticks
+  down. Four-hour window, five people: a slot freed Monday is still being offered
+  Wednesday, by which time it has passed its own lead time and helped nobody.
+- **Everyone at once.** Fastest, and tells everybody but one person "sorry, taken". Do
+  that a few times and people stop opening the notification, which is the one thing this
+  feature cannot survive.
+
+So offers go to `portal_fastpass_offer_batch` (3) patients at a time, in the order they
+joined, all with the same deadline. First to accept wins; the rest of that round are
+marked `missed` and told another patient took it. A round that passes with nobody
+accepting goes to the next three.
+
+The queue order is `joined_at` and nothing else — no scoring, no clinical weighting.
+Anything cleverer is a rationing decision, and a rationing decision made in a service
+class is one nobody signed off.
+
+### One offer can win, and the slot row decides it
+
+Two patients tapping Accept at the same instant is the one race that matters. It is
+settled by a conditional `UPDATE portal_fastpass_slots SET status='taken' … WHERE id=?
+AND status='offered'`. Exactly one statement can affect that row; only the winner then
+attempts the move.
+
+And if the move fails behind a successful claim — the desk filled the slot by hand a
+moment earlier, the roster changed — **the claim is released**, because a slot held by a
+move that did not happen is worse than a slot nobody was offered. The suite forces this
+rather than hoping about it: an offer is put back to `open` behind an already-claimed slot
+and the second accept has to lose cleanly, and a slot is booked by hand between the offer
+and the accept so the release path runs.
+
+Availability is re-checked twice — at offer time and again inside the claim — through
+`findAvailableSlots()`, which is the same answer the desk's booking screen gets. If it
+cannot be determined, the slot is not offered: a wrong "yes" double-books a clinic, a
+wrong "no" costs one empty chair.
+
+### A chain, deliberately
+
+Accepting publishes the slot the patient just vacated. That one is a *better* gap than
+the one just filled — it is further out, so there is more notice — and it is how one
+cancellation can move two people forward.
+
+### Declines and silence are not the same thing
+
+`declines` and `expiries` are counted separately and treated differently:
+
+- an explicit decline is a patient saying "not that one". Three of them
+  (`portal_fastpass_max_declines`) and the entry goes dormant, because asking a fourth
+  time is pestering. The wording says offers are paused and invites them back;
+- **an expiry counts against nothing.** It may only mean they were asleep. It is recorded
+  so the desk can see an entry that never answers, and that is all it does;
+- a `missed` offer (somebody else accepted) counts against nothing either, and neither
+  does a `void` one (the patient left the list, or the appointment changed underneath the
+  offer). Four outcomes, four different meanings, because collapsing them would punish
+  people for other patients' timing.
+
+Rejoining after dormancy resets `declines` — the patient has just asked again, which is a
+clearer signal than three stale refusals. `offers_sent` and `expiries` are kept, because
+they are the desk's history and nobody is penalised by them.
+
+### What the patient is and is not shown
+
+- **The live offer renders first, above everything**, with the deadline as a date and time
+  and the minutes left. It is the only thing in My Chart with a deadline on it, and a
+  patient who has to scroll to find it may miss it.
+- **A near miss is not an error.** "Somebody took it" is the expected outcome for everybody
+  but one person in each round, so it gets a calm blue card in the same register as a
+  success, not a red one.
+- **No queue position.** The desk sees it; the patient does not. It moves for reasons that
+  have nothing to do with them — somebody ahead leaves, or is offered a slot this patient
+  could not have taken anyway — and a number that goes backwards with no explanation is
+  worse than no number.
+- **The offer never says why the slot came free.** "Someone cancelled" is another patient's
+  business, and in a small clinic with one specialist it is identifying.
+- The tile says "Come in Sooner" and "if something comes free". Most people on this list
+  will never be offered a slot, and a tile that implied otherwise would be the first
+  disappointment.
+
+### Notifications
+
+Two types, and they link to different tabs on purpose. `fastpass_offer` links to Fast
+Pass, where it can be answered — sending somebody to their appointment list with a
+four-hour deadline running would tell them to act and then put them on the wrong screen.
+`fastpass_moved` links to the appointment list, because by then the appointment is the
+thing they want to look at.
+
+Email is **on**, unlike most portal notifications: an in-app-only message is fine for "your
+readings were added", and a four-hour offer found on Thursday is an offer nobody could
+take.
+
+SMS is **off**, even though SMS is the right channel for this, because
+`PortalNotificationService::SENDABLE` contains `email` only. An SMS row queues and is never
+drained — a dormant row for a reminder, a trap for a time-limited offer: the day somebody
+wires up a sender, the backlog would deliver a pile of offers for slots that passed months
+ago, each reading as though it were live. Two lines to turn on once there is a sender, and
+not before. (`appointment_reminder` already defaults SMS on and has the same latent
+backlog. Not this phase's to change, but worth knowing before a sender is connected.)
+
+### Where slots come from
+
+Published the moment a patient cancels or moves away from a slot through M10, because the
+delay is the whole problem — a slot freed at nine and found at midnight has usually lost
+its value. The sweep is the safety net, not the main path: it finds cancellations made at
+the desk, bounded to the last week so a first run on an existing database does not publish
+a year of dead slots. The staff appointment routes are outside My Chart and are
+deliberately untouched by this phase.
+
+Both hooks into M10 swallow their own errors. A cancel that has already succeeded must not
+be reported as a failure because Fast Pass could not write a row, and the sweep would have
+found it anyway.
+
+### The sweep
+
+`sweep()` is one idempotent pass: settle offers past their deadline, void offers whose
+appointment is no longer movable, close slots that have come too close, find the desk's
+cancellations, then offer — in that order, so the cancellations found in step four go out
+in the same pass. It returns its counts, and the desk screen says them in full rather than
+"done", because every one of those numbers is something a patient was or was not told.
+
+Nothing schedules it yet. It is a method and an endpoint; whatever runs the existing portal
+cron should call it, and until something does, there is a button. Tested as repeatable: a
+second sweep over an unchanged database expires nothing and writes no rows.
+
+### One clock
+
+PHP and MySQL are seven hours apart on this machine. Every datetime compared or stored here
+derives from the database's `NOW()`, read once per request and passed down as `$now`; no
+path calls PHP's `date()` for a stored or compared value. M15a shipped a bug for exactly
+this reason, and the suite asserts that `joined_at` lands on the database's clock rather
+than PHP's.
+
+### Two things the tests needed
+
+A **second fixture patient** (`ZZTEST-0002`), built on demand rather than by `world()`, so
+suites written before M18 see the database they saw before. Fast Pass cannot be tested with
+one patient: who is offered first, what the rest of a round are told, and that one patient's
+answer cannot touch another's appointment all need two people.
+
+`test_portal_writes`'s "the fixture patient exists and is the only one" became "every
+patient in this database is a fixture patient" — the real guarantee, and one that survives a
+second fixture.
+
+### Still open
+
+- **Nothing schedules the sweep.** Offers expire when it is next called rather than on the
+  minute. The endpoint is there; the cron entry is not.
+- **A slot is matched on provider and time only.** It does not check that the freed
+  appointment and the waiting one are the same kind of visit, because `visit_category_id` is
+  nullable and mostly null in this database, so a check on it would reject nearly
+  everything. The practical guard is the shared provider and the clinic grid's fixed slot
+  length.
+- **SMS**, as above, once there is a sender.
+- **Nobody has watched this run against real cancellations.** The numbers that decide
+  whether it earns its place — how many freed slots get filled, how many offers go
+  unanswered, whether the four-hour window is right — exist on the board and have no values
+  in them yet.
 
 ---
 
@@ -893,7 +1090,7 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → ~~M17a~~ → M18 → (M11 app + M17b, one rebuild) → M15b**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → ~~M17a~~ → ~~M18~~ → (M11 app + M17b, one rebuild) → M15b**
 
 M9.5 and M16 are done. What remains of M9.5 is the clinician sign-off on seeded wording,
 which no amount of code will settle; what remains of M16 is a billing sign-off on the
@@ -903,13 +1100,21 @@ on a clinician to sign off its red-flag screening. M17a did the same for device 
 the server contract, the dedupe and the alerting rule are done, and the native bridge is a
 client of them.
 
-M18 is next and is the last phase that is only work. After it, the two native pieces
-(M11's picker and M17b's health-store bridge) should go in one rebuild once the Expo quota
-resets, so the APK size is checked once. M15b (video) stays last: not because it matters
+M18 is done, and it was the last phase that was only work. **Everything still outstanding
+is blocked on something that is not code:** the Expo build quota, a vendor decision, or a
+clinician's or biller's signature. The two native pieces (M11's picker and M17b's
+health-store bridge) should go in one rebuild once the quota resets, so the APK size is
+checked once. M15b (video) stays last: not because it matters
 least -- it is still the biggest gap against modern MyChart -- but because it is the only
 phase whose blocker is a decision rather than work, and because how much demand M15a
 absorbs is worth knowing before choosing a provider. M11 unlocks M12 and the medical
 certificate work. M15 sits late despite being the most valuable, because starting it
 before the decisions are made means building the wrong thing; if an asynchronous e-visit
-is acceptable, bring that part forward to sit beside M13. M18 only makes sense after M10
-has been live long enough to produce cancellations.
+is acceptable, bring that part forward to sit beside M13.
+
+M18 was said here to only make sense once M10 had been live long enough to produce
+cancellations. That turned out to be the wrong way round: the mechanism is what makes a
+cancellation worth anything, and waiting for a pile of unused cancellations first would
+only have wasted them. What is still true is that **nobody has watched it run against real
+ones** — the board counts how many freed slots were filled, and that number is the only
+honest verdict on the feature.

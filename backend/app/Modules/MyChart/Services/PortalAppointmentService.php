@@ -271,6 +271,30 @@ class PortalAppointmentService
 
         self::stampReschedule($appointmentId, $row);
 
+        // Fast Pass (M18). Two things, in this order.
+        //
+        // First, any offer already out for this appointment is now describing a
+        // trade that no longer exists -- its from_date and from_time point at the
+        // slot the patient has just left -- so it is voided rather than left to
+        // expire with stale wording. The list entry survives: the patient still
+        // wants to come in sooner, and the new appointment is what "sooner" is
+        // now measured against.
+        //
+        // Second, the slot just vacated is published, so somebody else can be
+        // offered it. Neither call can throw -- see their own bodies -- because a
+        // move that has already succeeded must not be reported as a failure.
+        PortalFastPassService::appointmentChanged($appointmentId, false);
+        PortalFastPassService::publishFreedSlot(
+            $patientId,
+            $appointmentId,
+            (int) $row['provider_id'],
+            (string) $row['appointment_date'],
+            (string) $row['appointment_time'],
+            'patient_reschedule',
+            $row,
+            self::actorId($user)
+        );
+
         PortalAudit::action(
             $user,
             $patientId,
@@ -347,6 +371,29 @@ class PortalAppointmentService
         if ($stmt->rowCount() === 0) {
             return self::fail('That appointment has already been changed.');
         }
+
+        // Fast Pass (M18). The appointment is gone, so this patient's own list
+        // entry for it goes with it and any live offer on it is voided -- an
+        // offer to move an appointment that no longer exists cannot be honoured.
+        // Then the freed slot is published, which is the case this whole phase
+        // was built for: a cancellation becoming somebody else's earlier
+        // appointment rather than an empty chair.
+        //
+        // Published here rather than by the sweep because the delay is the whole
+        // problem. A slot freed at nine and offered at midnight has usually lost
+        // its value; the sweep is the safety net for cancellations made at the
+        // desk, not the main path.
+        PortalFastPassService::appointmentChanged($appointmentId, true);
+        PortalFastPassService::publishFreedSlot(
+            $patientId,
+            $appointmentId,
+            (int) $row['provider_id'],
+            (string) $row['appointment_date'],
+            (string) $row['appointment_time'],
+            'patient_cancel',
+            $row,
+            self::actorId($user)
+        );
 
         PortalAudit::action(
             $user,

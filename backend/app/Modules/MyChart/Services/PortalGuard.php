@@ -48,6 +48,12 @@ class PortalGuard
     public const CAP_EVISITS = 'mychart_evisits';
     public const CAP_READING_IMPORT = 'mychart_reading_import';
 
+    // Phase M18. Covers joining the Fast Pass list, leaving it, and answering an
+    // offer. Not separable in any useful way: a hospital that does not want
+    // patients accepting offers does not want them on the list either, and a
+    // patient who can be offered a slot must be able to say no to it.
+    public const CAP_FASTPASS = 'mychart_fastpass';
+
     /**
      * Two patient actions are deliberately left ungated, and should stay that way:
      *

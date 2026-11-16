@@ -338,6 +338,7 @@ import { PortalCareGapsView, initPortalCareGaps } from "../mychart/portal-care-g
 import { PortalEstimatesView, initPortalEstimates } from "../mychart/portal-estimates.js?v=1";
 import { PortalEvisitsView, initPortalEvisits } from "../mychart/portal-evisits.js?v=1";
 import { PortalReadingImportsView, initPortalReadingImports } from "../mychart/portal-reading-imports.js?v=1";
+import { PortalFastPassView, initPortalFastPass } from "../mychart/portal-fastpass.js?v=1";
 import { PortalPaymentsView, initPortalPayments } from "../mychart/portal-payments.js?v=2";
 import { PortalCheckinsView, initPortalCheckins } from "../mychart/portal-checkins.js?v=2";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=3";
@@ -1763,6 +1764,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Imported Readings', () => {
                 setTimeout(initPortalReadingImports, 0);
                 return PortalReadingImportsView();
+            }, activate);
+        } else if (tabId === 'portal_fastpass') {
+            tabManager.openTab(tabId, title || 'Fast Pass', () => {
+                setTimeout(initPortalFastPass, 0);
+                return PortalFastPassView();
             }, activate);
         } else if (tabId === 'lab_critical_ranges') {
             tabManager.openTab(tabId, 'Critical Lab Ranges', () => {

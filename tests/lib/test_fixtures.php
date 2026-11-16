@@ -41,6 +41,23 @@ final class TestFixtures
     public const STAFF_USERNAME = 'zz_test_staff';
 
     /**
+     * A second patient, added in Phase M18 because Fast Pass cannot be tested
+     * with one. Its whole subject is a queue: who is offered a slot first, what
+     * the other people in the round are told when somebody accepts, and that one
+     * patient's answer cannot touch another's appointment. Every one of those
+     * assertions needs two people.
+     *
+     * Built on demand by secondPatient(), not by world(), so suites written
+     * before M18 see exactly the database they saw before. Same disabled
+     * password and same ZZTEST naming, for the same reasons.
+     */
+    public const PATIENT_TWO_NO = 'ZZTEST-0002';
+    public const PATIENT_TWO_USERNAME = 'zz_test_patient_two';
+
+    /** Every fixture patient number, for assertions about who is in the database. */
+    public const PATIENT_NUMBERS = [self::PATIENT_NO, self::PATIENT_TWO_NO];
+
+    /**
      * A diagnosis code deliberately chosen to be one the guide catalogue can
      * match: M9's resolution is exact code, then longest keyword, then the
      * 3-character category, and E11.9 exercises the category step (the seeded
@@ -52,6 +69,7 @@ final class TestFixtures
     public const DIAGNOSIS_TEXT = 'Type 2 diabetes mellitus without complications';
 
     private static ?array $world = null;
+    private static ?array $secondPatient = null;
 
     /**
      * @return array{patient_id:int, patient_user_id:int, provider_id:int,
@@ -142,6 +160,99 @@ final class TestFixtures
     }
 
     /**
+     * The second patient, created on first use.
+     *
+     * Deliberately NOT part of world(): a suite that does not ask for a second
+     * patient should not get one, because several suites assert on what is in
+     * the database and a surprise row would be read as a leak.
+     *
+     * Male and younger than the first, so health-maintenance rules resolve to a
+     * different set -- if a test ever needs two patients with different reminders
+     * it has them, and if it needs two who are interchangeable it still has that.
+     *
+     * @return array{patient_id:int, patient_user_id:int}
+     */
+    public static function secondPatient(): array
+    {
+        if (self::$secondPatient !== null) {
+            return self::$secondPatient;
+        }
+
+        $w = self::world();   // also runs the "am I in the test database" guard
+        $db = Database::connection();
+
+        $userId = self::user($db, self::PATIENT_TWO_USERNAME, self::roleId($db, 'patient'));
+
+        $stmt = $db->prepare('SELECT id FROM patients WHERE patient_no = ? LIMIT 1');
+        $stmt->execute([self::PATIENT_TWO_NO]);
+        $patientId = $stmt->fetchColumn();
+
+        if ($patientId === false) {
+            $stmt = $db->prepare(
+                "INSERT INTO patients
+                    (user_id, patient_no, first_name, last_name, sex, birthdate, civil_status,
+                     blood_type, height, weight, created_at)
+                 VALUES (:u, :no, 'Zy', 'Testpatient', 'male', :dob, 'Single', 'A+', 172.00, 70.00, NOW())"
+            );
+            $stmt->execute([
+                'u' => $userId,
+                'no' => self::PATIENT_TWO_NO,
+                'dob' => date('Y-m-d', strtotime('-38 years')),
+            ]);
+            $patientId = (int) $db->lastInsertId();
+        }
+
+        self::$secondPatient = [
+            'patient_id' => (int) $patientId,
+            'patient_user_id' => $userId,
+            'provider_id' => $w['provider_id'],
+        ];
+
+        return self::$secondPatient;
+    }
+
+    /** The portal user array for the second patient. */
+    public static function secondPatientUser(): array
+    {
+        $two = self::secondPatient();
+
+        return ['id' => $two['patient_user_id'], 'role' => 'patient', 'username' => self::PATIENT_TWO_USERNAME];
+    }
+
+    /**
+     * An appointment for a named patient with the shared fixture provider.
+     *
+     * Same provider on purpose: Fast Pass only ever matches within one doctor's
+     * diary, so two patients who are to compete for a slot must share one.
+     */
+    public static function appointmentFor(
+        int $patientId,
+        string $date,
+        string $time = '10:00:00',
+        string $status = 'scheduled'
+    ): int {
+        $w = self::world();
+        $db = Database::connection();
+
+        $stmt = $db->prepare(
+            "INSERT INTO appointments
+                (patient_id, provider_id, is_provider_block, appointment_date, appointment_time,
+                 is_all_day, reason, status, created_at, created_by)
+             VALUES (:p, :prov, 0, :d, :t, 0, 'Fixture appointment', :s, NOW(), :by)"
+        );
+        $stmt->execute([
+            'p' => $patientId,
+            'prov' => $w['provider_id'],
+            'd' => $date,
+            't' => $time,
+            's' => $status,
+            'by' => $w['staff_user_id'],
+        ]);
+
+        return (int) $db->lastInsertId();
+    }
+
+    /**
      * A fresh scheduled appointment for the fixture patient, returned by id.
      *
      * Tests that cancel or move an appointment need their own, because the point
@@ -192,20 +303,55 @@ final class TestFixtures
         // be no safe pattern to clean up by.
         TestDatabase::clearUploadRoot();
 
+        // Every fixture patient, not just the first. The second one (M18) may or
+        // may not have been built by the suite that is running, so it is looked
+        // up by patient number rather than assumed into existence -- calling
+        // secondPatient() here would create the row this method is clearing.
+        $ids = [$w['patient_id']];
+
+        $find = $db->prepare('SELECT id FROM patients WHERE patient_no = ?');
+
+        foreach (self::PATIENT_NUMBERS as $no) {
+            $find->execute([$no]);
+            $id = $find->fetchColumn();
+
+            if ($id !== false && !in_array((int) $id, $ids, true)) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        $in = implode(',', array_map('intval', $ids));
+
         // Child rows first where a foreign key would otherwise complain, then
-        // the parents. Each is scoped to the fixture patient except the two
-        // queues keyed only by their own parent row.
-        $db->prepare('DELETE FROM portal_care_gap_requests WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM portal_questionnaire_responses WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM portal_questionnaire_assignments WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM patient_insurance_requests WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM patient_uploads WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM patient_insurances WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM patient_documents WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM patient_reminder_actions WHERE patient_reminder_id IN (SELECT id FROM patient_reminders WHERE patient_id = ?)')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM patient_reminders WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM appointments WHERE patient_id = ?')->execute([$w['patient_id']]);
-        $db->prepare('DELETE FROM portal_audit_logs WHERE patient_id = ?')->execute([$w['patient_id']]);
+        // the parents. Each is scoped to the fixture patients except the queues
+        // keyed only by their own parent row.
+        //
+        // The Fast Pass tables go before appointments: an offer and a waitlist
+        // entry both point at an appointment row, and a waitlist entry whose
+        // appointment had been deleted would make the next run's eligibility
+        // query answer a question about a booking that no longer exists.
+        $db->exec("DELETE FROM portal_fastpass_offers WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM portal_fastpass_waitlist WHERE patient_id IN ({$in})");
+
+        // Slots are keyed by provider rather than patient, so they are cleared
+        // by the fixture provider. Anything else in this database belongs to a
+        // provider the fixtures did not create and is left alone.
+        $db->prepare('DELETE FROM portal_fastpass_offers WHERE slot_id IN (SELECT id FROM portal_fastpass_slots WHERE provider_id = ?)')
+            ->execute([$w['provider_id']]);
+        $db->prepare('DELETE FROM portal_fastpass_slots WHERE provider_id = ?')->execute([$w['provider_id']]);
+
+        $db->exec("DELETE FROM portal_care_gap_requests WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM portal_questionnaire_responses WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM portal_questionnaire_assignments WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM patient_insurance_requests WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM patient_uploads WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM patient_insurances WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM patient_documents WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM patient_reminder_actions WHERE patient_reminder_id IN (SELECT id FROM patient_reminders WHERE patient_id IN ({$in}))");
+        $db->exec("DELETE FROM patient_reminders WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM patient_notifications WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM appointments WHERE patient_id IN ({$in})");
+        $db->exec("DELETE FROM portal_audit_logs WHERE patient_id IN ({$in})");
     }
 
     // ------------------------------------------------------------------

@@ -107,7 +107,16 @@ $patientUser = TestFixtures::patientUser();
 $staffUser = TestFixtures::staffUser();
 $actorId = $staffUser['id'];
 
-check('the fixture patient exists and is the only one', (int) $db->query('SELECT COUNT(*) FROM patients')->fetchColumn() === 1);
+// Not a count of 1 any more: Phase M18 added a second fixture patient, built on
+// demand, so whether it exists here depends on which suites have run against this
+// database. What matters is unchanged -- every patient in it is a fixture patient,
+// so nothing real can be written over.
+$strangers = (int) $db->query(
+    "SELECT COUNT(*) FROM patients WHERE patient_no NOT IN ('" . implode("','", TestFixtures::PATIENT_NUMBERS) . "')"
+)->fetchColumn();
+
+check('the fixture patient exists', (int) $db->query('SELECT COUNT(*) FROM patients WHERE patient_no = ' . $db->quote(TestFixtures::PATIENT_NO))->fetchColumn() === 1);
+check('every patient in this database is a fixture patient', $strangers === 0, "{$strangers} unexpected");
 
 $far = date('Y-m-d', strtotime('+30 days'));
 $soon = date('Y-m-d', strtotime('+2 days'));
