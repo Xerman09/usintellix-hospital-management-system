@@ -1219,7 +1219,159 @@ check('a doctor with no name still reads sensibly', fp('doctorName', [$db, 99999
 check('the minimum offer window is at least half an hour', fpConst('MIN_WINDOW_MINUTES') >= 30);
 
 // ==========================================================================
-// 13. Nothing leaked into the rest of the portal.
+// 13. The scheduled job.
+//
+// The sweep is reached from cron through backend/cron/portal_notify.php, and the
+// one property that file has to keep is the ORDER: the sweep runs before the
+// drain, so an offer it creates has its email sent in the same pass rather than
+// waiting for the next run -- five minutes out of a four-hour deadline.
+//
+// The cron script is run for real here, not imitated. It is safe to require: it
+// bails out unless PHP_SAPI is 'cli', its Autoload require_once is already
+// satisfied, and Env::load() has already run and returns immediately -- so it
+// talks to whichever database TestDatabase::use() pointed this process at, which
+// is the whole reason that override exists.
+// ==========================================================================
+echo "\n-- The scheduled job --\n";
+
+$cronFile = __DIR__ . '/../backend/cron/portal_notify.php';
+
+check('the cron script exists where the roadmap says it does', is_file($cronFile));
+
+$cronSource = (string) file_get_contents($cronFile);
+$sweepAt = strpos($cronSource, 'PortalFastPassService::sweep(');
+$drainAt = strpos($cronSource, 'PortalNotificationService::drain(');
+
+check('cron calls the Fast Pass sweep', $sweepAt !== false);
+check('cron still drains the outbox', $drainAt !== false);
+check('and the sweep comes BEFORE the drain, so an offer is emailed in the same pass',
+    $sweepAt !== false && $drainAt !== false && $sweepAt < $drainAt,
+    "sweep at {$sweepAt}, drain at {$drainAt}");
+
+// Now run it, with a live offer waiting to be created.
+resetFastPass();
+
+// This section runs the real drain, so it has to be impossible for it to email
+// a real person. Switching the email master switch off does NOT do that: queue()
+// consults the same switch, so the email row is never created and the ordering
+// this section exists to prove becomes untestable.
+//
+// What actually makes it safe is that drain() takes the address from
+// patient_contacts, and the fixtures create no contact row -- so it marks the
+// row failed with "no usable email address" and never constructs a message.
+// That is an accident of the fixtures rather than a guarantee, so it is checked
+// here instead of assumed, and the section is skipped rather than risked if a
+// fixture patient ever acquires a real address.
+$reachable = (int) $db->query(
+    "SELECT COUNT(*) FROM patient_contacts
+      WHERE patient_id IN ({$patientA}, {$patientB})
+        AND deleted_at IS NULL AND email IS NOT NULL AND TRIM(email) <> ''"
+)->fetchColumn();
+
+check('no fixture patient has an email address drain() could use', $reachable === 0, "{$reachable} found");
+
+if ($reachable > 0) {
+    echo "  [SKIP] not running the drain: a fixture patient has a usable address.\n";
+} else {
+    $apptA = TestFixtures::appointmentFor($patientA, $dayFar, '14:00:00');
+    PortalFastPassService::join($patientA, ['appointment_id' => $apptA], $userA);
+    $slotId = fp('publishFreedSlot', [null, null, $providerId, $dayMid, '09:00:00', 'desk_manual', null, 0]);
+
+    $cronWatermark = (int) ($db->query('SELECT COALESCE(MAX(id), 0) FROM portal_audit_logs')->fetchColumn() ?: 0);
+
+    ob_start();
+    require $cronFile;
+    $cronOutput = (string) ob_get_clean();
+
+    check('the cron script runs to completion', str_contains($cronOutput, 'portal_notify:'), $cronOutput);
+    check('and reports what Fast Pass did, not just the mail',
+        str_contains($cronOutput, 'fast pass'), trim($cronOutput));
+
+    check('running cron sent the waiting offer',
+        (int) $db->query("SELECT COUNT(*) FROM portal_fastpass_offers WHERE slot_id = {$slotId} AND status = 'open'")->fetchColumn() === 1,
+        trim($cronOutput));
+
+    $offerId = (int) $db->query("SELECT id FROM portal_fastpass_offers WHERE slot_id = {$slotId}")->fetchColumn();
+
+    // The ordering property, observed rather than asserted from the source: the
+    // notification the sweep queued had already been through the drain by the
+    // time the script finished, so its status is no longer 'queued'.
+    $emailRow = $db->query(
+        "SELECT status FROM patient_notifications
+          WHERE patient_id = {$patientA} AND event_type = 'fastpass_offer' AND channel = 'email'
+          LIMIT 1"
+    )->fetch(PDO::FETCH_ASSOC);
+
+    check('the offer email was queued during the same run', $emailRow !== false);
+    check('and the drain had already seen it -- which is only true if the sweep ran first',
+        $emailRow && $emailRow['status'] !== 'queued', json_encode($emailRow));
+    check('it was not sent, because the fixture patient has no address',
+        $emailRow && $emailRow['status'] === 'failed', json_encode($emailRow));
+
+    check('the in-app copy is left alone for the patient to read',
+        (string) $db->query(
+            "SELECT status FROM patient_notifications
+              WHERE patient_id = {$patientA} AND event_type = 'fastpass_offer' AND channel = 'in_app' LIMIT 1"
+        )->fetchColumn() === 'queued');
+
+    check('a run that did something writes one audit row',
+        (int) $db->query(
+            "SELECT COUNT(*) FROM portal_audit_logs
+              WHERE id > {$cronWatermark} AND event_type = 'Fast Pass Swept'"
+        )->fetchColumn() === 1);
+    check('and says so as a scheduled sweep, not as somebody pressing a button',
+        str_contains((string) $db->query(
+            "SELECT description FROM portal_audit_logs
+              WHERE id > {$cronWatermark} AND event_type = 'Fast Pass Swept' LIMIT 1"
+        )->fetchColumn(), 'Scheduled sweep'));
+
+    // A second run has nothing to do, and must not leave a row saying so.
+    $quietWatermark = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM portal_audit_logs')->fetchColumn();
+
+    ob_start();
+    require $cronFile;
+    ob_end_clean();
+
+    check('a run with nothing to do writes NO audit row -- 288 a day would bury the one that matters',
+        (int) $db->query(
+            "SELECT COUNT(*) FROM portal_audit_logs
+              WHERE id > {$quietWatermark} AND event_type = 'Fast Pass Swept'"
+        )->fetchColumn() === 0);
+    check('and did not offer the same slot twice',
+        (int) $db->query("SELECT COUNT(*) FROM portal_fastpass_offers WHERE slot_id = {$slotId}")->fetchColumn() === 1);
+}
+
+// ---- the empty-list shortcut -------------------------------------------
+//
+// sweep() skips the offering pass when nobody is on the list, because that pass
+// asks the clinic grid about every live slot and this now runs every five minutes
+// forever. The steps before it must still run.
+resetFastPass();
+
+$done = PortalFastPassService::sweep();
+check('a sweep with nobody waiting says so', $done['waiting'] === 0, json_encode($done));
+check('and offers nothing', $done['offers_sent'] === 0);
+
+$apptA = TestFixtures::appointmentFor($patientA, $dayFar, '14:00:00');
+PortalFastPassService::join($patientA, ['appointment_id' => $apptA], $userA);
+$slotId = fp('publishFreedSlot', [null, null, $providerId, $dayMid, '09:00:00', 'desk_manual', null, 0]);
+fp('offerRound', [$db, $slotId, (string) $db->query('SELECT NOW()')->fetchColumn(), PortalFastPassService::settings()]);
+$offerId = (int) $db->query("SELECT id FROM portal_fastpass_offers WHERE slot_id = {$slotId}")->fetchColumn();
+
+// Take the only person off the list, and push the offer past its deadline.
+$db->prepare("UPDATE portal_fastpass_waitlist SET status = 'withdrawn' WHERE patient_id = ?")->execute([$patientA]);
+$db->prepare("UPDATE portal_fastpass_offers SET expires_at = DATE_SUB(NOW(), INTERVAL 5 MINUTE) WHERE id = ?")->execute([$offerId]);
+
+$done = PortalFastPassService::sweep();
+
+check('an empty list still expires an offer that was already out', $done['expired_offers'] >= 1, json_encode($done));
+check('the offer really is expired',
+    (string) $db->query("SELECT status FROM portal_fastpass_offers WHERE id = {$offerId}")->fetchColumn() === 'expired');
+check('and the shortcut is reported, so the desk can tell it apart from an idle run',
+    $done['waiting'] === 0 && $done['slots_offered'] === 0, json_encode($done));
+
+// ==========================================================================
+// 14. Nothing leaked into the rest of the portal.
 // ==========================================================================
 echo "\n-- Nothing leaked --\n";
 

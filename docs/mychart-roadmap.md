@@ -1035,9 +1035,35 @@ cancellations, then offer — in that order, so the cancellations found in step 
 in the same pass. It returns its counts, and the desk screen says them in full rather than
 "done", because every one of those numbers is something a patient was or was not told.
 
-Nothing schedules it yet. It is a method and an endpoint; whatever runs the existing portal
-cron should call it, and until something does, there is a button. Tested as repeatable: a
-second sweep over an unchanged database expires nothing and writes no rows.
+It runs from `backend/cron/portal_notify.php`, the portal's existing five-minute job,
+rather than getting a scheduled task of its own — one entry in Task Scheduler is one
+thing to forget to set up, and the desk button is still there for anyone who does not
+want to wait.
+
+**It is placed before the drain, and that order is load-bearing.** An offer the sweep
+creates queues an email that the same pass then sends; after the drain, every offer's
+email would wait for the next run — five minutes out of a four-hour deadline, every time,
+for nothing. The suite asserts the order from the file's own source *and* observes it:
+after running the cron script for real against the disposable database, the offer's email
+row has already been through the drain.
+
+Two consequences of being on a timer worth knowing. The five-minute interval is now a
+floor rather than a preference: it is the worst-case lateness of an expiry, and a slot
+cannot pass to the next patient until the previous round has been settled. And the sweep
+is audited **only when it did something** — 288 rows a day saying nothing happened would
+bury the one that matters, which is the morning six offers went out.
+
+Because of the timer, the offering pass is skipped entirely when nobody is on the list. It
+is the expensive step, asking the clinic grid about every live slot, and for most of the
+day there is nobody to offer anything to. The steps before it still run, because an offer
+already out has to expire whether or not anybody new has joined. The one cost is named in
+the code: a slot the desk filled by hand stays labelled "waiting to be offered" instead of
+"filled some other way" until its lead time passes — a labelling difference in the one case
+where the feature did nothing anyway.
+
+Tested as repeatable at both levels: a second `sweep()` over an unchanged database expires
+nothing and writes no rows, and a second cron run leaves no audit row and does not re-offer
+the slot.
 
 ### One clock
 
@@ -1060,8 +1086,11 @@ second fixture.
 
 ### Still open
 
-- **Nothing schedules the sweep.** Offers expire when it is next called rather than on the
-  minute. The endpoint is there; the cron entry is not.
+- **The cron entry has to exist on the deployment.** The sweep now runs from
+  `backend/cron/portal_notify.php`, so nothing new needs scheduling — but if that job was
+  never set up on a given server, Fast Pass offers never go out and never expire, and the
+  symptom is silence rather than an error. Worth checking before the feature is switched
+  on anywhere.
 - **A slot is matched on provider and time only.** It does not check that the freed
   appointment and the waiting one are the same kind of visit, because `visit_category_id` is
   nullable and mostly null in this database, so a check on it would reject nearly

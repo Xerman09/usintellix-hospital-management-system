@@ -740,6 +740,17 @@ class PortalFastPassService
      *   3. close slots whose own lead time has passed;
      *   4. find cancellations nobody published (the desk's own);
      *   5. only then offer, so step 4's finds can go out in this same pass.
+     *
+     * Step 5 is the expensive one -- it asks the clinic grid whether each live
+     * slot is still free, which is several queries per slot -- and this runs from
+     * cron every five minutes forever. So it is skipped entirely when nobody is
+     * on the list, which is the common case for most of the day.
+     *
+     * That skip costs one thing, named here so it is not mistaken for a bug: a
+     * slot the desk has filled by hand stays labelled "waiting to be offered"
+     * instead of "filled some other way", until its lead time passes and step 3
+     * closes it. It is a labelling difference in the one case where the feature
+     * did nothing anyway, because there was nobody to offer it to.
      */
     public static function sweep(): array
     {
@@ -754,6 +765,7 @@ class PortalFastPassService
             'found_slots' => 0,
             'offers_sent' => 0,
             'slots_offered' => 0,
+            'waiting' => 0,
             'enabled' => $settings['allow'],
             'ran_at' => $now,
         ];
@@ -766,6 +778,18 @@ class PortalFastPassService
         $done['voided_offers'] = count(self::voidStaleOffers($db, $now));
         $done['closed_slots'] = self::closeDueSlots($db, $now, $settings);
         $done['found_slots'] = self::findDeskCancellations($db, $now);
+
+        // Nobody waiting, nothing to offer. The steps above still ran, because
+        // an offer already out has to expire and a slot already published has to
+        // close whether or not anybody new has joined -- it is only the offering
+        // that is pointless, and it is the part that costs queries.
+        $done['waiting'] = (int) $db->query(
+            "SELECT COUNT(*) FROM portal_fastpass_waitlist WHERE status = 'active'"
+        )->fetchColumn();
+
+        if ($done['waiting'] === 0) {
+            return $done;
+        }
 
         // Everything still live and unoffered, soonest slot first: a slot at
         // nine tomorrow has less time left than one next week, so it gets the
