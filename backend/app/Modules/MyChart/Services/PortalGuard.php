@@ -54,6 +54,14 @@ class PortalGuard
     // patient who can be offered a slot must be able to say no to it.
     public const CAP_FASTPASS = 'mychart_fastpass';
 
+    // Phase M19. Seeing the allergies, conditions, medicines, operations,
+    // implants and vaccinations recorded about them, and saying when one of them
+    // is wrong. Reading and correcting share a capability deliberately: showing
+    // somebody their allergy list with no way to challenge it builds the worse
+    // half of the feature. Corrections are switched off with
+    // portal_allow_chart_corrections instead.
+    public const CAP_CHART = 'mychart_chart';
+
     /**
      * Two patient actions are deliberately left ungated, and should stay that way:
      *

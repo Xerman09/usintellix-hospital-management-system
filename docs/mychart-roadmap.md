@@ -10,7 +10,7 @@ before any code is written.
 
 ---
 
-## Shipped (M0–M18)
+## Shipped (M0–M19)
 
 | Phase | What it gave the patient | Where it lives |
 | --- | --- | --- |
@@ -34,6 +34,7 @@ before any code is written.
 | **M15a** | Ask a doctor in writing — e-visits, screened for red flags, answered into a real encounter (ships OFF) | `PortalEvisitService`, schema 340 |
 | **M17a** | Readings from a health app or device, deduplicated, without paging anybody about history | `PortalReadingImportService`, schema 341 |
 | **M18** | Fast Pass — a freed slot offered to somebody who already holds a later appointment | `PortalFastPassService`, schema 342 |
+| **M19** | The chart itself — allergies, conditions, medicines, operations, implants, vaccinations, gated and correctable | `PortalChartService`, schema 343 |
 
 **M9 is labelled as of M9.5.** It was built without a `Phase M9` comment or a capability
 flag; both are now in place.
@@ -1104,6 +1105,120 @@ second fixture.
 
 ---
 
+## M19 — The chart the patient could not see — **DONE** (17 November 2026)
+
+Allergies, conditions, medicines, operations, implants and vaccinations. Schema 343
+(`portal_chart_sections`, `portal_chart_corrections`, four settings), seeds 087–089,
+`PortalChartService`, eight endpoints, the Patient Health Record desk screen, and a
+rebuilt Health Records screen in the app. 112 tests.
+
+### This was a safety fix, not a presentation job
+
+It was planned as "surface the CCD summary" — take data the backend already assembles and
+put it on screen. That was wrong twice over, and both corrections are in
+`mychart-gap-analysis.md` §2 rather than quietly erased.
+
+The app had **already** been showing allergies, conditions, medicines and vaccinations, for
+some time, straight from `/health-summary`. What it was not doing was filtering them.
+
+### `verification_status` is a gate, not a label
+
+These tables carry the FHIR verification set, and the staff screen offers four values:
+Unconfirmed, Confirmed, Refuted, **Entered in Error**. Two of those mean the opposite of
+the row's own content — `Refuted` means a clinician decided the patient does *not* have
+this, `Entered in Error` means the row should never have existed.
+
+`/health-summary` returns them all, and the app drew them as facts. In the live database
+that was a Refuted condition and a Refuted medication on a patient with a working portal
+login: **two things a clinician had explicitly ruled out, shown to that patient as part of
+their record.**
+
+So: Refuted and Entered in Error are never sent, whatever the settings say. Unconfirmed is
+sent but always carries words saying it is not confirmed — five of the six allergies in
+this database are Unconfirmed, so a chart that did not distinguish them would be mostly
+assertion. NULL is treated as Unconfirmed, never as Confirmed, because an absent assertion
+is not an assertion. `portal_chart_show_unconfirmed` lets a hospital show only confirmed
+items; it is on by default, because the patient is the person most able to confirm or deny
+an unconfirmed note and that is the point of showing them.
+
+### "✓ No known allergies on record (NKDA)"
+
+That is what the old screen rendered, with a green tick, when the allergy list was empty.
+
+NKDA is a clinical assertion. The screen was making it on the hospital's behalf because a
+table had no rows in it, and a patient who reads it may repeat it to the next clinician who
+asks. Every section now carries its own `empty_text` saying that **nothing has been written
+down**, which is a different statement from "you have none", and the suite asserts that no
+empty text contains "you have no".
+
+### What else is deliberately not sent
+
+`comments` on all of these tables is free text written by staff for staff. Nobody drafted
+it for the person it describes, nobody has reviewed it with that reader in mind, and it can
+contain anything — "query X, rule out Y" lives there. It is never sent, and the suite greps
+the whole patient payload for the fixture's staff note to prove it. Clinical coding goes
+the same way: an ICD string tells a patient nothing and invites them to search it.
+
+### A list you cannot challenge is worse than no list
+
+The patient is the only person who knows whether their own allergy list is right. Showing
+it to them with no way to say "that is wrong" produces a patient who knows the record is
+wrong and can do nothing about it.
+
+`portal_chart_corrections` is that path, and it is deliberately **not an edit** — a patient
+never writes to their own clinical record. It raises a request against one named item that
+a clinician accepts or declines, with a reason the patient reads. Accepting records
+agreement; it does not touch the chart. The change is made on the staff screen for that
+list, by somebody qualified, with the normal checks. A portal endpoint that wrote to
+`patient_allergies` because a patient asked it to would be the most dangerous thing in this
+codebase, and there is no such endpoint.
+
+Details worth keeping:
+
+- **A decline must carry a reason.** Being told no with no reason is worse than not being
+  able to ask, so the service refuses it.
+- **The item label is copied onto the request, not joined.** The row may be corrected or
+  removed before anybody reads it, and "the patient says this is wrong" means nothing once
+  you cannot see what "this" was.
+- **A hidden item cannot be corrected either.** An id for a Refuted row resolves to
+  nothing, so the gate cannot be probed through the correction endpoint.
+- **`portal_chart_max_pending`** (5) stops a list of twenty items becoming twenty requests
+  in one sitting, where the real objection gets lost among them.
+- The patient is told on **both** outcomes. Telling them only when they are agreed with
+  teaches them that silence means no.
+
+### What this phase does NOT close
+
+It is not the formal amendment right under 45 CFR 164.526. There is no response clock and
+no appeal, and `Amendments` remains a staff module with no patient path. Named in the
+schema header so nobody ticks that box on the strength of this table.
+
+### Also fixed in passing
+
+These six lists now go through `PortalGuard`, so they are capability-gated and appear in
+the patient's own access log. `/health-summary` is neither — that is TODO §3.1, and this
+closes it for the six lists and leaves it open for messaging, recalls, reminders, the
+ledger, documents, prescriptions and booking.
+
+The snapshot counts on the app's Summary tab now come from the gated chart too. Counting
+the ungated summary would have tallied items the lists correctly refuse to show.
+
+### Still open
+
+- **NEEDS CLINICAL SIGN-OFF on the seeded wording** before this is switched on anywhere
+  real: six headings, six blurbs and six empty-list sentences, written by a developer. They
+  read sensibly, which is not the same as being right. Stored as data and editable from the
+  desk screen without a deployment.
+- **Nothing was verified on a device.** The bundle builds and the AST check is clean, but
+  reaching this screen needs a patient login, which this session does not have.
+- **Vitals, care plan, care team, advance directives and family history** are still not
+  shown. The first two have data; the last three have empty tables, so they are a
+  staff-workflow question before they are a portal one.
+- **Operations and implants are thin.** `patient_surgeries` and `patient_medical_devices`
+  carry a title and dates and little else, so the screen shows little else.
+
+---
+
 ## Deliberately not planned
 
 Worth naming so nobody assumes they were missed: growth charts (pediatric), advance
@@ -1119,7 +1234,7 @@ exists staff-side, and it would be an S once M11's review-queue pattern is in pl
 
 ## Suggested order
 
-**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → ~~M17a~~ → ~~M18~~ → (M11 app + M17b, one rebuild) → M15b**
+**~~M10~~ → ~~M11~~ → ~~M12~~ → ~~M13~~ → ~~M14~~ → ~~M9.5~~ → ~~M16~~ → ~~M15a~~ → ~~M17a~~ → ~~M18~~ → ~~M19~~ → (M11 app + M17b, one rebuild) → M15b**
 
 M9.5 and M16 are done. What remains of M9.5 is the clinician sign-off on seeded wording,
 which no amount of code will settle; what remains of M16 is a billing sign-off on the

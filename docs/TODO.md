@@ -47,6 +47,7 @@ has read. No amount of code closes any of them.
 | 1.2 | The four patient-facing package labels, and whether publishing both standard and discounted prices is intended | A billing lead | M16 shows figures nobody has approved |
 | 1.3 | 45 seeded diagnosis guides, 4 follow-up questionnaires, M14's item wording and intervals | A clinician | Patient-facing clinical wording, unreviewed |
 | 1.4 | The PHQ-9 severity label — see below | A clinician | A reassuring label beside a serious answer |
+| 1.5 | The six M19 section headings, blurbs and empty-list wording (seed 088) | A clinician | Patient-facing clinical wording written by a developer. Editable from the desk screen without a deployment. |
 
 ### 1.4 in full, because it is the one that matters
 
@@ -166,13 +167,17 @@ an error.** Check it before switching the portal on anywhere.
 ## 5. Feature work, in the order worth taking it
 
 1. **The patient web portal** — see §0.
-2. **Surface the CCD summary.** `GET /health-summary` already returns allergies, problems,
-   immunizations, medications, procedures, vitals, advance directives, care team, goals
-   and social history. The app renders almost none of it. No new tables, no new clinical
-   decisions, mostly presentation — the cheapest high-value work available. (Caveat: an
-   allergy or problem list shown to a patient is a clinical communication, not a data
-   dump, and an incomplete problem list looks complete to the person reading it.)
-3. **Bring the older surface behind `PortalGuard`** — closes §3.1.
+2. ~~Surface the CCD summary~~ — **done as M19 on 17 November.** It was not the
+   presentation job it looked like: those lists were already on screen, drawn straight
+   from `/health-summary`, which returns rows marked `Refuted` and `Entered in Error`.
+   Patients were being shown items a clinician had ruled out, and an empty allergy list
+   rendered as a green tick reading "No known allergies on record (NKDA)". Both fixed,
+   plus operations and implants, a correction path, and the six lists moved behind
+   `PortalGuard`. **Still needs clinical sign-off on the seeded section wording before it
+   is switched on anywhere real** — see §1.
+3. **Bring the rest of the older surface behind `PortalGuard`** — closes §3.1. M19 did
+   this for the six clinical lists; messaging, recalls, reminders, the ledger, documents,
+   prescriptions and booking are still outside it.
 4. **Patient rights with a staff module and no patient path**: record amendments
    (`Amendments`), records requests (`DrsRequests`), accounting of disclosures
    (`Disclosures`), medical certificates (`PatientLetters`).

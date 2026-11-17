@@ -30,6 +30,7 @@ use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalEvisitService;
 use App\Modules\MyChart\Services\PortalReadingImportService;
 use App\Modules\MyChart\Services\PortalFastPassService;
+use App\Modules\MyChart\Services\PortalChartService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
@@ -2447,5 +2448,133 @@ class MyChartController extends Controller
         ));
 
         $this->success($done, 'Sweep complete.');
+    }
+
+    // ---------------------------------------------------------------
+    // The chart a patient can now see (Phase M19).
+    //
+    // Nothing here writes to a clinical table. raiseChartCorrection()
+    // records that the patient disputes one named item; a clinician
+    // answers it, and makes any actual change on the staff screen for
+    // that list, where the normal checks apply.
+    // ---------------------------------------------------------------
+
+    /** GET /mychart/chart -- allergies, conditions, medicines, operations, implants, vaccinations. */
+    public function myChart(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Health Record Viewed', PortalGuard::CAP_CHART);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalChartService::mine($patientId), 'Record retrieved successfully.');
+    }
+
+    /** POST /mychart/chart/correction -- "that does not look right". */
+    public function raiseChartCorrection(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Chart Correction Raised', PortalGuard::CAP_CHART);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalChartService::requestCorrection($patientId, $request->all(), $user));
+    }
+
+    /** POST /mychart/chart/correction/withdraw -- take one back. */
+    public function withdrawChartCorrection(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Chart Correction Withdrawn', PortalGuard::CAP_CHART);
+
+        if ($patientId === null) {
+            $this->error('This is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalChartService::withdrawCorrection($patientId, $request->all(), $user));
+    }
+
+    // ---------------------------------------------------------------
+    // The clinic's side of M19.
+    // ---------------------------------------------------------------
+
+    /** GET /portal-chart-corrections -- the queue. */
+    public function portalChartCorrections(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->success(
+            PortalChartService::queue(
+                (string) $request->input('status', 'pending'),
+                trim((string) $request->input('q', ''))
+            ) + [
+                'can_decide' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalChartService::DECIDE_ROLES
+                ),
+                'can_edit' => \App\Core\RoleAccess::inList(
+                    (string) ($user['role'] ?? ''),
+                    PortalChartService::EDIT_ROLES
+                ),
+            ],
+            'Corrections retrieved successfully.'
+        );
+    }
+
+    /**
+     * GET /portal-chart-corrections/preview -- what this patient is shown.
+     *
+     * The same payload the patient gets, so a clinician answering "why can
+     * they see that?" looks at what they see rather than at the raw table.
+     */
+    public function portalChartPreview(): void
+    {
+        $request = new Request();
+
+        $patientId = (int) $request->input('patient_id');
+
+        if ($patientId <= 0) {
+            $this->error('Which patient?', 422);
+            return;
+        }
+
+        $this->success(PortalChartService::preview($patientId), 'Preview retrieved successfully.');
+    }
+
+    /** POST /portal-chart-corrections/decide -- answer one. */
+    public function decideChartCorrection(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalChartService::decide($request->all(), $user));
+    }
+
+    /** GET /portal-chart-sections -- the wording patients read. */
+    public function portalChartSections(): void
+    {
+        $this->success(PortalChartService::sections(), 'Sections retrieved successfully.');
+    }
+
+    /** POST /portal-chart-sections -- change it. */
+    public function savePortalChartSection(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond(PortalChartService::saveSection($request->all(), $user));
     }
 }

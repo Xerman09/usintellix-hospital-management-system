@@ -15,6 +15,7 @@ use App\Modules\MyChart\Services\PortalCostEstimateService;
 use App\Modules\MyChart\Services\PortalEvisitService;
 use App\Modules\MyChart\Services\PortalReadingImportService;
 use App\Modules\MyChart\Services\PortalFastPassService;
+use App\Modules\MyChart\Services\PortalChartService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
@@ -786,4 +787,61 @@ $router->post('/portal-fastpass/withdraw', [MyChartController::class, 'withdrawF
 $router->post('/portal-fastpass/sweep', [MyChartController::class, 'sweepFastPass'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalFastPassService::MANAGE_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// The chart a patient can now see (Phase M19).
+//
+// Note what is NOT here: there is no route by which a patient
+// writes to patient_allergies, patient_medical_problems or any
+// other clinical table. The only write they can make is to RAISE A
+// REQUEST about one named item, which a clinician then answers on
+// the staff screen for that list. A portal endpoint that edited a
+// clinical record because a patient asked it to would be the most
+// dangerous thing in this codebase.
+//
+// On the clinic's side, reading the queue is open to the clinical
+// roles; answering one is narrower, because the answer is a
+// clinical judgement the patient reads. Changing the wording every
+// patient sees is admin only.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/chart', [MyChartController::class, 'myChart'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/chart/correction', [MyChartController::class, 'raiseChartCorrection'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/chart/correction/withdraw', [MyChartController::class, 'withdrawChartCorrection'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/portal-chart-corrections', [MyChartController::class, 'portalChartCorrections'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalChartService::REVIEW_ROLES]
+]);
+
+$router->get('/portal-chart-corrections/preview', [MyChartController::class, 'portalChartPreview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalChartService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-chart-corrections/decide', [MyChartController::class, 'decideChartCorrection'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalChartService::DECIDE_ROLES]
+]);
+
+$router->get('/portal-chart-sections', [MyChartController::class, 'portalChartSections'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalChartService::REVIEW_ROLES]
+]);
+
+$router->post('/portal-chart-sections', [MyChartController::class, 'savePortalChartSection'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalChartService::EDIT_ROLES]
 ]);

@@ -52,41 +52,52 @@ rather than `expo-secure-store`, and a login page that is not the app's.
 
 ---
 
-## 2. The chart the backend already assembles, that the patient cannot see
+## 2. ~~The chart the backend already assembles, that the patient cannot see~~
 
-`GET /health-summary` is a CCD-style summary, it admits the patient role, and it already
-returns:
+**CORRECTED 17 November, and then built as M19.** This section was wrong in two ways when
+it was written on the 17th, both because it was checked by grepping rather than by reading.
+Left in place with the corrections beside it, because a gap list that quietly rewrites its
+own mistakes is not worth trusting.
 
-> `allergies` · `problems` · `medications` · `prescriptions` · `immunizations` ·
-> `procedures` · `results` · `vital_signs` · `advance_directives` · `care_provider` ·
-> `goals` · `health_concerns` · `treatment_plan` · `functional_status` · `mental_status` ·
-> `social_history` · `medical_equipment` · `payers` · `clinical_reminders` · `encounters` ·
-> `assessments`
+**What it said:** that `GET /health-summary` "already returns" twenty-odd sections
+including procedures, vital signs, advance directives, goals, social history and care
+team — and that "the app renders almost none of it".
 
-The app renders almost none of it. Each of the following is a **first-class MyChart
-screen** and a staff module that already holds the data:
+**What is true:**
 
-| Missing screen | Epic equivalent | Where the data already is |
-| --- | --- | --- |
-| **Allergies** | Health → Allergies | `PatientAllergies`, `allergies` in the CCD |
-| **Problem list** | Health → Health Summary | `PatientMedicalProblems`, `problems` |
-| **Immunizations** | Health → Immunizations | `PatientImmunizations`, `immunizations` |
-| **Current medications** | Medications | `PatientMedications` (already patient-scoped) |
-| **Procedures and surgeries** | Health Summary | `PatientSurgeries`, `procedures` |
-| **Clinic-measured vitals** | Health → Vitals | `EncounterVitals`, `vital_signs` |
-| **Care plan and goals** | Care Plan | `EncounterCarePlanItems`, `goals` |
-| **My care team** | Care Team | `CareTeams`, `care_provider` |
-| **Advance directives** | Health → Documents | `PatientCarePreferences`, `advance_directives` |
-| **Family and social history** | Health Summary | `PatientFamilyHistory`, `social_history` |
+1. **Fourteen of those keys are hard-coded empty arrays** in
+   `HealthRecordSummaryService::buildSummary()`. Only `allergies`, `problems`,
+   `medications`, `prescriptions`, `results`, `immunizations` and `encounters` are
+   populated, plus demographics and the care provider. `procedures`, `vital_signs`,
+   `advance_directives`, `goals`, `health_concerns`, `treatment_plan`, `social_history`,
+   `functional_status`, `mental_status`, `medical_equipment`, `payers`, `assessments`,
+   `clinical_reminders` and `reasons_for_referral` return `[]` to everybody. The data for
+   several of them does exist in its own tables — it was never wired into that summary.
 
-This is the cheapest, highest-value work on the list: no new tables, no new clinical
-decisions, mostly presentation. An immunization record a patient can show a school or an
-airline is the kind of thing patients actually open the app for.
+2. **The app was already rendering them.** `HealthRecordsModal` has had tabs for
+   Allergies, Conditions, Medications, Vaccines, Lab Results, Visits and Demographics
+   throughout. The original grep looked for `data.x` and the component uses `data?.x`, so
+   it found one match and the conclusion was drawn from that. Reading the file would have
+   taken a minute.
 
-Two caveats before building it. An allergy or problem list shown to a patient is a
-**clinical communication**, not a data dump — "Penicillin — anaphylaxis" needs wording a
-clinician has signed off. And an incomplete problem list looks to a patient like a
-complete one.
+**Which makes the real gap a different and more serious one.** Those lists were being
+rendered *ungated*: `/health-summary` returns rows whose `verification_status` is `Refuted`
+(a clinician decided the patient does NOT have this) or `Entered in Error`, and the screen
+drew them as facts. In the live database that was two rows on a patient with a working
+portal login. The same screen rendered an empty allergy list as a green tick reading
+**"✓ No known allergies on record (NKDA)"** — a clinical assertion invented from an empty
+table, which a patient could repeat to the next clinician who asked.
+
+Both are fixed in **M19**, which also adds operations and implants (genuinely absent, since
+`procedures` was one of the empty keys), a correction path, and moves these six lists behind
+`PortalGuard` so they are capability-gated and appear in the patient's own access log.
+
+Still missing after M19, and still worth having: **clinic-measured vitals**
+(`EncounterVitals` exists, the CCD key is empty), **care plan and goals**
+(`EncounterCarePlanItems`), **my care team** (`CareTeams`, currently an empty table),
+**advance directives** (`PatientCarePreferences`, empty), and **family and social history**
+(`PatientFamilyHistory`, empty). The last three have no data in them yet, so they are a
+staff-workflow question before they are a portal one.
 
 ---
 
@@ -207,8 +218,8 @@ log honest.
 ## Suggested order
 
 1. **The web portal.** Without it there is no way to use any of this today.
-2. **Surface the CCD summary** — allergies, problems, immunizations, medications,
-   procedures, care team. Cheapest work, most visible, data already assembled.
+2. ~~Surface the CCD summary~~ — **done as M19**, and it turned out to be a safety fix
+   rather than a presentation one. See §2.
 3. **Bring the older surface behind `PortalGuard`**, so the access log stops lying.
 4. **Patient rights**: amendments, records requests, disclosures, certificates.
 5. **FHIR / SMART-on-FHIR.** Largest compliance exposure; large piece of work.

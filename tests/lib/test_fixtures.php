@@ -70,6 +70,7 @@ final class TestFixtures
 
     private static ?array $world = null;
     private static ?array $secondPatient = null;
+    private static ?array $chart = null;
 
     /**
      * @return array{patient_id:int, patient_user_id:int, provider_id:int,
@@ -283,6 +284,177 @@ final class TestFixtures
     }
 
     /**
+     * A chart for the fixture patient, built so the M19 verification gate has
+     * something definite to decide (Phase M19).
+     *
+     * The point of these rows is the `verification_status` spread, not the
+     * clinical content. Every value the staff screen can produce is represented,
+     * including the two that mean the opposite of the row's own content:
+     *
+     *   Confirmed         shown plainly
+     *   Unconfirmed       shown, labelled as not confirmed
+     *   NULL              shown, treated as Unconfirmed -- never as Confirmed
+     *   Refuted           NEVER SHOWN: a clinician decided this is not true
+     *   Entered in Error  NEVER SHOWN: the row should not exist
+     *
+     * Without a Refuted and an Entered in Error row in here, the assertion that
+     * matters most in that suite would pass against a chart that has never been
+     * asked the question.
+     *
+     * Every row also carries a `comments` value, because the other thing worth
+     * proving is that staff free text never reaches the patient.
+     *
+     * @return array{allergy_ok:int, allergy_unconfirmed:int, allergy_refuted:int,
+     *               condition_error:int, condition_ended:int, medication_ok:int,
+     *               surgery_ok:int, device_null:int, immunization_ok:int,
+     *               immunization_refused:int}
+     */
+    public static function chart(): array
+    {
+        if (self::$chart !== null) {
+            return self::$chart;
+        }
+
+        $w = self::world();
+        $db = Database::connection();
+
+        // Three separate allergens, because patient_allergies carries a UNIQUE
+        // key on (patient_id, allergy_id) -- a patient can be recorded against
+        // any given allergen once. Each is looked up by name and created if
+        // absent, so the fixture does not depend on seed ordering.
+        $ids = [];
+
+        $ids['allergy_ok'] = self::allergyRow(
+            $db, $w['patient_id'], self::lookup($db, 'allergies', 'ZZTEST Allergen Confirmed'), 'Confirmed', 'Swelling', 'Severe'
+        );
+        $ids['allergy_unconfirmed'] = self::allergyRow(
+            $db, $w['patient_id'], self::lookup($db, 'allergies', 'ZZTEST Allergen Unconfirmed'), 'Unconfirmed', null, null
+        );
+        $ids['allergy_refuted'] = self::allergyRow(
+            $db, $w['patient_id'], self::lookup($db, 'allergies', 'ZZTEST Allergen Refuted'), 'Refuted', 'Rash', 'Mild'
+        );
+
+        $ids['condition_error'] = self::issueRow($db, 'patient_medical_problems', $w['patient_id'], 'ZZTEST Condition In Error', 'Entered in Error', null);
+        $ids['condition_ended'] = self::issueRow($db, 'patient_medical_problems', $w['patient_id'], 'ZZTEST Condition Resolved', 'Confirmed', date('Y-m-d', strtotime('-30 days')));
+
+        $ids['medication_ok'] = self::issueRow($db, 'patient_medications', $w['patient_id'], 'ZZTEST Medicine', 'Confirmed', null);
+        $ids['surgery_ok'] = self::issueRow($db, 'patient_surgeries', $w['patient_id'], 'ZZTEST Operation', 'Unconfirmed', null);
+        $ids['device_null'] = self::issueRow($db, 'patient_medical_devices', $w['patient_id'], 'ZZTEST Implant', null, null);
+
+        $ids['immunization_ok'] = self::immunizationRow($db, $w['patient_id'], 'ZZTEST Vaccine', 'Completed');
+        $ids['immunization_refused'] = self::immunizationRow($db, $w['patient_id'], 'ZZTEST Vaccine Refused', 'Refused');
+
+        self::$chart = $ids;
+
+        return $ids;
+    }
+
+    /** A lookup row by name, created if it is not there. */
+    private static function lookup(PDO $db, string $table, string $name): int
+    {
+        if (!preg_match('/^[a-z_]+$/', $table)) {
+            throw new RuntimeException("TestFixtures: refusing to touch table {$table}.");
+        }
+
+        $stmt = $db->prepare("SELECT id FROM `{$table}` WHERE name = ? LIMIT 1");
+        $stmt->execute([$name]);
+        $id = $stmt->fetchColumn();
+
+        if ($id !== false) {
+            return (int) $id;
+        }
+
+        $db->prepare("INSERT INTO `{$table}` (name, created_at) VALUES (?, NOW())")->execute([$name]);
+
+        return (int) $db->lastInsertId();
+    }
+
+    private static function allergyRow(PDO $db, int $patientId, int $allergyId, ?string $verification, ?string $reaction, ?string $severity): int
+    {
+        $stmt = $db->prepare(
+            "SELECT id FROM patient_allergies
+              WHERE patient_id = ? AND allergy_id = ? AND comments = ? AND deleted_at IS NULL LIMIT 1"
+        );
+        $marker = 'ZZTEST staff-only note (' . ($verification ?? 'null') . ')';
+        $stmt->execute([$patientId, $allergyId, $marker]);
+        $id = $stmt->fetchColumn();
+
+        if ($id !== false) {
+            return (int) $id;
+        }
+
+        $db->prepare(
+            "INSERT INTO patient_allergies
+                (patient_id, allergy_id, reaction, severity, begin_date, comments, verification_status, created_at)
+             VALUES (:p, :a, :r, :s, :began, :c, :v, NOW())"
+        )->execute([
+            'p' => $patientId,
+            'a' => $allergyId,
+            'r' => $reaction,
+            's' => $severity,
+            'began' => date('Y-m-d', strtotime('-200 days')),
+            'c' => $marker,
+            'v' => $verification,
+        ]);
+
+        return (int) $db->lastInsertId();
+    }
+
+    /** One row in any of the four tables that share the lists shape. */
+    private static function issueRow(PDO $db, string $table, int $patientId, string $title, ?string $verification, ?string $endDate): int
+    {
+        if (!preg_match('/^patient_[a-z_]+$/', $table)) {
+            throw new RuntimeException("TestFixtures: refusing to touch table {$table}.");
+        }
+
+        $stmt = $db->prepare("SELECT id FROM `{$table}` WHERE patient_id = ? AND title = ? AND deleted_at IS NULL LIMIT 1");
+        $stmt->execute([$patientId, $title]);
+        $id = $stmt->fetchColumn();
+
+        if ($id !== false) {
+            return (int) $id;
+        }
+
+        $db->prepare(
+            "INSERT INTO `{$table}` (patient_id, title, begin_date, end_date, comments, verification_status, created_at)
+             VALUES (:p, :t, :began, :ended, :c, :v, NOW())"
+        )->execute([
+            'p' => $patientId,
+            't' => $title,
+            'began' => date('Y-m-d', strtotime('-120 days')),
+            'ended' => $endDate,
+            'c' => 'ZZTEST staff-only note that must never reach the patient',
+            'v' => $verification,
+        ]);
+
+        return (int) $db->lastInsertId();
+    }
+
+    private static function immunizationRow(PDO $db, int $patientId, string $vaccine, string $completion): int
+    {
+        $stmt = $db->prepare('SELECT id FROM patient_immunizations WHERE patient_id = ? AND vaccine_name = ? AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute([$patientId, $vaccine]);
+        $id = $stmt->fetchColumn();
+
+        if ($id !== false) {
+            return (int) $id;
+        }
+
+        $db->prepare(
+            "INSERT INTO patient_immunizations
+                (patient_id, vaccine_name, administered_at, manufacturer, route, completion_status, notes, created_at)
+             VALUES (:p, :v, :at, 'ZZTEST Pharma', 'Intramuscular', :c, 'ZZTEST staff-only note', NOW())"
+        )->execute([
+            'p' => $patientId,
+            'v' => $vaccine,
+            'at' => date('Y-m-d H:i:s', strtotime('-400 days')),
+            'c' => $completion,
+        ]);
+
+        return (int) $db->lastInsertId();
+    }
+
+    /**
      * Empty the tables the portal writes to, leaving schema, seeds and the
      * fixture world in place.
      *
@@ -339,6 +511,9 @@ final class TestFixtures
         $db->prepare('DELETE FROM portal_fastpass_offers WHERE slot_id IN (SELECT id FROM portal_fastpass_slots WHERE provider_id = ?)')
             ->execute([$w['provider_id']]);
         $db->prepare('DELETE FROM portal_fastpass_slots WHERE provider_id = ?')->execute([$w['provider_id']]);
+
+        // M19. Corrections before the chart rows they point at.
+        $db->exec("DELETE FROM portal_chart_corrections WHERE patient_id IN ({$in})");
 
         $db->exec("DELETE FROM portal_care_gap_requests WHERE patient_id IN ({$in})");
         $db->exec("DELETE FROM portal_questionnaire_responses WHERE patient_id IN ({$in})");
