@@ -64,16 +64,17 @@ is a clinical decision rather than a code one. Flagged, deliberately not reworde
 
 ## 2. Sitting on one machine
 
-### 2.1 The dispensing work is uncommitted
+### 2.1 ~~The dispensing work is uncommitted~~ — done, 17 November
 
-Modified: `backend/app/Core/AuditLogger.php`,
-`backend/app/Modules/Dispensing/Controllers/DispensingController.php`,
-`backend/app/Modules/Dispensing/Services/DispensingService.php`.
-Untracked: `backend/app/Core/Channel.php`,
-**`backend/database/schema/332_dispensing_client_channel.sql`**.
+Committed as `1b66ba1` after review: the pharmacy audit trail (nine actions into
+`hipaa_audit_logs`) and `prescription_dispenses.created_via`, which records whether a
+dispensing came from the tablet or the desktop. Schema 332 had already been applied on
+29 October and the code had already produced rows, so this closed a gap between the
+repository and the running system rather than changing behaviour.
 
-That migration exists nowhere but that disk. It is the only thing in this list that a lost
-working tree would destroy outright.
+The code was not written in this session; the commit message says so. Its other half,
+`pharmacy_tablet_app`, was already committed and pushed — the repository had been holding
+one side of a pair.
 
 ### 2.2 The portal cron is live and will send real email
 
