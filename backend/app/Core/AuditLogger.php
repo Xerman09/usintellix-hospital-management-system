@@ -112,6 +112,20 @@ class AuditLogger
     public const ACTION_HIPAA_OFFICERS_EXPORT_CSV = 'EXPORT_HIPAA_OFFICERS_CSV';
     public const ACTION_HIPAA_OFFICER_ATTESTATION = 'GENERATE_HIPAA_OFFICER_ATTESTATION';
 
+    // Pharmacy dispensing. Handing medicine to a patient is a clinical event
+    // on that patient's record, so it belongs in the audit trail alongside
+    // chart access -- and during the tablet pilot the description says which
+    // client it came from (see Core\Channel).
+    public const ACTION_DISPENSE_MEDICINE = 'DISPENSE_MEDICINE';
+    public const ACTION_DISPENSE_VOIDED = 'VOID_DISPENSE';
+    public const ACTION_DISPENSE_CHECKED = 'SECOND_CHECK_DISPENSE';
+    public const ACTION_PRESCRIPTION_CLOSED = 'CLOSE_PRESCRIPTION';
+    public const ACTION_PHARMACY_PAYMENT = 'RECORD_PHARMACY_PAYMENT';
+    public const ACTION_LABELS_PRINTED = 'PRINT_MEDICINE_LABELS';
+    public const ACTION_CHARGE_SLIP_PRINTED = 'PRINT_PHARMACY_CHARGE_SLIP';
+    public const ACTION_REFILL_REQUESTED = 'REQUEST_PRESCRIPTION_REFILL';
+    public const ACTION_REFILL_DECLINED = 'DECLINE_PRESCRIPTION_REFILL';
+
     private const GENESIS_SALT = 'GENESIS_HIPAA_INTEGRITY_SALT_USINTELLIX_2026';
 
     /**

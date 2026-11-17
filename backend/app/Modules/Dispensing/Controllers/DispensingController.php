@@ -2,6 +2,8 @@
 
 namespace App\Modules\Dispensing\Controllers;
 
+use App\Core\AuditLogger;
+use App\Core\Channel;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
@@ -38,6 +40,13 @@ class DispensingController extends Controller
             $this->error('Prescription not found.', 404);
             return;
         }
+
+        $this->audit(
+            AuditLogger::CATEGORY_CHART,
+            AuditLogger::ACTION_CHART_VIEW,
+            "Opened prescription {$detail['prescription']['rx_number']} on the dispensing screen",
+            (int) ($detail['patient']['id'] ?? 0)
+        );
 
         $this->success($detail, 'Prescription retrieved successfully.');
     }
@@ -113,6 +122,13 @@ class DispensingController extends Controller
             return;
         }
 
+        $this->audit(
+            AuditLogger::CATEGORY_EXPORT,
+            AuditLogger::ACTION_CHARGE_SLIP_PRINTED,
+            "Produced the pharmacy charge slip for {$slip['dispense_number']} ({$slip['rx_number']})",
+            (int) ($slip['patient_id'] ?? 0)
+        );
+
         $this->success($slip, 'Charge slip retrieved successfully.');
     }
 
@@ -127,6 +143,14 @@ class DispensingController extends Controller
             return;
         }
 
+        $this->audit(
+            AuditLogger::CATEGORY_EXPORT,
+            AuditLogger::ACTION_LABELS_PRINTED,
+            "Produced medicine labels for {$labels['dispense_number']} ({$labels['rx_number']}): "
+                . count($labels['items'] ?? []) . ' medicine label(s)',
+            (int) ($labels['patient_id'] ?? 0)
+        );
+
         $this->success($labels, 'Labels retrieved successfully.');
     }
 
@@ -140,6 +164,29 @@ class DispensingController extends Controller
         $generator = new AuxiliaryLabelGeneratorService();
         $result = $generator->saveCustomLabel($request->all(), isset($user['id']) ? (int) $user['id'] : null);
         $this->respond($result);
+    }
+
+    /**
+     * Log a READ or a PRINT of a patient's prescription.
+     *
+     * Looking at a chart and printing from it are HIPAA-auditable in their own
+     * right, so they are recorded even though nothing changed. The queue itself
+     * is deliberately NOT logged: it polls every 30 seconds, which would add
+     * roughly a thousand rows per tablet per shift and bury the rows that say
+     * who opened whose record.
+     */
+    private function audit(string $category, string $action, string $description, ?int $patientId): void
+    {
+        $user = Session::get('user');
+
+        AuditLogger::log(
+            $category,
+            $action,
+            $description . ' (' . Channel::describe() . ').',
+            $patientId ?: null,
+            isset($user['id']) ? (int) $user['id'] : null,
+            $user['role'] ?? null
+        );
     }
 
     private function respond(array $result, int $successStatus = 200): void

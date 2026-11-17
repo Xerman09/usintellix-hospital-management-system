@@ -2,6 +2,8 @@
 
 namespace App\Modules\Dispensing\Services;
 
+use App\Core\AuditLogger;
+use App\Core\Channel;
 use App\Core\Database;
 use App\Modules\DrugInventory\Services\NearExpiryQuarantineService;
 use App\Modules\DrugInventory\Services\PharmacyBatchRecallService;
@@ -66,6 +68,47 @@ class DispensingService
     public const PAYMENT_METHODS = ['Cash', 'GCash / e-wallet', 'Card (terminal)', 'Bank transfer', 'Check', 'Other'];
 
     private const QUEUE_LIMIT = 300;
+
+    /**
+     * Whether prescription_dispenses.created_via exists yet.
+     *
+     * Null until checked once per process. Adding the column is DDL, and MySQL
+     * COMMITs implicitly on DDL -- which is exactly what used to break the
+     * atomicity of dispense() -- so this is only ever called BEFORE the
+     * transaction opens, never from inside it.
+     */
+    private static ?bool $channelColumn = null;
+
+    /**
+     * Make sure the dispensing table can record which client it came from.
+     *
+     * Self-healing, the same way PrescriptionVerificationService and
+     * PharmacyBatchRecallService create their tables: a deployment that has not
+     * run database/schema/332_*.sql still dispenses, it just cannot say where
+     * the dispensing came from.
+     */
+    public static function ensureChannelColumn(PDO $db): bool
+    {
+        if (self::$channelColumn !== null) {
+            return self::$channelColumn;
+        }
+
+        try {
+            $has = (bool) $db->query("SHOW COLUMNS FROM prescription_dispenses LIKE 'created_via'")->fetch(PDO::FETCH_ASSOC);
+            if (!$has) {
+                $db->exec("ALTER TABLE prescription_dispenses ADD COLUMN created_via VARCHAR(20) NULL DEFAULT NULL AFTER created_by");
+                $db->exec("CREATE INDEX idx_prescription_dispenses_created_via ON prescription_dispenses (created_via)");
+                $has = true;
+            }
+            self::$channelColumn = $has;
+        } catch (\Throwable $e) {
+            // Not fatal: dispensing matters more than knowing which screen it
+            // was done on.
+            self::$channelColumn = false;
+        }
+
+        return self::$channelColumn;
+    }
 
     /* ---------------------------------------------------------------
      * Reading
@@ -459,6 +502,8 @@ class DispensingService
         // atomic again.
         PrescriptionVerificationService::ensureTableExists($db);
         PharmacyBatchRecallService::ensureTableExists($db);
+        $hasChannel = self::ensureChannelColumn($db);
+        $channel = Channel::current();
 
         $owns = $this->begin($db);
 
@@ -662,14 +707,16 @@ class DispensingService
 
             $db->prepare(
                 "INSERT INTO prescription_dispenses (dispense_number, prescription_id, patient_id, warehouse_id, dispensed_date, notes,
-                        discount_type, discount_rate, discount_id_no, discount_reason, status, check_status, created_at, created_by)
-                 VALUES (:tmp, :rx, :patient, :wh, :date, :notes, :dtype, :drate, :did, :dreason, 'completed', :check, :now, :user)"
+                        discount_type, discount_rate, discount_id_no, discount_reason, status, check_status, created_at, created_by"
+                        . ($hasChannel ? ", created_via" : "") . ")
+                 VALUES (:tmp, :rx, :patient, :wh, :date, :notes, :dtype, :drate, :did, :dreason, 'completed', :check, :now, :user"
+                        . ($hasChannel ? ", :via" : "") . ")"
             )->execute([
                 'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'rx' => $prescriptionId, 'patient' => $rx['patient_id'], 'wh' => $warehouseId,
                 'date' => $today, 'notes' => self::text($data['notes'] ?? null, 500),
                 'dtype' => $discount['type'], 'drate' => $discount['rate'], 'did' => $discount['id_no'], 'dreason' => $discount['reason'],
                 'check' => $needsCheck ? 'awaiting' : null, 'now' => $now, 'user' => $userId
-            ]);
+            ] + ($hasChannel ? ['via' => $channel] : []));
             $dispenseId = (int) $db->lastInsertId();
             $number = 'DSP-' . date('Y') . '-' . str_pad((string) $dispenseId, 5, '0', STR_PAD_LEFT);
             $db->prepare("UPDATE prescription_dispenses SET dispense_number = :n WHERE id = :id")->execute(['n' => $number, 'id' => $dispenseId]);
@@ -740,6 +787,17 @@ class DispensingService
             $this->rollBack($db, $owns);
             throw $e;
         }
+
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_DISPENSE_MEDICINE,
+            "Dispensed {$number} against prescription {$rx['rx_number']} from {$warehouse['name']}: "
+                . count($byLine) . ' medicine line(s), ' . count($plan) . ' lot movement(s), net PHP '
+                . number_format($totals['net'], 2)
+                . ($needsCheck ? ', high-alert, awaiting second check' : ''),
+            (int) $rx['patient_id'],
+            $user
+        );
 
         // Automatically evaluate Reorder Thresholds (Reorder Point = Avg Daily Consumption * Lead Time + Safety Stock)
         // for the dispensed medicines and generate an alert / Draft Purchase Requisition if stock breached the reorder line.
@@ -854,6 +912,15 @@ class DispensingService
             throw $e;
         }
 
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_DISPENSE_VOIDED,
+            "Undid dispensing {$dispense['dispense_number']} ({$rx['rx_number']}): " . count($items)
+                . ' lot movement(s) reversed, charges cancelled. Reason: ' . mb_substr($reason, 0, 200),
+            (int) $dispense['patient_id'],
+            $user
+        );
+
         return ['success' => true, 'message' => "{$dispense['dispense_number']} undone; the stock is back and its charges are cancelled."
             . ($paid > 0.004 ? ' ₱' . number_format($paid, 2) . ' was paid for it — refund the patient and record it in the patient ledger.' : '')];
     }
@@ -907,6 +974,14 @@ class DispensingService
             throw $e;
         }
 
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_DISPENSE_CHECKED,
+            "Second-checked high-alert dispensing {$dispense['dispense_number']}, prepared by user #{$dispense['created_by']}",
+            (int) $dispense['patient_id'],
+            $user
+        );
+
         return ['success' => true, 'message' => "{$dispense['dispense_number']} checked. It can be handed over to the patient."];
     }
 
@@ -950,6 +1025,14 @@ class DispensingService
             $this->rollBack($db, $owns);
             throw $e;
         }
+
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_PRESCRIPTION_CLOSED,
+            "Closed prescription {$rx['rx_number']} to further dispensing. Reason: " . mb_substr($reason, 0, 200),
+            (int) $rx['patient_id'],
+            $user
+        );
 
         return ['success' => true, 'message' => "{$rx['rx_number']} closed."];
     }
@@ -1006,6 +1089,9 @@ class DispensingService
             'dispensed_date' => $d['dispensed_date'],
             'status' => $d['status'],
             'rx_number' => $d['rx_number'],
+            // Whose record this print belongs to. Carried so the controller can
+            // audit the print against the right patient, not shown on a label.
+            'patient_id' => (int) $d['patient_id'],
             'patient_name' => self::personName($d),
             'patient_no' => $d['patient_no'],
             'prescriber_name' => $d['prescriber_name'],
@@ -1319,6 +1405,15 @@ class DispensingService
 
         $left = round($due - $amount, 2);
 
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_PHARMACY_PAYMENT,
+            'Recorded PHP ' . number_format($amount, 2) . " paid by {$method} against dispensing "
+                . "{$dispense['dispense_number']} ({$dispense['rx_number']}); PHP " . number_format(max(0, $left), 2) . ' still owed',
+            (int) $dispense['patient_id'],
+            $user
+        );
+
         return ['success' => true, 'message' => 'Payment of ₱' . number_format($amount, 2) . ' recorded.' . ($left > 0 ? ' ₱' . number_format($left, 2) . ' is still owed.' : ' Paid in full.'),
             'data' => ['balance' => $left]];
     }
@@ -1350,7 +1445,8 @@ class DispensingService
         return [
             'dispense_number' => $labels['dispense_number'], 'dispensed_date' => $labels['dispensed_date'], 'status' => $d['status'],
             'check_status' => $d['check_status'],
-            'rx_number' => $labels['rx_number'], 'patient_name' => $labels['patient_name'], 'patient_no' => $labels['patient_no'],
+            'rx_number' => $labels['rx_number'], 'patient_id' => $labels['patient_id'],
+            'patient_name' => $labels['patient_name'], 'patient_no' => $labels['patient_no'],
             'prescriber_name' => $labels['prescriber_name'], 'facility' => $labels['facility'], 'warehouse_name' => $labels['warehouse_name'],
             'discount_label' => $d['discount_type'] ? (self::DISCOUNTS[$d['discount_type']]['label'] ?? $d['discount_type']) : null,
             'discount_rate' => (float) $d['discount_rate'], 'discount_id_no' => $d['discount_id_no'], 'discount_reason' => $d['discount_reason'],
@@ -1500,6 +1596,15 @@ class DispensingService
             throw $e;
         }
 
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_REFILL_REQUESTED,
+            "Requested a refill of prescription line #{$itemId} (request #{$id}), source: "
+                . (in_array($source, ['portal', 'staff'], true) ? $source : 'staff'),
+            (int) $line['patient_id'],
+            $userId
+        );
+
         return ['success' => true, 'message' => 'Refill requested. The pharmacy will prepare it.', 'data' => ['id' => $id]];
     }
 
@@ -1517,9 +1622,63 @@ class DispensingService
         );
         $stmt->execute(['now' => date('Y-m-d H:i:s'), 'user' => (int) $user['id'], 'reason' => mb_substr($reason, 0, 500), 'id' => $requestId]);
 
-        return $stmt->rowCount()
-            ? ['success' => true, 'message' => 'Refill request declined.']
-            : ['success' => false, 'message' => 'This refill request is no longer waiting.'];
+        if (!$stmt->rowCount()) {
+            return ['success' => false, 'message' => 'This refill request is no longer waiting.'];
+        }
+
+        self::audit(
+            AuditLogger::CATEGORY_CLINICAL,
+            AuditLogger::ACTION_REFILL_DECLINED,
+            "Declined refill request #{$requestId}. Reason: " . mb_substr($reason, 0, 200),
+            self::patientOfRefillRequest($requestId),
+            $user
+        );
+
+        return ['success' => true, 'message' => 'Refill request declined.'];
+    }
+
+    /* ---------------------------------------------------------------
+     * Audit trail
+     * ------------------------------------------------------------- */
+
+    /** Whose record a refill request belongs to, for the audit row. */
+    private static function patientOfRefillRequest(int $requestId): ?int
+    {
+        $stmt = Database::connection()->prepare("SELECT patient_id FROM prescription_refill_requests WHERE id = :id");
+        $stmt->execute(['id' => $requestId]);
+        $id = (int) $stmt->fetchColumn();
+
+        return $id ?: null;
+    }
+
+    /**
+     * Record one dispensing action in the HIPAA audit trail.
+     *
+     * Called AFTER the transaction commits, deliberately. An audit row states
+     * what happened; a failure to write one must never undo medicine that has
+     * already left the shelf. AuditLogger swallows its own errors for the same
+     * reason -- which is why the trail is READ BACK by
+     * pharmacy_tablet_app/tools/verify_dispense_integrity.php rather than
+     * assumed to be complete.
+     *
+     * The description names the record (dispensing number, Rx number), never
+     * the patient: patient_id is already a column, and repeating the name would
+     * put more PHI in the log than the log needs.
+     *
+     * @param array|int|null $user the acting user array, or their id
+     */
+    private static function audit(string $category, string $action, string $description, ?int $patientId, $user): void
+    {
+        $userId = is_array($user) ? (int) ($user['id'] ?? 0) : (int) $user;
+
+        AuditLogger::log(
+            $category,
+            $action,
+            $description . ' (' . Channel::describe() . ').',
+            $patientId ?: null,
+            $userId ?: null,
+            is_array($user) ? ($user['role'] ?? null) : null
+        );
     }
 
     /** A patient withdraws their own pending request. */
