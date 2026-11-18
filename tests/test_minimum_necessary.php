@@ -7,7 +7,22 @@ declare(strict_types=1);
  * USIntellix Hospital Management System
  */
 
-require_once __DIR__ . '/../backend/app/Core/Autoload.php';
+// Point this process at the disposable database BEFORE anything connects.
+//
+// This suite used to run against whatever database backend/.env named, which in
+// practice meant the live one -- it created users, employees and patients there
+// on every run, and they accumulated from September until they were cleared out
+// on 18 November. TestDatabase::use() is the harness M9.5 added for exactly
+// this; it refuses any target that is not clearly a test database.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "
+";
+    exit(1);
+}
 
 use App\Core\Database;
 use App\Core\Env;

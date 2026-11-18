@@ -133,16 +133,40 @@ Found while resetting the admin password on 17 November: it is why that reset wa
 issued as a temporary credential forced to change at first login, which would have been a
 safeguard that does not exist.
 
-### 3.4 Two test suites write to the LIVE database
+### 3.4 ~~Test suites write to the LIVE database~~ — done, 18 November
 
-`tests/test_confidential_communications.php` and `tests/test_drs_right_of_access.php`
-create users and patients in whatever database `backend/.env` points at. They predate the
-disposable-database harness (M9.5) and never adopted it. **42 test-looking users have
-accumulated in the live database since 21 September**, the most recent at 08:00 on
-18 November.
+Fixed, and the rows they left were cleared out.
 
-Every suite written since M9.5 calls `TestDatabase::use()` and refuses to run anywhere
-else. These two should do the same, and the rows they have left behind want clearing out.
+It was **six** suites, not the two first reported: `test_confidential_communications`,
+`test_drs_right_of_access`, `test_minimum_necessary` and `test_phi_amendments` are the
+four still in `tests/`, and two more patterns (`test_pw_user_*`, `test_patient_npp_*`)
+come from suites no longer in the tree. All four surviving ones now call
+`TestDatabase::use()` before anything connects, and all four still pass — 60, 89, 18 and
+90 assertions respectively. Rerunning them creates nothing in the live database, which was
+checked rather than assumed.
+
+What was cleared: **42 users, 43 employees, 6 patients and 2 patient_contacts**,
+accumulated between 21 September and 08:00 on 18 November. Soft-deleted, not deleted —
+every one of those tables carries `deleted_at`, every query filters on it, and a soft
+delete is reversible. A JSON backup of every row touched is in
+`backend/storage/retired-test-rows-20261118-115348.json` (password hashes stripped).
+
+Two things were deliberately left in place:
+
+- **`hipaa_audit_logs`** — 83 rows naming those users or patients. That table is a
+  tamper-evident hash chain; removing rows from the middle breaks verification for
+  everything after them, and the point of the chain is that nobody can quietly take
+  things out of it.
+- **`user_password_history`** — 44 rows, harmless, and needed if the soft delete is ever
+  reversed.
+
+`testrecep2`, `testpatient1` and `testdoc1` were **not** touched. They have no timestamp
+in the name, they were created in July, and they look like accounts somebody made on
+purpose rather than suite artefacts.
+
+Still worth knowing: those fake patients consumed real medical record numbers —
+**PAT-000029 through PAT-000065**. Soft-deleting them does not give the numbers back, and
+reissuing an MRN would be worse than losing it, so that sequence has a permanent gap.
 
 ### 3.5 SMS queues against a sender that does not exist
 
