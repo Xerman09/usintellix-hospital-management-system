@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Auth\Services\PasswordResetService;
 use App\Modules\Users\Models\User;
 
 class AuthController extends Controller
@@ -309,5 +310,102 @@ class AuthController extends Controller
         }
 
         $this->success($result['data'], $result['message']);
+    }
+
+    // ---------------------------------------------------------------
+    // Forgot Password.
+    //
+    // All three are unauthenticated, because somebody who could
+    // authenticate would not need them. The protection is inside
+    // PasswordResetService: rate limits by account and by address,
+    // attempt counting on each code, and a reply that is identical
+    // whether or not the username is real.
+    // ---------------------------------------------------------------
+
+    /**
+     * POST /auth/password-reset/request -- send a code.
+     *
+     * Always answers 200 with the same message. A 404 for an unknown username
+     * would turn this into a way of finding out which ones are real.
+     */
+    public function requestPasswordReset(): void
+    {
+        $request = new Request();
+
+        $result = PasswordResetService::request(
+            (string) $request->input('username', ''),
+            $this->callerIp()
+        );
+
+        if (empty($result['success'])) {
+            $this->json(['success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null], 422);
+            return;
+        }
+
+        $this->success($result['data'] ?? null, $result['message']);
+    }
+
+    /** POST /auth/password-reset/verify -- is this code good? Does not spend it. */
+    public function verifyPasswordResetCode(): void
+    {
+        $request = new Request();
+
+        $result = PasswordResetService::verify(
+            (string) $request->input('username', ''),
+            (string) $request->input('code', '')
+        );
+
+        if (empty($result['success'])) {
+            $this->json(['success' => false, 'message' => $result['message']], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /** POST /auth/password-reset/complete -- spend the code and set the password. */
+    public function completePasswordReset(): void
+    {
+        $request = new Request();
+
+        $result = PasswordResetService::reset(
+            (string) $request->input('username', ''),
+            (string) $request->input('code', ''),
+            (string) $request->input('password', '')
+        );
+
+        if (empty($result['success'])) {
+            $this->json(['success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * The caller's address, for rate limiting.
+     *
+     * Proxy headers are read only when the deployment says it is behind one,
+     * the same rule PortalAudit uses -- otherwise a client can put anything in
+     * them and rate limiting by address becomes rate limiting by whatever the
+     * attacker last typed.
+     */
+    private function callerIp(): ?string
+    {
+        $direct = $_SERVER['REMOTE_ADDR'] ?? null;
+
+        if (empty($_ENV['APP_TRUSTED_PROXY']) && empty($_SERVER['APP_TRUSTED_PROXY'])) {
+            return $direct;
+        }
+
+        $forwarded = (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
+
+        if ($forwarded === '') {
+            return $direct;
+        }
+
+        $first = trim(explode(',', $forwarded)[0]);
+
+        return $first !== '' ? $first : $direct;
     }
 }

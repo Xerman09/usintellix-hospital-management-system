@@ -977,6 +977,30 @@ class AuthService
      * patient's own contact details. is_patient decides whether a failed send may
      * fall back to showing the code.
      */
+    /**
+     * Where to reach one user, by id.
+     *
+     * Made public in the password-reset work (schema 344) so that flow does not
+     * carry a second description of where an address lives. It is not obvious:
+     * `users` has no email column at all, staff addresses are on `employees` and
+     * patient addresses are on `patient_contacts`, and anything that needs to
+     * email a user has to know that. One copy.
+     *
+     * @return array{email: ?string, phone: ?string, is_patient: bool}
+     */
+    public static function contactForUser(int $userId): array
+    {
+        $user = (new User())->where('id', $userId)->first();
+
+        if (!$user) {
+            return ['email' => null, 'phone' => null, 'is_patient' => false];
+        }
+
+        $employee = (new Employee())->where('user_id', $userId)->first();
+
+        return (new self())->twoFactorContact($user, $employee);
+    }
+
     private function twoFactorContact(array $user, ?array $employee): array
     {
         if ($employee) {

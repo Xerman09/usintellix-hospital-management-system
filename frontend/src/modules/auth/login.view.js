@@ -69,6 +69,77 @@ export function LoginView()
 
         </form>
 
+        <!-- Forgot Password, step 1: ask for a code. -->
+        <form id="forgotRequestForm" style="display:none;">
+
+            <p class="form-subtitle">
+                Enter the username or email you sign in with. If we recognise it, we will send a
+                six-digit code to the address on your record.
+            </p>
+
+            <div class="form-group">
+                <label class="sr-only" for="fp_username">Username or email</label>
+                <div class="input-icon-group">
+                    <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                    <input id="fp_username" class="form-input" placeholder="Username or email" autocomplete="username">
+                </div>
+                <span class="form-error" id="err-fp_username"></span>
+            </div>
+
+            <p id="fpRequestNotice" class="form-subtitle" style="display:none;" aria-live="polite"></p>
+
+            <button class="login-btn" type="submit">Send me a code</button>
+
+            <p class="login-forgot"><a id="fpBackToLogin">Back to Login</a></p>
+
+        </form>
+
+        <!-- Forgot Password, step 2: the code, and the new password. -->
+        <form id="forgotResetForm" style="display:none;">
+
+            <p id="fpResetInstructions" class="form-subtitle"></p>
+
+            <div class="form-group">
+                <label class="sr-only" for="fp_code">Reset code</label>
+                <div class="input-icon-group">
+                    <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                    <input id="fp_code" class="form-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                </div>
+                <span class="form-error" id="err-fp_code"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="sr-only" for="fp_password">New password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                    <input id="fp_password" type="password" class="form-input" placeholder="New password" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-fp_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="sr-only" for="fp_confirm">Confirm new password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                    <input id="fp_confirm" type="password" class="form-input" placeholder="Confirm new password" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-fp_confirm"></span>
+            </div>
+
+            <p id="fpResetNotice" class="form-subtitle" style="display:none;" aria-live="polite"></p>
+            <p id="fpResetTimer" class="tfa-timer" aria-live="polite"></p>
+
+            <button class="login-btn" type="submit">Set my new password</button>
+
+            <p class="tfa-resend">
+                Didn't get the code?
+                <button type="button" id="fpResendBtn" class="tfa-resend-btn" disabled>Send another</button>
+            </p>
+
+            <p class="login-forgot"><a id="fpBackToLogin2">Back to Login</a></p>
+
+        </form>
+
         <form id="twoFactorForm" style="display:none;">
 
             <p id="tfaInstructions" class="form-subtitle"></p>

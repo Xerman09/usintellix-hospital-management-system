@@ -15,3 +15,13 @@ $router->put('/auth/expired-password', [AuthController::class, 'updateExpiredPas
 $router->put('/auth/breached-password', [AuthController::class, 'updateBreachedPassword']);
 $router->post('/auth/check-password-breach', [AuthController::class, 'checkPasswordBreach']);
 $router->post('/auth/npp-acknowledge', [AuthController::class, 'acknowledgeNpp'], [AuthMiddleware::class]);
+
+// ---------------------------------------------------------------
+// Forgot Password. Unauthenticated by necessity -- the whole point
+// is that the caller cannot sign in -- so every one of these is
+// rate-limited inside PasswordResetService and none of them ever
+// says whether an account exists.
+// ---------------------------------------------------------------
+$router->post('/auth/password-reset/request', [AuthController::class, 'requestPasswordReset']);
+$router->post('/auth/password-reset/verify', [AuthController::class, 'verifyPasswordResetCode']);
+$router->post('/auth/password-reset/complete', [AuthController::class, 'completePasswordReset']);

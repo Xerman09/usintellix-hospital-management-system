@@ -108,3 +108,59 @@ export async function checkPasswordBreach(password)
         }
     );
 }
+
+/*
+ * Forgot Password.
+ *
+ * requestPasswordReset() always resolves successfully, whatever the username
+ * was -- the server answers identically for a real account, one that does not
+ * exist, a suspended one and one with no address on file, so that this endpoint
+ * cannot be used to find out which usernames are real. Do not add handling that
+ * treats a failure as "no such user": there isn't one.
+ */
+export async function requestPasswordReset(username)
+{
+    return await api(
+        "/auth/password-reset/request",
+        {
+            method:"POST",
+
+            body:JSON.stringify({
+                username
+            })
+        }
+    );
+}
+
+/** Check a code without spending it, so the user is told it is wrong before typing a password twice. */
+export async function verifyPasswordResetCode(username,code)
+{
+    return await api(
+        "/auth/password-reset/verify",
+        {
+            method:"POST",
+
+            body:JSON.stringify({
+                username,
+                code
+            })
+        }
+    );
+}
+
+/** Spend the code and set the new password. */
+export async function completePasswordReset(username,code,password)
+{
+    return await api(
+        "/auth/password-reset/complete",
+        {
+            method:"POST",
+
+            body:JSON.stringify({
+                username,
+                code,
+                password
+            })
+        }
+    );
+}

@@ -116,14 +116,42 @@ honest.
 with the path. The `.htaccess` guard added for M11's own storage directory does nothing on
 nginx, or with `AllowOverride off`.
 
-### 3.3 SMS queues against a sender that does not exist
+### 3.3 `must_change_password` is honoured by the web UI only
+
+`frontend/src/modules/auth/auth.js:545` acts on the flag. `AuthService` authenticates and
+returns a session regardless, and nothing in `backend/app/Core/` or the middleware checks
+it. So the mobile app, a direct API call, or any client that ignores the flag gets a fully
+working session and is never asked to change anything.
+
+The same hole sits under breach detection: when `AuthService` matches a password against
+the HIBP list it sets `must_change_password = 1` and logs `PASSWORD_BREACH_DETECTED` with
+"immediate credential change required (§ 164.308)" — then lets the login through. A
+known-compromised password keeps working, and the audit trail records that a change was
+required while nothing required it.
+
+Found while resetting the admin password on 17 November: it is why that reset was not
+issued as a temporary credential forced to change at first login, which would have been a
+safeguard that does not exist.
+
+### 3.4 Two test suites write to the LIVE database
+
+`tests/test_confidential_communications.php` and `tests/test_drs_right_of_access.php`
+create users and patients in whatever database `backend/.env` points at. They predate the
+disposable-database harness (M9.5) and never adopted it. **42 test-looking users have
+accumulated in the live database since 21 September**, the most recent at 08:00 on
+18 November.
+
+Every suite written since M9.5 calls `TestDatabase::use()` and refuses to run anywhere
+else. These two should do the same, and the rows they have left behind want clearing out.
+
+### 3.5 SMS queues against a sender that does not exist
 
 `PortalNotificationService::SENDABLE` is `['email']`, but `appointment_reminder` defaults
 SMS **on**, so rows accumulate with `status = 'queued'` forever. Connecting a sender later
 would deliver the backlog as though it were current. M18's two notification types
 deliberately default SMS off for this reason.
 
-### 3.4 The seed directory mixes reference data with demo data
+### 3.6 The seed directory mixes reference data with demo data
 
 Only the first kind is safe to re-run, and they are interleaved:
 

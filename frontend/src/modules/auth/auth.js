@@ -1,5 +1,5 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, updateBreachedPassword, checkPasswordBreach, logout, acknowledgeNpp } from "./auth.service.js?v=9";
+import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, updateBreachedPassword, checkPasswordBreach, logout, acknowledgeNpp, requestPasswordReset, verifyPasswordResetCode, completePasswordReset } from "./auth.service.js?v=10";
 import { saveUser, clearSession } from "../../core/session.js?v=5";
 import { markResultsInboxLogin } from "../results-inbox/results-inbox.js?v=8";
 import { markMyWorkLogin } from "../my-work/my-work.js?v=7";
@@ -17,6 +17,7 @@ export function initLogin()
 
     enablePasswordToggles();
     initBranding();
+    initForgotPassword();
 
     if (window.location.hash.includes("reason=inactivity")) {
         showAlert(`
@@ -821,6 +822,7 @@ function showLoginStep()
     if (brchForm) brchForm.style.display = "none";
     const nppForm = document.getElementById("nppConsentForm");
     if (nppForm) nppForm.style.display = "none";
+    hideForgotForms();
     document.getElementById("loginForm").style.display = "";
     document.getElementById("password").value = "";
     clearErrors();
@@ -943,4 +945,265 @@ function showAlert(message, type)
             </div>
         </div>
     `;
+}
+
+
+/* =====================================================================
+ * Forgot Password
+ *
+ * Two steps: ask for a code, then use it. They are separate forms rather
+ * than one, because the server will not say whether an account exists --
+ * so the first step cannot tell the user anything except "if we know you,
+ * it is on its way", and putting a password box on that screen would
+ * imply a confirmation the server never gave.
+ *
+ * The username is held in a module variable between the two steps rather
+ * than in a hidden input, so it cannot be edited into somebody else's
+ * between asking for a code and spending it. The server checks the pair
+ * anyway; this just stops the UI offering a confusing way to fail.
+ * ===================================================================== */
+
+let forgotUsername = "";
+let forgotResendTimer = null;
+let forgotResendLeft = 0;
+
+function hideForgotForms()
+{
+    const req = document.getElementById("forgotRequestForm");
+    if (req) req.style.display = "none";
+    const rst = document.getElementById("forgotResetForm");
+    if (rst) rst.style.display = "none";
+    stopForgotTimer();
+}
+
+function hideAllLoginSteps()
+{
+    ["loginForm", "twoFactorForm", "firstLoginForm", "expiredPasswordForm", "breachedPasswordForm", "nppConsentForm"]
+        .forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = "none";
+        });
+}
+
+function stopForgotTimer()
+{
+    if (forgotResendTimer) {
+        clearInterval(forgotResendTimer);
+        forgotResendTimer = null;
+    }
+}
+
+function startForgotTimer(seconds)
+{
+    stopForgotTimer();
+
+    forgotResendLeft = Number(seconds) || 0;
+
+    const btn = document.getElementById("fpResendBtn");
+    const label = document.getElementById("fpResetTimer");
+
+    const tick = () => {
+        if (label) {
+            label.textContent = forgotResendLeft > 0
+                ? `You can ask for another code in ${forgotResendLeft}s.`
+                : "";
+        }
+
+        if (btn) btn.disabled = forgotResendLeft > 0;
+
+        if (forgotResendLeft <= 0) {
+            stopForgotTimer();
+            return;
+        }
+
+        forgotResendLeft--;
+    };
+
+    tick();
+    forgotResendTimer = setInterval(tick, 1000);
+}
+
+function showForgotRequestStep()
+{
+    hideAllLoginSteps();
+    hideForgotForms();
+
+    const form = document.getElementById("forgotRequestForm");
+    if (!form) return;
+
+    form.style.display = "";
+
+    const notice = document.getElementById("fpRequestNotice");
+    if (notice) notice.style.display = "none";
+
+    const field = document.getElementById("fp_username");
+    if (field) {
+        // Carried over from the login box if they already typed it there.
+        field.value = (document.getElementById("username")?.value || "").trim();
+        field.focus();
+    }
+
+    clearForgotErrors();
+}
+
+function showForgotResetStep(message, resendIn)
+{
+    hideAllLoginSteps();
+    hideForgotForms();
+
+    const form = document.getElementById("forgotResetForm");
+    if (!form) return;
+
+    form.style.display = "";
+
+    const instructions = document.getElementById("fpResetInstructions");
+    if (instructions) instructions.textContent = message;
+
+    ["fp_code", "fp_password", "fp_confirm"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    const notice = document.getElementById("fpResetNotice");
+    if (notice) notice.style.display = "none";
+
+    clearForgotErrors();
+    startForgotTimer(resendIn);
+
+    document.getElementById("fp_code")?.focus();
+}
+
+function clearForgotErrors()
+{
+    ["err-fp_username", "err-fp_code", "err-fp_password", "err-fp_confirm"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = "";
+    });
+}
+
+function setForgotError(id, message)
+{
+    const el = document.getElementById(`err-${id}`);
+    if (el) el.textContent = message || "";
+}
+
+function showForgotNotice(id, message)
+{
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    el.textContent = message;
+    el.style.display = "";
+}
+
+export function initForgotPassword()
+{
+    const link = document.querySelector(".forgot-password");
+
+    if (link) {
+        link.style.cursor = "pointer";
+        link.addEventListener("click", (event) => {
+            event.preventDefault();
+            showForgotRequestStep();
+        });
+    }
+
+    document.getElementById("fpBackToLogin")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        showLoginStep();
+    });
+
+    document.getElementById("fpBackToLogin2")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        showLoginStep();
+    });
+
+    const requestForm = document.getElementById("forgotRequestForm");
+
+    requestForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearForgotErrors();
+
+        const username = (document.getElementById("fp_username")?.value || "").trim();
+
+        if (!username) {
+            setForgotError("fp_username", "Enter the username or email you sign in with.");
+            return;
+        }
+
+        const btn = requestForm.querySelector(".login-btn");
+        if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+
+        const res = await requestPasswordReset(username).catch(() => null);
+
+        if (btn) { btn.disabled = false; btn.textContent = "Send me a code"; }
+
+        if (!res?.success) {
+            // Only reached when the hospital has the feature switched off, or
+            // the field was empty. There is no "no such user" case to handle.
+            showForgotNotice("fpRequestNotice", res?.message || "That did not work. Please try again.");
+            return;
+        }
+
+        forgotUsername = username;
+        showForgotResetStep(res.message, res.data?.resend_in);
+    });
+
+    document.getElementById("fpResendBtn")?.addEventListener("click", async () => {
+        if (!forgotUsername) return;
+
+        const btn = document.getElementById("fpResendBtn");
+        if (btn) btn.disabled = true;
+
+        const res = await requestPasswordReset(forgotUsername).catch(() => null);
+
+        showForgotNotice("fpResetNotice", res?.message || "If we recognise that account, another code is on its way.");
+        startForgotTimer(res?.data?.resend_in);
+    });
+
+    const resetForm = document.getElementById("forgotResetForm");
+
+    resetForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearForgotErrors();
+
+        const code = (document.getElementById("fp_code")?.value || "").trim();
+        const password = document.getElementById("fp_password")?.value || "";
+        const confirm = document.getElementById("fp_confirm")?.value || "";
+
+        if (!/^\d{6}$/.test(code)) {
+            setForgotError("fp_code", "Enter the six-digit code from the email.");
+            return;
+        }
+
+        if (!password) {
+            setForgotError("fp_password", "Choose a new password.");
+            return;
+        }
+
+        // Checked here as well as on the server: a mistyped confirmation is the
+        // one failure worth catching before spending an attempt on the code.
+        if (password !== confirm) {
+            setForgotError("fp_confirm", "The two passwords do not match.");
+            return;
+        }
+
+        const btn = resetForm.querySelector(".login-btn");
+        if (btn) { btn.disabled = true; btn.textContent = "Setting…"; }
+
+        const res = await completePasswordReset(forgotUsername, code, password).catch(() => null);
+
+        if (btn) { btn.disabled = false; btn.textContent = "Set my new password"; }
+
+        if (!res?.success) {
+            const field = res?.errors?.password ? "fp_password" : "fp_code";
+            setForgotError(field, res?.message || "That did not work.");
+            return;
+        }
+
+        stopForgotTimer();
+        forgotUsername = "";
+        showLoginStep();
+        showAlert(res.message || "Your password has been changed. You can sign in with it now.", "success");
+    });
 }
