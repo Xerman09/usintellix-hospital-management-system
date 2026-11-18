@@ -107,17 +107,22 @@ $patientUser = TestFixtures::patientUser();
 $staffUser = TestFixtures::staffUser();
 $actorId = $staffUser['id'];
 
-// Not a count of 1 any more: Phase M18 added a second fixture patient, built on
-// demand, so whether it exists here depends on which suites have run against this
-// database. What matters is unchanged -- every patient in it is a fixture patient,
-// so nothing real can be written over.
-$strangers = (int) $db->query(
-    "SELECT COUNT(*) FROM patients WHERE patient_no NOT IN ('" . implode("','", TestFixtures::PATIENT_NUMBERS) . "')"
-)->fetchColumn();
-
+// What this can honestly claim has narrowed twice.
+//
+// It began as "there is exactly one patient", which M18 broke by adding a
+// second fixture. It then became "every patient is a fixture patient", which
+// held only while this suite's fixtures were the sole tenant of the disposable
+// database. On 18 November four more suites were pointed at it -- they used to
+// write to the LIVE database -- and they create patients of their own, named
+// for what they test rather than ZZTEST.
+//
+// So the guarantee that matters is the connection guard above: this is not the
+// live database, and nothing a test writes here can reach a real record. What
+// is left to check here is that this suite's own fixture is present and is the
+// one being written to.
 check('the fixture patient exists', (int) $db->query('SELECT COUNT(*) FROM patients WHERE patient_no = ' . $db->quote(TestFixtures::PATIENT_NO))->fetchColumn() === 1);
-check('every patient in this database is a fixture patient', $strangers === 0, "{$strangers} unexpected");
-
+check('and it is the patient this suite writes as', (int) $patientId > 0
+    && (string) $db->query('SELECT patient_no FROM patients WHERE id = ' . (int) $patientId)->fetchColumn() === TestFixtures::PATIENT_NO);
 $far = date('Y-m-d', strtotime('+30 days'));
 $soon = date('Y-m-d', strtotime('+2 days'));
 

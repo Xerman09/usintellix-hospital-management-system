@@ -5,6 +5,19 @@ declare(strict_types=1);
 /**
  * HIPAA § 164.502(b) Minimum Necessary PHI Access Control Test Suite
  * USIntellix Hospital Management System
+  * A NOTE ON THE SUBPROCESSES BELOW
+ *
+ * Several checks shell out to `php -r` because PhiAccessGuard exits the process
+ * when it refuses, so it cannot be called in-process without taking the suite
+ * with it.
+ *
+ * Those children do NOT inherit this process's database override -- it lives in
+ * $_ENV, and PHP here is not configured to pass the environment into $_ENV of a
+ * child. So each child bootstraps through tests/lib/test_database.php itself.
+ * Without that they connect to whatever backend/.env names, which is the live
+ * database: they would look for a patient that exists only in the test database,
+ * not find it, and fail for a reason that has nothing to do with what is being
+ * tested.
  */
 
 // Point this process at the disposable database BEFORE anything connects.
@@ -95,7 +108,7 @@ echo "\n";
 echo "2. Testing Enforcement Interception via Isolated Subprocess...\n";
 
 // Test 2a: Assert clinical access rejects receptionist
-$cmd2a = 'php -r "require_once \'backend/app/Core/Autoload.php\'; App\Core\PhiAccessGuard::assertClinicalAccess([\'role\' => \'receptionist\']);"';
+$cmd2a = 'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertClinicalAccess([\'role\' => \'receptionist\']);"';
 $out2a = shell_exec($cmd2a . ' 2>&1');
 $json2a = json_decode((string) $out2a, true);
 
@@ -105,7 +118,7 @@ $is2aRestricted = is_array($json2a) &&
 reportTest('Non-clinical receptionist blocked from clinical chart (403)', $is2aRestricted, $json2a['message'] ?? 'No message');
 
 // Test 2b: Assert lab access rejects receptionist
-$cmd2b = 'php -r "require_once \'backend/app/Core/Autoload.php\'; App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'receptionist\']);"';
+$cmd2b = 'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'receptionist\']);"';
 $out2b = shell_exec($cmd2b . ' 2>&1');
 $json2b = json_decode((string) $out2b, true);
 
@@ -115,7 +128,7 @@ $is2bRestricted = is_array($json2b) &&
 reportTest('Receptionist blocked from laboratory records (403)', $is2bRestricted, $json2b['message'] ?? 'No message');
 
 // Test 2c: Assert lab access allows lab_technician
-$cmd2c = 'php -r "require_once \'backend/app/Core/Autoload.php\'; App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'lab_technician\']); echo \'ALLOWED\';"';
+$cmd2c = 'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'lab_technician\']); echo \'ALLOWED\';"';
 $out2c = trim((string) shell_exec($cmd2c . ' 2>&1'));
 reportTest('Lab technician allowed access to laboratory records', $out2c === 'ALLOWED', 'Result: ' . $out2c);
 
@@ -159,7 +172,7 @@ $unassignedDoctor = [
 ];
 
 $cmd3a = sprintf(
-    'php -r "require_once \'backend/app/Core/Autoload.php\'; App\Core\Env::load(); App\Core\PhiAccessGuard::assertPatientAccess([\'id\' => 888888, \'role\' => \'doctor\'], %d);"',
+    'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertPatientAccess([\'id\' => 888888, \'role\' => \'doctor\'], %d);"',
     $testPatientId
 );
 $out3a = shell_exec($cmd3a . ' 2>&1');
