@@ -1,0 +1,58 @@
+-- ============================================================================
+-- Forgot Password: show the code on screen when mail is down
+--
+-- The sign-in page already does this. When 2FA mail fails for a staff account,
+-- AuthService hands the code back in the response and the login page prints
+-- "Development mode -- verification code: 123456 (no real message was sent)".
+-- The reasoning written down there is that handing the code to whoever typed
+-- the password degrades two factors to one, which is tolerable on an internal
+-- account and is not tolerable for a patient, so a patient gets a refusal
+-- instead.
+--
+-- WHY THIS NEEDED A SWITCH OF ITS OWN RATHER THAN COPYING THAT.
+--
+-- A 2FA caller has already proved the password. A password reset caller has
+-- proved nothing at all except that they can type a username. Printing the code
+-- on that screen is therefore not a degraded second factor -- it is the whole
+-- of the authentication, and anybody who knows a staff username could take the
+-- account. PasswordResetService's header says there is no fallback for exactly
+-- this reason, and that reasoning has not stopped being true.
+--
+-- So the fallback exists, because a hospital with a dead mail server and a
+-- locked-out administrator has a worse problem than this one, but it is fenced
+-- three ways and all three must hold:
+--
+--   1. THE REQUEST COMES FROM THE MACHINE THE SYSTEM RUNS ON. 127.0.0.1 or ::1,
+--      and no proxy header anywhere on the request -- behind a reverse proxy
+--      every caller appears to be loopback, which would turn this guard into
+--      no guard at all. Somebody sitting at that machine can already read
+--      `users` with a mysql client, so showing them a code gives away nothing
+--      they did not have.
+--
+--   2. THE ACCOUNT IS STAFF, NOT A PATIENT. Same line the sign-in page draws,
+--      for the same reason.
+--
+--   3. THE EMAIL ACTUALLY FAILED, or there was no address to try. This is a
+--      fallback, not a mode. The moment MAIL_PASSWORD is right, the code goes
+--      to the inbox and the screen stops showing it with no setting touched.
+--
+-- WHY IT DEFAULTS ON.
+--
+-- Because the sign-in page's version has no switch at all, and because an
+-- install whose mail is not configured yet -- which is this one, and every
+-- fresh one -- otherwise has no way back into an account. The guards above do
+-- the real work; this column is the off switch for a deployment that wants it
+-- gone, and it should be set to 0 the day the system faces the internet
+-- through a proxy. That is written in docs/TODO.md as well, because a comment
+-- in a migration nobody re-reads is not a reminder.
+--
+-- Rows in password_reset_codes written this way carry method = 'on_screen'
+-- rather than 'email', so "was this emailed or read off a screen" stays an
+-- answerable question afterwards. was_sent stays 0: no email was sent, and
+-- that column means what it says.
+-- ============================================================================
+
+SET NAMES utf8mb4;
+
+ALTER TABLE `general_settings`
+    ADD COLUMN IF NOT EXISTS `allow_password_reset_dev_code` TINYINT(1) NOT NULL DEFAULT 1;

@@ -133,9 +133,36 @@ Found while resetting the admin password on 17 November: it is why that reset wa
 issued as a temporary credential forced to change at first login, which would have been a
 safeguard that does not exist.
 
-### 3.4 ~~Test suites write to the LIVE database~~ — done, 18 November
+### 3.4 Test suites write to the LIVE database — partly fixed, 18 November
 
-Fixed, and the rows they left were cleared out.
+**Correction, 19 November.** The entry below was wrong about the scope, and the error was
+mine. Four suites were fixed because four suites had left rows matching the username
+patterns I searched for. That is not the same question as "which suites connect to the
+live database", and nobody asked the second one until a mail problem sent me back through
+`tests/`.
+
+The honest count: of 31 suites in `tests/`, **12 call `TestDatabase::use()` and 18 do
+not**. The 18 run against whatever `backend/.env` points at, which is the live database:
+
+    test_accounting_of_disclosures      test_npp_consent
+    test_backup_and_disaster_recovery   test_portal_appointments
+    test_business_associates            test_portal_health_maintenance
+    test_diagnosis_guides               test_portal_insurance
+    test_eye_exam                       test_portal_questionnaires
+    test_field_encryption               test_portal_uploads
+    test_gad7                           test_safe_harbor_deidentification
+    test_hipaa_officer_designation      test_security_incidents
+    test_hipaa_retention_and_export     test_visit_summary
+    test_hitech_restriction             test_workforce_training_and_sanctions
+
+Some of those only read. Several plainly do not. Each one needs the same two lines the
+other four got, and each needs running afterwards to see what it was relying on — the four
+already fixed each broke in some small way once moved, so expect that again rather than a
+clean sweep.
+
+Until that is done, `tests/run_all_hipaa_tests.php` is a script that writes to production.
+
+The rest of this entry, about the rows that were cleared, stands.
 
 It was **six** suites, not the two first reported: `test_confidential_communications`,
 `test_drs_right_of_access`, `test_minimum_necessary` and `test_phi_amendments` are the
@@ -191,6 +218,80 @@ Only the first kind is safe to re-run, and they are interleaved:
 
 Worth a pass of its own asking, file by file, which is reference data and which is demo
 data.
+
+### 3.7 No email can leave the system — the mail server rejects the credentials
+
+Found 19 November, from "I didn't receive any email about the forgot password".
+
+`MAIL_USERNAME` / `MAIL_PASSWORD` in `backend/.env` are refused by the mail host:
+
+    220 box4244.bluehost.com ESMTP Exim 4.100.1
+    250-AUTH PLAIN LOGIN
+    AUTH LOGIN  -> 535 Incorrect authentication data
+    AUTH PLAIN  -> 535 Incorrect authentication data
+
+The transport is fine — TLS on 465 connects in about 1.5s and the server advertises both
+mechanisms. It is the password. The value in `.env` loads cleanly (16 printable
+characters, no stray quoting, nothing the env loader mangles), so it is simply not the
+mailbox's current password, or `iask@usintellix.com` no longer exists on that host.
+
+Nothing has ever been delivered by this system. Not password reset codes, not the M6
+patient notifications (`patient_notifications` has always been empty), not the clinical
+instruction emails. Every one of those paths calls the same `Mailer`.
+
+**This is the one blocking item that cannot be fixed from the repository.** Someone with
+the hosting account has to either supply the mailbox's current password or reset it in
+cPanel, after which it goes in `backend/.env` as `MAIL_PASSWORD` and the SMTP check above
+should answer `235`.
+
+Do not test it by repeatedly guessing: that host runs brute-force protection and three
+failures were already spent confirming the above.
+
+**Partly worked around, 19 November.** The sign-in page already shows the 2FA code on
+screen when mail fails, for staff, and the same now exists for Forgot Password: schema
+345, `general_settings.allow_password_reset_dev_code`, default on. It is fenced three
+ways — loopback only and no proxy header anywhere on the request, staff accounts only,
+and only after a send that actually failed — because unlike the 2FA version there is no
+password behind it, so the code on screen *is* the authentication. Every use writes a
+`PASSWORD_RESET_CODE_SHOWN_ON_SCREEN` row.
+
+**Set that column to 0 the day this system is served through a reverse proxy**, and do
+not rely on the loopback check alone to remember it for you: behind nginx, `REMOTE_ADDR`
+is the proxy. The header check is what stands between that and a hole, and a header check
+is a weaker thing to depend on than a switch somebody has deliberately turned off.
+
+This is a workaround and not the fix. Mail still does not work, and nothing reaches a
+patient — patients are excluded from the fallback by design, so the portal's own reset is
+still dead until the mailbox is sorted out.
+### 3.8 The live audit chain cannot be verified, and has not been since day one
+
+`AuditLogger::verifyIntegrity()` against the live database:
+
+    {"valid":false,"total_verified":10,"corrupted_id":11}
+
+Rows 1–10 verify. Row **#11** — a `LOGIN_FAILED` for `test_lockout_user`, written
+2026-09-21 17:26:45, one second after the `ACCOUNT_LOCKED` row above it — does not match
+the hash it should carry, so verification stops there and the remaining 1,822 rows are
+never reached. The same check against the disposable test database passes on all 499 rows,
+so the algorithm and the genesis salt are right; it is this table.
+
+The likeliest cause is the lockout path writing two rows close enough together that the
+second one chained off a hash the first had already superseded, i.e. a concurrency bug in
+`AuditLogger::log()` rather than anybody tampering. Two other facts point the same way and
+are worth recording: ids run 1 to 1892 but only 1,833 rows remain, so **59 rows have been
+removed** from somewhere in the middle at some point, and the chain cannot survive that
+either.
+
+What this costs: the nine HIPAA suites that assert chain integrity each report one failure
+and have been doing so all along (965 passed, 9 failed on 19 November — all nine are this
+same assertion, against live, per 3.4). More to the point, § 164.312(c)(1) is the reason
+the chain exists, and right now it cannot be used to show that the log has not been
+altered.
+
+Do **not** "fix" it by recomputing the hashes. A chain that is rebuilt whenever it fails
+proves nothing, and the rebuild would destroy the only evidence of what actually happened.
+The fix is to find why #11 is wrong, write that down, and decide deliberately whether to
+re-anchor the chain from a dated, signed starting point.
 
 ---
 
@@ -249,6 +350,14 @@ an error.** Check it before switching the portal on anywhere.
 
 ## 6. Smaller, recorded so they are not rediscovered
 
+- **Two admin accounts carry an address built from their username.** `employees.email` for
+  user #1 was `ermancerujano10@gmail.com@intellix.hospital` — the username with a domain
+  stapled on, two @ signs, deliverable nowhere. Corrected 19 November to the real address.
+  **Employee #74 (user #252, `admin@usintellix.com`) still has the same shape** and was
+  left alone, because `admin@usintellix.com` is a guess at what it should be rather than
+  something anybody confirmed. 75 further rows with that domain are soft-deleted test
+  leftovers. No code in the tree generates these, so it came from a bootstrap script that
+  is no longer here; nothing needs fixing beyond the data.
 - **Nobody has watched Fast Pass run against real cancellations.** The board counts how
   many freed slots were filled; that number is the only honest verdict on the feature and
   it has no values in it yet.

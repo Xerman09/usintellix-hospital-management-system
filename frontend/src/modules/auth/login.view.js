@@ -99,6 +99,13 @@ export function LoginView()
 
             <p id="fpResetInstructions" class="form-subtitle"></p>
 
+            <!--
+                Only ever filled when the mail server could not be reached AND
+                the request came from the machine the system runs on. Mirrors
+                #tfaDevNotice on the verification step above.
+            -->
+            <div id="fpDevNotice" style="display:none;"></div>
+
             <div class="form-group">
                 <label class="sr-only" for="fp_code">Reset code</label>
                 <div class="input-icon-group">

@@ -153,6 +153,7 @@ $world = TestFixtures::world();
 const U_NORMAL = 'zz_reset_normal';
 const U_NOEMAIL = 'zz_reset_noemail';
 const U_SUSPENDED = 'zz_reset_suspended';
+const U_BADEMAIL = 'zz_reset_bademail';
 const START_PASSWORD = 'ZzReset#Start-1';
 
 function makeUser(string $username, string $status, ?string $email): int
@@ -213,7 +214,12 @@ $normalId = makeUser(U_NORMAL, 'active', 'zz.reset.normal@example.invalid');
 $noEmailId = makeUser(U_NOEMAIL, 'active', null);
 $suspendedId = makeUser(U_SUSPENDED, 'suspended', 'zz.reset.suspended@example.invalid');
 
-check('three test accounts exist', $normalId > 0 && $noEmailId > 0 && $suspendedId > 0);
+// A real shape of broken data, not an invented one: accounts in this system
+// have carried a username with a domain stapled on the end, which is two @
+// signs and deliverable nowhere.
+$badEmailId = makeUser(U_BADEMAIL, 'active', 'zz.reset.bad@example.invalid@intellix.hospital');
+
+check('four test accounts exist', $normalId > 0 && $noEmailId > 0 && $suspendedId > 0 && $badEmailId > 0);
 
 // ==========================================================================
 // 1. THE ANSWER MUST NOT REVEAL WHETHER THE ACCOUNT EXISTS.
@@ -251,6 +257,45 @@ check('the unknown-username row has no account attached',
     $db->query("SELECT user_id FROM password_reset_codes WHERE requested_username = 'zz_reset_nobody_at_all' LIMIT 1")->fetchColumn() === null);
 check('a suspended account is never sent a code',
     (int) $db->query("SELECT was_sent FROM password_reset_codes WHERE user_id = {$suspendedId} ORDER BY id DESC LIMIT 1")->fetchColumn() === 0);
+
+// ==========================================================================
+// 1b. An address that cannot be delivered to is the same as no address.
+//
+// This is here because of a real failure: a reset was requested, the account
+// matched, a code was generated and handed to the mailer, and the audit line
+// read "the email could not be sent" -- which reads as a mail server problem
+// when the actual fault was the address on the staff record. Worse, a code
+// hash would have been stored for a code nobody could ever receive.
+// ==========================================================================
+echo "\n-- An unusable address --\n";
+
+$sentBefore = count(ResetUnderTest::$sent);
+$bad = ResetUnderTest::request(U_BADEMAIL, '203.0.113.9');
+
+check('an account with a malformed address gets the SAME reply', $bad['message'] === $real['message'], $bad['message']);
+check('the mailer is never handed a malformed address', count(ResetUnderTest::$sent) === $sentBefore,
+    (count(ResetUnderTest::$sent) - $sentBefore) . ' unexpected sends');
+
+$badRow = $db->query("SELECT was_sent, code_hash, expires_at FROM password_reset_codes WHERE user_id = {$badEmailId} ORDER BY id DESC LIMIT 1")
+    ->fetch(PDO::FETCH_ASSOC);
+
+check('a row is still written, so the attempt is visible and counts against the limits', $badRow !== false);
+check('it is marked as not sent', (int) ($badRow['was_sent'] ?? 1) === 0);
+// array_key_exists, not ??: `null ?? 'x'` is 'x', so a `?? 'x'` comparison can
+// never assert that a column IS null -- it would pass on a missing key and fail
+// on the very thing it means to check.
+check('and it stores no code hash, because a hash for an undeliverable code is a live credential nobody can use',
+    is_array($badRow) && array_key_exists('code_hash', $badRow) && $badRow['code_hash'] === null);
+check('and no expiry either',
+    is_array($badRow) && array_key_exists('expires_at', $badRow) && $badRow['expires_at'] === null);
+
+check('the audit line names the address as the fault, not the mail server',
+    (bool) $db->query(
+        "SELECT COUNT(*) FROM hipaa_audit_logs
+          WHERE action = 'PASSWORD_RESET_REQUESTED'
+            AND description LIKE '%" . U_BADEMAIL . "%'
+            AND description LIKE '%not a valid address%'"
+    )->fetchColumn());
 
 // ==========================================================================
 // 2. What is stored.
@@ -422,13 +467,152 @@ ResetUnderTest::$failNextSend = true;
 $res = ResetUnderTest::request(U_NORMAL, '203.0.113.14');
 
 check('a failed send still answers with the uniform reply', $res['message'] === PasswordResetService::UNIFORM_REPLY);
-check('THE CODE IS NOT HANDED BACK IN THE RESPONSE -- unlike the 2FA fallback',
+check('THE CODE IS NOT HANDED BACK TO A CALLER OVER THE NETWORK -- unlike the 2FA fallback',
     stripos(json_encode($res), 'code') === false || !preg_match('/\d{6}/', json_encode($res['data'] ?? [])),
     json_encode($res));
 check('nothing usable was stored, so nobody can complete a reset off a failed send',
     $db->query("SELECT code_hash FROM password_reset_codes WHERE user_id = {$normalId} ORDER BY id DESC LIMIT 1")->fetchColumn() === null);
 check('and the row records that the send failed',
     (int) $db->query("SELECT was_sent FROM password_reset_codes WHERE user_id = {$normalId} ORDER BY id DESC LIMIT 1")->fetchColumn() === 0);
+
+// ==========================================================================
+// 6b. The one exception: a caller AT THE SERVER, when mail is down.
+//
+// Schema 345 is the argument. The assertions that matter here are the ones
+// that say NO: every condition is tested by removing it and watching the code
+// stay hidden, because a fence is only worth what its narrowest side is worth.
+// ==========================================================================
+echo "\n-- The on-screen fallback, and its three fences --\n";
+
+$devSettingWas = $db->query('SELECT allow_password_reset_dev_code FROM general_settings ORDER BY id LIMIT 1')->fetchColumn();
+$db->exec('UPDATE general_settings SET allow_password_reset_dev_code = 1 ORDER BY id LIMIT 1');
+
+clearResetRows();
+ResetUnderTest::reset_();
+ResetUnderTest::$failNextSend = true;
+
+$dev = ResetUnderTest::request(U_NORMAL, '127.0.0.1');
+$devCode = $dev['data']['dev_code'] ?? null;
+
+check('mail down + staff + at the server: the code comes back on screen',
+    !empty($dev['data']['dev_mode']) && is_string($devCode) && preg_match('/^\d{6}$/', $devCode) === 1,
+    json_encode($dev['data'] ?? []));
+check('and the reply says so rather than claiming an email is on its way',
+    ($dev['message'] ?? '') !== PasswordResetService::UNIFORM_REPLY);
+
+$devRow = $db->query("SELECT code_hash, method, was_sent, expires_at FROM password_reset_codes WHERE user_id = {$normalId} ORDER BY id DESC LIMIT 1")
+    ->fetch(PDO::FETCH_ASSOC);
+
+check('the code is stored hashed, exactly as an emailed one would be',
+    is_array($devRow) && $devRow['code_hash'] === hash('sha256', (string) $devCode));
+check('it is marked method = on_screen, so this is answerable later',
+    ($devRow['method'] ?? '') === 'on_screen');
+check('was_sent stays 0, because no email went out',
+    (int) ($devRow['was_sent'] ?? 1) === 0);
+check('and it carries an expiry like any other code',
+    is_array($devRow) && $devRow['expires_at'] !== null);
+
+check('the code shown actually works',
+    !empty(ResetUnderTest::verify(U_NORMAL, (string) $devCode)['success']));
+
+check('every use is audited under its own action, not buried in a description',
+    (int) $db->query(
+        "SELECT COUNT(*) FROM hipaa_audit_logs
+          WHERE action = 'PASSWORD_RESET_CODE_SHOWN_ON_SCREEN' AND user_id = {$normalId}"
+    )->fetchColumn() >= 1);
+
+// Fence 1: not from anywhere else. 127.0.0.2 is still loopback to the kernel
+// and is deliberately not accepted -- the test is the literal address.
+foreach (['203.0.113.14', '192.168.1.50', '127.0.0.2', null] as $where) {
+    clearResetRows();
+    ResetUnderTest::reset_();
+    ResetUnderTest::$failNextSend = true;
+
+    $off = ResetUnderTest::request(U_NORMAL, $where);
+
+    check('no code on screen for a caller at ' . ($where ?? 'an unknown address'),
+        empty($off['data']['dev_code']) && empty($off['data']['dev_mode']),
+        json_encode($off['data'] ?? []));
+}
+
+// Fence 1 again, the part that matters in production: behind a proxy every
+// caller looks like loopback, so a forwarding header disqualifies the request
+// however local the socket appears.
+foreach (['HTTP_X_FORWARDED_FOR' => '203.0.113.99', 'HTTP_X_REAL_IP' => '203.0.113.99',
+          'HTTP_FORWARDED' => 'for=203.0.113.99', 'HTTP_CLIENT_IP' => '203.0.113.99'] as $header => $value) {
+    clearResetRows();
+    ResetUnderTest::reset_();
+    ResetUnderTest::$failNextSend = true;
+
+    $_SERVER[$header] = $value;
+    $proxied = ResetUnderTest::request(U_NORMAL, '127.0.0.1');
+    unset($_SERVER[$header]);
+
+    check("no code on screen when the request carries {$header}",
+        empty($proxied['data']['dev_code']) && empty($proxied['data']['dev_mode']),
+        json_encode($proxied['data'] ?? []));
+}
+
+// Fence 2: staff only. The shared fixture patient has a patients row, which is
+// what makes contactForUser() report is_patient.
+$patientUserId = (int) $db->query(
+    'SELECT u.id FROM users u JOIN patients p ON p.user_id = u.id
+      WHERE u.deleted_at IS NULL AND p.deleted_at IS NULL ORDER BY u.id LIMIT 1'
+)->fetchColumn();
+
+if ($patientUserId > 0) {
+    $patientName = (string) $db->query("SELECT username FROM users WHERE id = {$patientUserId}")->fetchColumn();
+
+    $db->prepare("UPDATE users SET status = 'active' WHERE id = ?")->execute([$patientUserId]);
+    $db->prepare('DELETE FROM password_reset_codes WHERE user_id = ?')->execute([$patientUserId]);
+
+    ResetUnderTest::reset_();
+    ResetUnderTest::$failNextSend = true;
+
+    $patientTry = ResetUnderTest::request($patientName, '127.0.0.1');
+
+    check('a PATIENT account gets no code on screen, even from the server itself',
+        empty($patientTry['data']['dev_code']) && empty($patientTry['data']['dev_mode']),
+        json_encode($patientTry['data'] ?? []));
+    check('and nothing usable was stored for it either',
+        $db->query("SELECT code_hash FROM password_reset_codes WHERE user_id = {$patientUserId} ORDER BY id DESC LIMIT 1")->fetchColumn() === null);
+
+    $db->prepare('DELETE FROM password_reset_codes WHERE user_id = ?')->execute([$patientUserId]);
+} else {
+    check('a patient account exists to test the staff-only fence with', false, 'no patient user in the fixture database');
+}
+
+// Fence 3: the send actually failed. A working mail server must never show it.
+clearResetRows();
+ResetUnderTest::reset_();
+
+$worked = ResetUnderTest::request(U_NORMAL, '127.0.0.1');
+
+check('a SUCCESSFUL send never shows the code, even at the server',
+    empty($worked['data']['dev_code']) && empty($worked['data']['dev_mode']),
+    json_encode($worked['data'] ?? []));
+check('and that one answers with the uniform reply again',
+    $worked['message'] === PasswordResetService::UNIFORM_REPLY);
+check('the emailed row is method = email',
+    $db->query("SELECT method FROM password_reset_codes WHERE user_id = {$normalId} ORDER BY id DESC LIMIT 1")->fetchColumn() === 'email');
+
+// And the off switch.
+$db->exec('UPDATE general_settings SET allow_password_reset_dev_code = 0 ORDER BY id LIMIT 1');
+
+clearResetRows();
+ResetUnderTest::reset_();
+ResetUnderTest::$failNextSend = true;
+
+$switchedOff = ResetUnderTest::request(U_NORMAL, '127.0.0.1');
+
+check('with allow_password_reset_dev_code = 0 there is no fallback at all',
+    empty($switchedOff['data']['dev_code']) && empty($switchedOff['data']['dev_mode']),
+    json_encode($switchedOff['data'] ?? []));
+check('and the uniform reply comes back, as it did before any of this existed',
+    $switchedOff['message'] === PasswordResetService::UNIFORM_REPLY);
+
+$db->prepare('UPDATE general_settings SET allow_password_reset_dev_code = ? ORDER BY id LIMIT 1')
+    ->execute([(int) $devSettingWas]);
 
 // ==========================================================================
 // 7. Rate limits.

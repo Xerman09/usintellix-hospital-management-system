@@ -30,14 +30,22 @@ use PDO;
  * is written even when nothing is sent, and why there is no "no such user" error
  * anywhere in this file.
  *
- * TWO: A FAILED SEND IS A FAILED RESET.
+ * TWO: A FAILED SEND IS A FAILED RESET, UNLESS YOU ARE SITTING AT THE SERVER.
  *
  * AuthService hands the 2FA code back in the response when mail fails, for staff
  * only, with its reasoning written down: the caller has already proved the
  * password, so it degrades two factors to one. That reasoning does not carry
  * here. A reset caller has proved nothing except that they can type a username,
- * so returning the code would hand the account to anyone who knows one. There is
- * no fallback. If the mail does not go, the reset does not happen.
+ * so returning the code over the network would hand the account to anyone who
+ * knows one.
+ *
+ * There is one exception, added deliberately and fenced tightly: a request from
+ * the machine the system runs on, for a staff account, whose email failed, gets
+ * the code back in `dev_code` -- because somebody at that machine can already
+ * read the users table directly, and because an install with no working mail
+ * server otherwise has no way back into a locked account. devCodeAllowed()
+ * holds the three conditions and schema 345 holds the argument. Everything
+ * about that path is audited as a security event, by name.
  *
  * THREE: THE NEW PASSWORD GOES THROUGH THE SAME DOOR AS EVERY OTHER ONE.
  *
@@ -84,6 +92,17 @@ class PasswordResetService
      */
     public const UNIFORM_REPLY = 'If that account exists and we have an email address for it, a code is on its way. '
         . 'It expires in 15 minutes. Check your spam folder before asking again.';
+
+    /**
+     * Why the last send() failed, for the audit line only.
+     *
+     * It never reaches the caller. The uniform reply above is the whole of what
+     * a requester is told, and "the mail server rejected that address" would
+     * answer the question the uniform reply exists to refuse. It goes in the
+     * audit trail because somebody who is not receiving codes needs a staff
+     * member to be able to see why without reading a socket by hand.
+     */
+    protected static ?string $lastSendError = null;
 
     // ==================================================================
     // Step 1: ask for a code
@@ -135,12 +154,32 @@ class PasswordResetService
         $code = null;
         $sent = false;
         $contactEmail = null;
+        $addressUsable = false;
+        $devCode = null;
+        $devAllowed = false;
+        self::$lastSendError = null;
 
         if ($userId !== null && $blocked === null) {
             $contact = AuthService::contactForUser($userId);
             $contactEmail = $contact['email'] ?? null;
 
-            if (!empty($contactEmail)) {
+            // Checked, not just non-empty. Accounts in this database have
+            // carried addresses like "someone@gmail.com@intellix.hospital" --
+            // a username with a domain stapled on by some long-gone bootstrap
+            // script. Handing that to the mailer produces a rejected RCPT TO
+            // and an audit line reading "the email could not be sent", which
+            // points at the mail server and hides the real fault. An address
+            // that cannot be delivered to is the same thing as no address.
+            $addressUsable = is_string($contactEmail)
+                && filter_var($contactEmail, FILTER_VALIDATE_EMAIL) !== false;
+
+            // Decided before anything is generated, so the one case where a
+            // code is issued with no address at all -- staff, at the server,
+            // with nothing on file to email -- is reachable. Without that this
+            // fallback would not help the install it exists for.
+            $devAllowed = self::devCodeAllowed($ip, $contact);
+
+            if ($addressUsable || $devAllowed) {
                 $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
                 // Any code still open for this account stops working the moment
@@ -150,24 +189,40 @@ class PasswordResetService
                       WHERE user_id = :u AND consumed_at IS NULL AND expires_at > :now"
                 )->execute(['now' => $now, 'u' => $userId]);
 
-                $sent = static::send($contactEmail, $code, $user);
+                if ($addressUsable) {
+                    $sent = static::send($contactEmail, $code, $user);
+                }
+
+                // Only ever as a fallback. A working send never shows the code,
+                // so fixing MAIL_PASSWORD switches this off by itself.
+                if (!$sent && $devAllowed) {
+                    $devCode = $code;
+                }
             }
         }
+
+        // Either route counts as issued: the code exists, somebody has it, and
+        // it has to be hashed, dated and rate-limited the same way.
+        $delivered = $sent || $devCode !== null;
 
         $db->prepare(
             "INSERT INTO password_reset_codes
                 (user_id, requested_username, code_hash, method, expires_at, was_sent, requested_ip, created_at)
-             VALUES (:u, :name, :hash, 'email', :expires, :sent, :ip, :now)"
+             VALUES (:u, :name, :hash, :method, :expires, :sent, :ip, :now)"
         )->execute([
             'u' => $userId,
             'name' => mb_substr($username, 0, 190),
-            // Only written when a code was actually both made and sent. A hash
-            // for a code nobody received would be a live credential for an email
-            // that does not exist.
-            'hash' => ($code !== null && $sent) ? hash('sha256', $code) : null,
-            'expires' => ($code !== null && $sent)
+            // Only written when a code was actually made AND reached somebody.
+            // A hash for a code nobody received would be a live credential for
+            // an email that does not exist.
+            'hash' => ($code !== null && $delivered) ? hash('sha256', $code) : null,
+            'expires' => ($code !== null && $delivered)
                 ? date('Y-m-d H:i:s', strtotime($now) + (self::CODE_TTL_MINUTES * 60))
                 : null,
+            // 'on_screen' so that "was this emailed, or read off a screen at
+            // the server" stays answerable later. was_sent means what it says:
+            // no email went out, so it stays 0.
+            'method' => $devCode !== null ? 'on_screen' : 'email',
             'sent' => $sent ? 1 : 0,
             'ip' => $ip,
             'now' => $now,
@@ -186,22 +241,65 @@ class PasswordResetService
                         ? "Account #{$userId} matched but nothing was sent: {$blocked}."
                         : ($sent
                             ? "A code was sent to the address on file for account #{$userId}."
-                            : (empty($contactEmail)
-                                ? "Account #{$userId} matched but has no email address on file; nothing was sent."
-                                : "Account #{$userId} matched but the email could not be sent."))),
+                            : ($devCode !== null
+                                ? "No email could be sent for account #{$userId}, so the code was shown on screen to a caller at the server itself ({$ip}). See schema 345."
+                                : (!$addressUsable
+                                ? (empty($contactEmail)
+                                    ? "Account #{$userId} matched but has no email address on file; nothing was sent."
+                                    : "Account #{$userId} matched but the email address on file is not a valid address; nothing was sent. Correct the address on the staff or patient record.")
+                                    : "Account #{$userId} matched but the email could not be sent."
+                                        . (self::$lastSendError !== null ? ' Mail server said: ' . self::$lastSendError : ''))))),
             ),
             null,
             $userId,
             $user['role_name'] ?? null
         );
 
+        // A row of its own, under its own action, because this is the one path
+        // in the file where a credential leaves the building without an inbox
+        // in between. Somebody auditing this system should be able to find
+        // every use of it with one WHERE clause rather than by reading
+        // descriptions.
+        if ($devCode !== null) {
+            AuditLogger::log(
+                AuditLogger::CATEGORY_SECURITY,
+                'PASSWORD_RESET_CODE_SHOWN_ON_SCREEN',
+                sprintf(
+                    'A password reset code for account #%d was displayed to the caller instead of emailed, '
+                        . 'because mail delivery failed and the request came from the server itself (%s). '
+                        . 'This is the fallback described in schema 345 and is only available to staff accounts '
+                        . 'from loopback. Turn off general_settings.allow_password_reset_dev_code to remove it.',
+                    $userId,
+                    $ip ?? 'unknown address'
+                ),
+                null,
+                $userId,
+                $user['role_name'] ?? null
+            );
+        }
+
+        $data = [
+            'expires_in' => self::CODE_TTL_MINUTES * 60,
+            'resend_in' => self::RESEND_COOLDOWN_SECONDS,
+        ];
+
+        // Same two keys the sign-in page already understands, so both clients
+        // can show this the way they already show the 2FA fallback.
+        if ($devCode !== null) {
+            $data['dev_mode'] = true;
+            $data['dev_code'] = $devCode;
+        }
+
         return [
             'success' => true,
-            'message' => self::UNIFORM_REPLY,
-            'data' => [
-                'expires_in' => self::CODE_TTL_MINUTES * 60,
-                'resend_in' => self::RESEND_COOLDOWN_SECONDS,
-            ],
+            'message' => $devCode !== null
+                // The uniform reply would be a lie here -- nothing is on its
+                // way. Saying so is safe for the same reason the code itself
+                // is: this answer only ever reaches the server's own console.
+                ? 'Mail could not be sent, so your code is shown below. It expires in '
+                    . self::CODE_TTL_MINUTES . ' minutes.'
+                : self::UNIFORM_REPLY,
+            'data' => $data,
         ];
     }
 
@@ -439,7 +537,9 @@ class PasswordResetService
         $name = trim((string) ($user['username'] ?? ''));
 
         try {
-            return (new Mailer())->send(
+            $mailer = new Mailer();
+
+            $ok = $mailer->send(
                 $email,
                 'Your Intellix Hospital System password reset code',
                 "Someone asked to reset the password for your account"
@@ -450,9 +550,17 @@ class PasswordResetService
                     . "changed and this code is useless to anybody who does not have this email. If you\n"
                     . "keep getting these, tell the service desk."
             );
+
+            if (!$ok) {
+                self::$lastSendError = $mailer->lastError() ?: 'no reason given';
+            }
+
+            return $ok;
         } catch (\Throwable $e) {
             // Mail being misconfigured must not turn into a 500 that tells the
             // caller their username was real.
+            self::$lastSendError = $e->getMessage();
+
             return false;
         }
     }
@@ -477,6 +585,57 @@ class PasswordResetService
             );
         } catch (\Throwable $e) {
             // The change is done and audited; this is a courtesy.
+        }
+    }
+
+    /**
+     * The three conditions under which a failed send may show the code instead.
+     *
+     * All three, every time. Schema 345 argues each one; the short version is
+     * that this is the whole of the authentication rather than a second factor,
+     * so the only caller who may have it is one who could have read the
+     * database directly anyway.
+     *
+     * The proxy-header check is not belt-and-braces. Behind nginx or any other
+     * reverse proxy, REMOTE_ADDR is the proxy, which is usually loopback, and
+     * every caller on earth would satisfy condition one. A request carrying any
+     * forwarding header did not originate at this machine, whatever the socket
+     * says.
+     */
+    private static function devCodeAllowed(?string $ip, array $contact): bool
+    {
+        if (!self::devCodeEnabled()) {
+            return false;
+        }
+
+        // Staff only, the same line the sign-in page draws.
+        if (!empty($contact['is_patient'])) {
+            return false;
+        }
+
+        if (!in_array($ip, ['127.0.0.1', '::1'], true)) {
+            return false;
+        }
+
+        foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_FORWARDED', 'HTTP_CLIENT_IP'] as $header) {
+            if (!empty($_SERVER[$header])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function devCodeEnabled(): bool
+    {
+        try {
+            $settings = (new GeneralSettingService())->get();
+
+            return (int) ($settings['allow_password_reset_dev_code'] ?? 1) === 1;
+        } catch (\Throwable $e) {
+            // A reset is not the place to discover that general_settings is
+            // unreadable, and the other two conditions still have to hold.
+            return true;
         }
     }
 
@@ -519,9 +678,13 @@ class PasswordResetService
 
     private static function secondsSinceLastCode(PDO $db, int $userId, string $now): ?int
     {
+        // code_hash IS NOT NULL, not was_sent = 1: the question is whether a
+        // code was issued, and one shown on screen was issued without an email
+        // going out. Keying this on was_sent would let the on-screen path be
+        // asked for again and again with no gap at all.
         $stmt = $db->prepare(
             'SELECT created_at FROM password_reset_codes
-              WHERE user_id = :u AND was_sent = 1 ORDER BY id DESC LIMIT 1'
+              WHERE user_id = :u AND code_hash IS NOT NULL ORDER BY id DESC LIMIT 1'
         );
         $stmt->execute(['u' => $userId]);
         $last = $stmt->fetchColumn();

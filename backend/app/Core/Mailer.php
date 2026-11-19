@@ -13,6 +13,26 @@ class Mailer
     private $socket;
 
     /**
+     * Why the last send() returned false.
+     *
+     * send() deliberately swallows its failures so a misconfigured mail server
+     * cannot take down the request that triggered it, and until this existed the
+     * reason went only to error_log -- which on this deployment means it was
+     * effectively lost. A caller that cares (the password reset flow, which has
+     * nothing useful to tell the user if the code never leaves the building) can
+     * now read the reason and put it somewhere a person will see it.
+     *
+     * Never show it to an end user: SMTP rejections quote the address and the
+     * server's own diagnostics.
+     */
+    private string $lastError = '';
+
+    public function lastError(): string
+    {
+        return $this->lastError;
+    }
+
+    /**
      * Send an email. Plain-text only by default; pass $htmlBody to send a
      * multipart/alternative message (a styled HTML version alongside the
      * plain-text fallback) so it renders as a proper formatted email in
@@ -22,11 +42,12 @@ class Mailer
      */
     public function send(string $to, string $subject, string $body, ?string $htmlBody = null): bool
     {
+        $this->lastError = '';
+
         $config = require __DIR__ . '/../../config/mail.php';
 
         if (empty($config['host']) || empty($config['username']) || empty($config['password'])) {
-            error_log('Mailer: MAIL_* settings are not configured; skipping send.');
-            return false;
+            return $this->fail('MAIL_* settings are not configured; nothing was sent.');
         }
 
         $host = $config['host'];
@@ -46,8 +67,7 @@ class Mailer
         );
 
         if (!$this->socket) {
-            error_log("Mailer: could not connect to {$host}:{$port} ({$errno} {$errstr})");
-            return false;
+            return $this->fail("could not connect to {$host}:{$port} ({$errno} {$errstr})");
         }
 
         stream_set_timeout($this->socket, 15);
@@ -121,11 +141,19 @@ class Mailer
 
             return true;
         } catch (\RuntimeException $e) {
-            error_log('Mailer: ' . $e->getMessage());
-            return false;
+            return $this->fail($e->getMessage());
         } finally {
             fclose($this->socket);
         }
+    }
+
+    /** Record why we are giving up, log it as before, and hand back the false that send() returns. */
+    private function fail(string $reason): bool
+    {
+        $this->lastError = $reason;
+        error_log('Mailer: ' . $reason);
+
+        return false;
     }
 
     private function command(string $line): void

@@ -1036,6 +1036,10 @@ function showForgotRequestStep()
     const notice = document.getElementById("fpRequestNotice");
     if (notice) notice.style.display = "none";
 
+    // Clear any code left on the step-2 panel, so coming back here and asking
+    // again never shows digits belonging to a previous request.
+    renderForgotDevCode(null);
+
     const field = document.getElementById("fp_username");
     if (field) {
         // Carried over from the login box if they already typed it there.
@@ -1046,7 +1050,30 @@ function showForgotRequestStep()
     clearForgotErrors();
 }
 
-function showForgotResetStep(message, resendIn)
+/**
+ * Show the code on screen when the server could not email it.
+ *
+ * The server only ever sends dev_code back for a staff account, from loopback,
+ * after a send that actually failed -- see schema 345. This side of it is
+ * deliberately the same shape and wording as #tfaDevNotice on the verification
+ * step, so the two read as one mechanism rather than two.
+ */
+function renderForgotDevCode(data)
+{
+    const notice = document.getElementById("fpDevNotice");
+    if (!notice) return;
+
+    if (data?.dev_mode && data?.dev_code) {
+        notice.innerHTML = `<div class="form-alert">Development mode &mdash; reset code: <strong>${String(data.dev_code).replace(/[^0-9]/g, "")}</strong> (mail could not be sent, so no message went out).</div>`;
+        notice.style.display = "";
+        return;
+    }
+
+    notice.style.display = "none";
+    notice.innerHTML = "";
+}
+
+function showForgotResetStep(message, resendIn, data)
 {
     hideAllLoginSteps();
     hideForgotForms();
@@ -1058,6 +1085,8 @@ function showForgotResetStep(message, resendIn)
 
     const instructions = document.getElementById("fpResetInstructions");
     if (instructions) instructions.textContent = message;
+
+    renderForgotDevCode(data);
 
     ["fp_code", "fp_password", "fp_confirm"].forEach((id) => {
         const el = document.getElementById(id);
@@ -1146,7 +1175,7 @@ export function initForgotPassword()
         }
 
         forgotUsername = username;
-        showForgotResetStep(res.message, res.data?.resend_in);
+        showForgotResetStep(res.message, res.data?.resend_in, res.data);
     });
 
     document.getElementById("fpResendBtn")?.addEventListener("click", async () => {
@@ -1158,6 +1187,10 @@ export function initForgotPassword()
         const res = await requestPasswordReset(forgotUsername).catch(() => null);
 
         showForgotNotice("fpResetNotice", res?.message || "If we recognise that account, another code is on its way.");
+
+        // A resend issues a new code, so the one on screen is now the stale
+        // one. Re-render rather than leaving the old digits sitting there.
+        renderForgotDevCode(res?.data);
         startForgotTimer(res?.data?.resend_in);
     });
 
@@ -1172,7 +1205,7 @@ export function initForgotPassword()
         const confirm = document.getElementById("fp_confirm")?.value || "";
 
         if (!/^\d{6}$/.test(code)) {
-            setForgotError("fp_code", "Enter the six-digit code from the email.");
+            setForgotError("fp_code", "Enter the six-digit code.");
             return;
         }
 

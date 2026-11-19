@@ -1,3 +1,7 @@
 backend/.env
 backend/storage/.schema_sync_*.hash
 backend/storage/_test_uploads/
+
+# Row backups taken before a destructive cleanup. They contain real patient and
+# staff rows and must never reach a remote.
+backend/storage/retired-test-rows-*.json
