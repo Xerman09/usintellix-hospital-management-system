@@ -1,4 +1,4 @@
-import { initNavOverflow } from "../../core/nav-overflow.js?v=6";
+import { initNavOverflow } from "../../core/nav-overflow.js?v=8";
 import { getUser, clearSession, syncSessionUser } from "../../core/session.js?v=5";
 import { renderAvatar } from "../../core/avatar.js";
 import { initBranding } from "../../core/branding.js";

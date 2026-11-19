@@ -1,899 +1,915 @@
 import { getUser } from "../../core/session.js?v=5";
 
-function staffNavLinks(role)
+function buildSplitMenu(menuId, filterPlaceholder, sections)
 {
-    const appointmentsLink = ["admin", "receptionist"].includes(role)
-        ? `<a data-tab="appointments">Calendar</a>`
-        : "";
+    const visibleSections = sections.filter((s) => s && s.links && s.links.trim().length > 0);
+    if (!visibleSections.length) return "";
+
+    const tabsHtml = visibleSections.map((s, idx) => {
+        const count = (s.links.match(/<a\b/g) || []).length;
+        return `
+            <button type="button" class="nav-split-tab${idx === 0 ? " is-active" : ""}" data-split-target="${menuId}-${s.id}">
+                <span class="nav-split-tab-label">${s.label}</span>
+                <span class="nav-split-tab-count">${count}</span>
+            </button>`;
+    }).join("");
+
+    const panesHtml = visibleSections.map((s, idx) => {
+        const count = (s.links.match(/<a\b/g) || []).length;
+        const gridClass = count > 6 ? "nav-split-grid two-col" : "nav-split-grid";
+        return `
+            <div class="nav-split-pane${idx === 0 ? " is-active" : ""}" data-split-pane="${menuId}-${s.id}" data-section-name="${s.label}">
+                <div class="nav-split-pane-header">${s.label}</div>
+                <div class="${gridClass}">
+                    ${s.links}
+                </div>
+            </div>`;
+    }).join("");
 
     return `
-        ${appointmentsLink}
-        ${role === "lab_technician" ? `<a data-tab="lab_worklist">Lab Worklist</a><a data-tab="lab_report">Lab Report</a>` : ""}
-        ${role === "radiologic_technologist" ? `<a data-tab="rad_worklist">Radiology Worklist</a>` : ""}
-        ${role === "radiologic_technologist" ? `<a data-tab="rad_report">Radiology Report</a>` : ""}
-        <a data-tab="patient_finder">Finder</a>
-        <a data-tab="patient_flow">Flow</a>
-        ${role === "admin" ? `<a data-tab="portal_checkins">Online Check-ins</a>` : ""}
-        ${role === "admin" ? `<a data-tab="portal_proxy_requests">Record Access</a>` : ""}
-        <a data-tab="recalls">Recalls</a>
-        <a data-tab="messaging">Messaging</a>
-        <div class="nav-dropdown">
-            <span>Patient</span>
-            <div class="dropdown-content">
-                <a data-tab="patients">New/Search</a>
-                <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+        <div class="dropdown-content nav-split-menu" data-split-menu="${menuId}">
+            <div class="nav-split-sidebar" role="tablist">
+                ${tabsHtml}
+            </div>
+            <div class="nav-split-body">
+                <div class="nav-split-search-bar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                    <input type="text" class="nav-split-filter" placeholder="${filterPlaceholder}" autocomplete="off">
+                </div>
+                <div class="nav-split-panes">
+                    ${panesHtml}
+                    <div class="nav-split-search-results" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function staffNavLinks(role)
+{
+    const clinicalMenu = buildSplitMenu("clinical", "Filter clinical pages...", [
+        {
+            id: "access",
+            label: "Patient Access & Flow",
+            links: `
+                <a data-tab="patient_finder">Patient Finder</a>
+                <a data-tab="patients">New / Search Patients</a>
+                <a data-tab="patient_flow">Patient Flow Board</a>
+                ${role === "admin" ? `<a data-tab="portal_checkins">Online Check-ins</a>` : ""}
+                ${role === "admin" ? `<a data-tab="portal_proxy_requests">Record Access Requests</a>` : ""}
+            `
+        },
+        {
+            id: "inpatient",
+            label: "Inpatient & ER",
+            links: `
+                <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
                 <a data-tab="er">Emergency Room (ER)</a>
                 ${["admin", "receptionist", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="er_report">ER Report</a>` : ""}
-                <a data-tab="census">Daily Census</a>
-                ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
-                <a data-tab="room_management">Room &amp; Bed Management</a>
-                <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
-                <a data-tab="department_org">Department Org Mapping</a>
-                <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
-                <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
-                <a data-tab="duty_rosters">Doctor On-Call &amp; Duty Rosters</a>
-                <a data-tab="attendance">Staff Attendance Time Clock</a>
-                <a data-tab="leave_management">Leave Management &amp; Coverage</a>
-                <a data-tab="salary_structures">Staff Salary Structures</a>
-                <a data-tab="payroll">Hospital Payroll &amp; Payslips</a>
-                <a data-tab="cme">CME / CPD Credit Ledger</a>
-                <a data-tab="life_support">Life Support Clinical Certifications</a>
-                <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
-                <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
-                <a data-tab="goods_receipt">Goods Receipt Notes (GRN)</a>
-                <a data-tab="cssd">CSSD Instrument Sets &amp; Trays</a>
-                <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
-                <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
-                <div class="dropdown-submenu patient-dependent-nav">
-                    <span class="dropdown-submenu-trigger">
-                        Visits
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="patient_create_visit">Create Visit</a>
-                        <a data-tab="patient_current_visit">Current</a>
-                        <a data-tab="patient_visits_history">Visit History</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu patient-dependent-nav">
-                    <span class="dropdown-submenu-trigger">
-                        Records
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="patient_records_history">Patient History</a>
-                        <a data-tab="patient_records_request">Patient Records Request</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Fees</span>
-            <div class="dropdown-content">
-                <a data-tab="inpatient_billing">Inpatient Master Folio &amp; Cashier</a>
-                <a data-tab="split_cashiering">Split-Tender Cashiering</a>
-                <a data-tab="patient_deposits">Advance Deposits &amp; Drawdowns</a>
-                <a data-tab="refund_authorization">Refund Authorization Pipeline</a>
-                <a data-tab="ar_aging">AR Aging &amp; Collections Engine</a>
-                <a data-tab="tariff_master">Master Tariff Book &amp; Packages</a>
-                <a data-tab="fee_sheet" class="patient-dependent-nav">Fee Sheet</a>
-                <a data-tab="payment">Payment</a>
-                <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>
-                <a data-tab="billing_manager">Billing Manager</a>
-                <a data-tab="claim_denials">Claim Denial &amp; Appeals</a>
-                <a data-tab="portal_payments">Online Payments</a>
-                <a data-tab="batch_payments">Batch Payments</a>
-                <a data-tab="posting_payments">Posting Payments</a>
-                <a data-tab="edi_history">EDI History</a>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Modules</span>
-            <div class="dropdown-content">
-                <a data-tab="manage_modules">Manage Modules</a>
-                <a data-tab="carecoordination">Carecoordination</a>
-                <a data-tab="or_management">Operating Room (OR) Management</a>
-                <a data-tab="surgery_requests">Surgery Requests</a>
-                <a data-tab="or_schedule">OR Schedule</a>
-                <a data-tab="or_board">OR Live Board</a>
-                <a data-tab="or_reports">OR Reports</a>
-                <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
-                <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
-                <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
                 <a data-tab="icu">ICU Flowsheet</a>
                 ${["admin", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="icu_report">ICU Report</a>` : ""}
-                ${["admin", "clinician"].includes(role) ? `<a data-tab="lab_worklist">Lab Worklist</a>` : ""}
-                ${["admin", "doctor", "clinician", "nurse", "lab_technician"].includes(role) ? `<a data-tab="blood_bank">Blood Bank & Donors</a>` : ""}
+                <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+                <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
+                <a data-tab="room_management">Rooms &amp; Bed Availability</a>
+                <a data-tab="census">Daily Census</a>
+                ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
+                <a data-tab="visitor_management">Visitor Passes &amp; Registry</a>
+            `
+        },
+        {
+            id: "surgery",
+            label: "Surgery & Acute Care",
+            links: `
+                <a data-tab="or_board">OR Live Board</a>
+                <a data-tab="or_schedule">OR Surgical Schedule</a>
+                <a data-tab="or_management">Operating Room (OR) Management</a>
+                <a data-tab="surgery_requests">Surgery Requests</a>
+                <a data-tab="or_reports">OR Operative Reports</a>
+                <a data-tab="code_blue">Code Blue Resuscitation</a>
+                ${["admin", "clinician"].includes(role) ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
+                <a data-tab="carecoordination">Care Coordination</a>
+            `
+        },
+        {
+            id: "chart",
+            label: "Active Patient Chart",
+            links: `
+                <a data-tab="patient_dashboard" class="patient-dependent-nav">Patient Dashboard</a>
+                <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
+                <a data-tab="patient_create_visit" class="patient-dependent-nav">Create Encounter</a>
+                <a data-tab="patient_current_visit" class="patient-dependent-nav">Current Encounter</a>
+                <a data-tab="patient_visits_history" class="patient-dependent-nav">Visit History</a>
+                <a data-tab="patient_records_history" class="patient-dependent-nav">Medical History</a>
+                <a data-tab="patient_records_request" class="patient-dependent-nav">Records Request</a>
+            `
+        }
+    ]);
+
+    const diagnosticsMenu = buildSplitMenu("diagnostics", "Filter lab & imaging...", [
+        {
+            id: "lab",
+            label: "Laboratory",
+            links: `
+                <a data-tab="lab_worklist">Lab Worklist</a>
+                <a data-tab="lab_report">Lab Test Reports</a>
+                <a data-tab="procedure_lab_overview" class="patient-dependent-nav">Lab Overview</a>
+                <a data-tab="procedure_batch_results">Batch Results Entry</a>
+                <a data-tab="procedure_electronic_reports">Electronic Lab Reports</a>
+                <a data-tab="procedure_lab_documents">Diagnostic Documents</a>
+                ${role === "admin" ? `<a data-tab="lab_critical_ranges">Critical Alert Ranges</a>` : ""}
+                <a data-tab="procedure_load_compendium">Load Lab Compendium</a>
+                <a data-tab="procedure_pending_review" class="patient-dependent-nav">Pending Reviews</a>
+                <a data-tab="procedure_patient_results" class="patient-dependent-nav">Patient Results</a>
+            `
+        },
+        {
+            id: "radiology",
+            label: "Radiology & Services",
+            links: `
+                <a data-tab="rad_worklist">Radiology Worklist</a>
+                <a data-tab="rad_report">Radiology Diagnostic Reports</a>
+                <a data-tab="misc_dicom_viewer">DICOM Imaging Viewer</a>
+                ${["admin", "doctor", "clinician", "nurse", "lab_technician"].includes(role) ? `<a data-tab="blood_bank">Blood Bank &amp; Donors</a>` : ""}
                 ${["admin", "doctor", "clinician", "nurse", "dietitian"].includes(role) ? `<a data-tab="dietary">Dietary &amp; Nutrition Services</a>` : ""}
-                ${role === "admin" ? `<a data-tab="lab_report">Lab Report</a>` : ""}
-                ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_worklist">Radiology Worklist</a>` : ""}
-                ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_report">Radiology Report</a>` : ""}
-                <a data-tab="med_verification">Medicine Order Verification</a>
-                <a data-tab="mar">Medicine Rounds (MAR)</a>
-                <a data-tab="dd_register">DD Register</a>
-                <a data-tab="ward_cabinet">Ward Cabinets</a>
+                <a data-tab="providers">Diagnostic Providers</a>
+                <a data-tab="procedure_configuration">Procedure Configuration</a>
+            `
+        }
+    ]);
+
+    const pharmacyMenu = buildSplitMenu("pharmacy", "Filter pharmacy & stock...", [
+        {
+            id: "ops",
+            label: "Dispensing & MAR",
+            links: `
+                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_dashboard">Pharmacy Dashboard</a>` : ""}
+                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_dispensing">Prescription Dispensing</a>` : ""}
+                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_reports">Pharmacy Reports</a>` : ""}
+                <a data-tab="med_verification">Medication Order Verification</a>
+                <a data-tab="mar">Medication Rounds (MAR)</a>
+                <a data-tab="dd_register">DD Controlled Drug Register</a>
+                <a data-tab="ward_cabinet">Ward Dispensing Cabinets</a>
                 <a data-tab="restock_queue">Cabinet Restock Requests</a>
                 <a data-tab="ward_stock_report">Ward Stock Report</a>
-                <a data-tab="code_blue">Code Blue</a>
-                ${["admin", "clinician"].includes(role) ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
-                <a data-tab="room_management">Room &amp; Bed Management</a>
-                <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Pharmacy</span>
-            <div class="dropdown-content">
-                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_dashboard">Pharmacy Dashboard</a>` : ""}
-                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_dispensing">Dispensing</a>` : ""}
-                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_reports">Pharmacy Reports</a>` : ""}
-                <div class="dropdown-section-label">Medicines</div>
+            `
+        },
+        {
+            id: "catalog",
+            label: "Catalog & Inventory",
+            links: `
                 <a data-tab="inventory_management">Drug Catalog &amp; Stock</a>
                 <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
-                ${role === "admin" ? `<a data-tab="medication_management">Medication Management</a>` : ""}
-                <div class="dropdown-section-label">Stock</div>
-                <a data-tab="pharmacy_suppliers">Suppliers</a>
-                <a data-tab="pharmacy_supplier_prices">Supplier Prices</a>
-                <a data-tab="pharmacy_requisitions">Purchase Requests</a>
-                <a data-tab="pharmacy_purchase_orders">Purchase Orders</a>
-                <a data-tab="pharmacy_receiving">Receiving</a>
+                ${role === "admin" ? `<a data-tab="medication_management">Clinical Formulary</a>` : ""}
                 <a data-tab="goods_receipt">Goods Receipt Notes (GRN)</a>
                 <a data-tab="cssd">CSSD Instrument Sets &amp; Trays</a>
+                <a data-tab="inventory_warehouses">Storage Locations</a>
+                <a data-tab="inventory_destroyed">Destroyed &amp; Expired Drugs</a>
+            `
+        },
+        {
+            id: "procurement",
+            label: "Procurement & Vendors",
+            links: `
+                <a data-tab="pharmacy_requisitions">Purchase Requests</a>
+                <a data-tab="pharmacy_purchase_orders">Purchase Orders (PO)</a>
+                <a data-tab="pharmacy_receiving">Inward Receiving</a>
+                <a data-tab="pharmacy_suppliers">Suppliers &amp; Vendors</a>
+                <a data-tab="pharmacy_supplier_prices">Supplier Contract Prices</a>
                 <a data-tab="pharmacy_supplier_invoices">Supplier Invoices</a>
                 <a data-tab="pharmacy_supplier_returns">Supplier Returns</a>
                 ${["admin", "accountant"].includes(role) ? `<a data-tab="pharmacy_payables">Accounts Payable</a>` : ""}
-                <a data-tab="inventory_destroyed">Destroyed Drugs</a>
-                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_stock_transfers">Stock Transfers</a>` : ""}
-                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_medicine_ledger">Medicine Ledger</a>` : ""}
-                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_lot_trace">Lot Tracing</a>` : ""}
-                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_stock_levels">Stock Levels</a>` : ""}
-                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_stock_counts">Stock Count</a>` : ""}
-                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_procurement_reports">Procurement Reports</a>` : ""}
-                <a data-tab="inventory_warehouses">Storage Locations</a>
-                ${role === "admin" ? `
-                <div class="dropdown-section-label">Setup</div>
+            `
+        },
+        ["admin", "receptionist", "doctor", "accountant"].includes(role) ? {
+            id: "audits",
+            label: "Stock Control & Audits",
+            links: `
+                <a data-tab="pharmacy_stock_transfers">Stock Transfers</a>
+                <a data-tab="pharmacy_medicine_ledger">Medicine Transaction Ledger</a>
+                <a data-tab="pharmacy_lot_trace">Lot &amp; Batch Tracing</a>
+                <a data-tab="pharmacy_stock_levels">Stock Levels &amp; Par</a>
+                <a data-tab="pharmacy_stock_counts">Physical Stock Count</a>
+                <a data-tab="pharmacy_procurement_reports">Procurement Reports</a>
+            `
+        } : null,
+        role === "admin" ? {
+            id: "setup",
+            label: "Pharmacy Setup",
+            links: `
                 <a data-tab="dosage_forms">Dosage Forms</a>
                 <a data-tab="drug_categories">Drug Categories</a>
-                <a data-tab="administration_routes">Routes</a>
-                <a data-tab="amount_units">Units</a>` : ""}
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Procedures</span>
-            <div class="dropdown-content">
-                <a data-tab="or_management">Operating Room (OR) Management</a>
-                <a data-tab="surgery_requests">Surgery Requests</a>
-                <a data-tab="or_schedule">OR Schedule</a>
-                <a data-tab="or_board">OR Live Board</a>
-                <a data-tab="or_reports">OR Reports</a>
-                <a data-tab="providers">Providers</a>
-                <a data-tab="procedure_configuration">Configuration</a>
-                ${role === "admin" ? `<a data-tab="lab_critical_ranges">Critical Lab Ranges</a>` : ""}
-                ${role === "admin" ? `<a data-tab="portal_explanations">Patient Explanations</a>` : ""}
-                ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_diagnosis_guides">Diagnosis Guides</a>` : ""}
-                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_uploads">Patient Uploads</a>` : ""}
-                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_insurance_requests">Insurance Requests</a>` : ""}
-                ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_questionnaires">Questionnaires</a>` : ""}
-                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_care_gaps">Health Maintenance</a>` : ""}
-                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_estimates">Cost Estimates</a>` : ""}
-                ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_evisits">Online Visits</a>` : ""}
-                ${["admin", "doctor", "clinician", "nurse", "charge_nurse", "cna"].includes(role) ? `<a data-tab="portal_reading_imports">Imported Readings</a>` : ""}
-                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_fastpass">Fast Pass</a>` : ""}
-                ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_chart">Patient Health Record</a>` : ""}
-                <a data-tab="procedure_load_compendium">Load Compendium</a>
-                <a class="patient-dependent-nav" data-tab="procedure_pending_review">Pending Review</a>
-                <a class="patient-dependent-nav" data-tab="procedure_patient_results">Patient Results</a>
-                <a class="patient-dependent-nav" data-tab="procedure_lab_overview">Lab Overview</a>
-                <a data-tab="procedure_batch_results">Batch Results</a>
-                <a data-tab="procedure_electronic_reports">Electronic Reports</a>
-                <a data-tab="procedure_lab_documents">Lab Documents</a>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Admin</span>
-            <div class="dropdown-content">
-                <a data-tab="settings">Config</a>
-                ${role === "admin" ? `<a data-tab="global_settings">Global Settings</a>` : ""}
-                ${role === "admin" ? `
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Clinic
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="facilities">Facilities</a>
-                        <a data-tab="room_management">Buildings &amp; Rooms</a>
-                        <a data-tab="department_management">Department Management</a>
-                        <a data-tab="department_org">Department Org Mapping</a>
-                        <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
-                        <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
-                <a data-tab="duty_rosters">Doctor On-Call &amp; Duty Rosters</a>
+                <a data-tab="administration_routes">Administration Routes</a>
+                <a data-tab="amount_units">Amount Units</a>
+            `
+        } : null
+    ]);
+
+    const billingMenu = buildSplitMenu("billing", "Filter billing & finance...", [
+        {
+            id: "cashiering",
+            label: "Cashiering & Charges",
+            links: `
+                <a data-tab="inpatient_billing">Inpatient Master Folio &amp; Cashier</a>
+                <a data-tab="split_cashiering">Split-Tender Cashiering</a>
+                <a data-tab="patient_deposits">Advance Deposits &amp; Drawdowns</a>
+                <a data-tab="fee_sheet" class="patient-dependent-nav">Clinical Fee Sheet</a>
+                <a data-tab="checkout" class="patient-dependent-nav">Outpatient Checkout</a>
+                <a data-tab="payment">Collect Payment</a>
+                <a data-tab="portal_payments">Online Patient Payments</a>
+                <a data-tab="batch_payments">Batch Payments</a>
+                <a data-tab="posting_payments">ERA / EOB Payment Posting</a>
+                <a data-tab="refund_authorization">Refund Authorization Pipeline</a>
+            `
+        },
+        {
+            id: "rcm",
+            label: "Claims & Revenue Cycle",
+            links: `
+                <a data-tab="billing_manager">Billing &amp; Claims Manager</a>
+                <a data-tab="claim_denials">Claim Denial &amp; Appeals</a>
+                <a data-tab="ar_aging">AR Aging &amp; Collections Engine</a>
+                <a data-tab="tariff_master">Master Tariff Book &amp; Packages</a>
+                <a data-tab="facility_billings">Facility Billing</a>
+                <a data-tab="edi_history">EDI Claims History</a>
+            `
+        }
+    ]);
+
+    const reportsMenu = buildSplitMenu("reports", "Filter all reports...", [
+        {
+            id: "executive",
+            label: "Executive & BI",
+            links: `
+                <a data-tab="clinic_quality_dashboard">Clinical Quality &amp; Utilization</a>
+                <a data-tab="clinic_safety_scorecard">Executive Quality Scorecard</a>
+                <a data-tab="reports_financial_bi">Executive Financial &amp; BI (RevPAB)</a>
+                <a data-tab="reports_departmental_profitability">Departmental Profitability</a>
+                <a data-tab="reports_claim_denial_pareto">Claim Denial Rate &amp; Pareto</a>
+            `
+        },
+        {
+            id: "financial",
+            label: "Financial Reports",
+            links: `
+                <a data-tab="reports_financial_sales">Sales &amp; Revenue Realization</a>
+                <a data-tab="reports_financial_cash_rec">Cash Reconciliation Summary</a>
+                <a data-tab="reports_financial_collections">Collections &amp; Aging Buckets</a>
+                <a data-tab="reports_financial_summary_service_code">Revenue by Service Code</a>
+                <a data-tab="reports_financial_payment_processing">Payment Processing Report</a>
+                <a data-tab="reports_financial_prepayment_balances">Prepayment Balances</a>
+                <a data-tab="reports_financial_pat_ledger">Patient Billing Ledger</a>
+                <a data-tab="reports_financial_front_rec">Front Desk Receipts</a>
+                <a data-tab="reports_financial_pmt_method">Payment Method Analysis</a>
+            `
+        },
+        {
+            id: "clinical",
+            label: "Clinical & Safety",
+            links: `
+                <a data-tab="clinical_reports">Clinical Practice Reports</a>
+                <a data-tab="clinic_incident_log">Incident &amp; Adverse Events Log</a>
+                <a data-tab="clinic_critical_tat">Critical Diagnostic TAT</a>
+                <a data-tab="clinic_hai_ssi">HAI &amp; SSI Infections</a>
+                <a data-tab="clinic_readmission_mortality">30-Day Readmission &amp; Mortality</a>
+                <a data-tab="clinic_surgical_safety">Surgical Safety &amp; Time-Out</a>
+                <a data-tab="clinic_alerts_log">Clinical Alerts &amp; Escalations</a>
+                <a data-tab="clinic_report_results">Standard Measures &amp; CQM</a>
+                <a data-tab="clinic_standard_measures">Standard Measures</a>
+                <a data-tab="clinic_automated_measures">Automated Measures (AMC)</a>
+                <a data-tab="clinic_real_world_testing">ONC Real World Testing Report</a>
+            `
+        },
+        {
+            id: "regulatory",
+            label: "Regulatory & Public Health",
+            links: `
+                <a data-tab="regulatory_disease_surveillance">Notifiable Disease Surveillance</a>
+                <a data-tab="regulatory_ahsr_export">Annual Hospital Report (AHSR)</a>
+                <a data-tab="immunization_registry">Public Immunization Registry</a>
+                <a data-tab="safe_harbor">Safe Harbor De-ID Export (§ 164.514)</a>
+            `
+        },
+        {
+            id: "visits",
+            label: "Visits & Encounters",
+            links: `
+                <a data-tab="reports_visits_daily">Daily Activity Report</a>
+                <a data-tab="reports_visits_encounters">Encounters by Department</a>
+                <a data-tab="reports_visits_appointments">Appointment Statistics</a>
+                <a data-tab="reports_visits_flow_board">Patient Flow Board Analytics</a>
+                <a data-tab="reports_visits_chart_activity">Medical Chart Activity</a>
+                <a data-tab="reports_visits_charts_out">Charts Out Tracker</a>
+                <a data-tab="reports_visits_services">Services Utilization</a>
+                <a data-tab="reports_visits_superbill">Superbill Encounters</a>
+                <a data-tab="reports_visits_eligibility">Insurance Eligibility</a>
+                <a data-tab="reports_visits_eligibility_response">Eligibility Responses</a>
+                <a data-tab="reports_visits_syndromic_surveillance">Syndromic Surveillance</a>
+                <a data-tab="reports_visits_appt_enc">Appt-Encounter Correlation</a>
+            `
+        },
+        {
+            id: "operations",
+            label: "Inventory & Registries",
+            links: `
+                <a data-tab="reports_inventory_list">Inventory Stock Valuation</a>
+                <a data-tab="reports_inventory_activity">Stock Movement Activity</a>
+                <a data-tab="reports_inventory_transactions">Inventory Transactions</a>
+                <a data-tab="clients_list">Patient &amp; Client Registry</a>
+                <a data-tab="clients_rx">Prescription Registry</a>
+                <a data-tab="patient_list_creation">Patient Cohort Builder</a>
+                <a data-tab="message_list">Clinical Message Logs</a>
+                <a data-tab="referrals_reports">Referral Tracking</a>
+                <a data-tab="reports_procedures_pending_res">Pending Procedure Results</a>
+                <a data-tab="reports_procedures_statistics">Procedure Statistics</a>
+                <a data-tab="reports_insurance_distribution">Payer Mix Distribution</a>
+                <a data-tab="reports_insurance_indigents">Indigent Patient Care</a>
+                <a data-tab="reports_insurance_unique_sp">Unique Service Providers</a>
+                <a data-tab="services_background">Background Services</a>
+                <a data-tab="services_direct_message_log">Direct Messaging Audit</a>
+                <a data-tab="services_ip_tracker">Network IP Tracker</a>
+            `
+        }
+    ]);
+
+    const adminMenu = buildSplitMenu("admin", "Filter admin & settings...", [
+        {
+            id: "hospital",
+            label: "Hospital & Facilities",
+            links: `
+                <a data-tab="facilities">Facilities &amp; Campuses</a>
+                <a data-tab="room_management">Buildings, Rooms &amp; Beds</a>
+                <a data-tab="department_management">Department Hierarchy</a>
+                <a data-tab="department_org">Department Org Mapping</a>
+                <a data-tab="equipment_assets">Biomedical &amp; Capital Assets</a>
+                <a data-tab="display_devices">TV Displays &amp; Waiting Queues</a>
+                <a data-tab="business_settings">Hospital &amp; Practice Settings</a>
+                ${role === "admin" ? `<a data-tab="global_settings">Global System Settings</a>` : ""}
+                <a data-tab="settings">System Configuration</a>
+                ${role === "admin" ? `<a data-tab="general_settings">Two-Factor Authentication</a>` : ""}
+            `
+        },
+        {
+            id: "hr",
+            label: "Workforce & HR",
+            links: `
+                <a data-tab="employees">Staff Directory &amp; Users</a>
+                ${role === "admin" ? `<a data-tab="role_management">Roles &amp; Permissions (RBAC)</a>` : ""}
+                ${role === "admin" ? `<a data-tab="nursing_staff">Nursing Staff &amp; Ward Mapping</a>` : ""}
                 <a data-tab="attendance">Staff Attendance Time Clock</a>
-                <a data-tab="leave_management">Leave Management &amp; Coverage</a>
+                <a data-tab="leave_management">Staff Leaves &amp; Coverage</a>
+                <a data-tab="duty_rosters">Doctor On-Call &amp; Duty Rosters</a>
                 <a data-tab="salary_structures">Staff Salary Structures</a>
                 <a data-tab="payroll">Hospital Payroll &amp; Payslips</a>
-                <a data-tab="cme">CME / CPD Credit Ledger</a>
-                <a data-tab="life_support">Life Support Clinical Certifications</a>
+                <a data-tab="cme">CME / CPD Medical Education Ledger</a>
+                <a data-tab="life_support">Clinical Certifications (BLS/ACLS)</a>
                 <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
-                <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
-                <a data-tab="goods_receipt">Goods Receipt Notes (GRN)</a>
-                <a data-tab="cssd">CSSD Instrument Sets &amp; Trays</a>
-                        <a data-tab="admin_clinic_calendar">Calendar</a>
-                        <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Patients
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="admin_patient_reminders">Patient Reminders</a>
-                        <a data-tab="admin_merge_patients">Merge Patients</a>
-                        <a data-tab="admin_manage_duplicates">Manage Duplicates</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Practice
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="business_settings">Practice Settings</a>
-                        <a data-tab="hipaa_officers">🛡️ HIPAA Officers (§ 164.530 / § 164.308)</a>
-                        <a data-tab="admin_practice_rules">Rules</a>
-                        <a data-tab="admin_plans_configuration">Plans Configuration</a>
-                        <a data-tab="admin_alert_manager">Alert Manager</a>
-                        <a data-tab="admin_practice_alerts">Alerts</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Coding
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="codes">Codes</a>
-                        <a data-tab="admin_coding_native_data_loads">Native Data Loads</a>
-                        <a data-tab="admin_coding_external_data_loads">External Data Loads</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Forms
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="admin_forms_administration">Forms Administration</a>
-                        <a data-tab="admin_forms_layouts">Layouts</a>
-                        <a data-tab="admin_forms_lists">Lists</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Documents
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="admin_document_templates">Document Templates</a>
-                        <a data-tab="template_maintenance">Template Maintenance</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        System
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="admin_system_files">Files</a>
-                        <a data-tab="admin_system_language">Language</a>
-                        <a data-tab="system_documentation">System Documentation</a>
-                        <a data-tab="hipaa_audit">HIPAA Audit Logs &amp; Integrity</a>
-                        <a data-tab="audit_trail_diffs">Granular Data Change Diffs</a>
-                        <a data-tab="security_incidents">Security Incidents &amp; Breach Assessment</a>
-                        <a data-tab="business_associates">BAA Vendor Registry (§ 164.502(e))</a>
-                        <a data-tab="drs_requests">Right of Access (DRS Pipeline § 164.524)</a>
-                        <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
-                        <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
-                        <a data-tab="workforce_governance">Workforce Training &amp; Sanctions (§ 164.308(a)(1) &amp; (5))</a>
-                        <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
-                        <a data-tab="hipaa_officers">HIPAA Privacy &amp; Security Officers (§ 164.530 / § 164.308)</a>
-                        <a data-tab="admin_system_logs">System Logs</a>
-                        <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
-                        <a data-tab="admin_system_diagnostics">Diagnostics</a>
-                        <a data-tab="admin_system_email_send_test">Email Send Test</a>
-                        <a data-tab="admin_system_api_clients">API Clients</a>
-                    </div>
-                </div>
-                ` : ""}
-                <a data-tab="employees">Users</a>
-                ${role === "admin" ? `<a data-tab="role_management">Roles &amp; Permissions (RBAC)</a>` : ""}
-                ${role === "admin" ? `<a data-tab="nursing_staff">Nursing Staff &amp; Wards</a>` : ""}
-                ${role === "admin" ? `<a data-tab="display_devices">TV Displays</a>` : ""}
-                ${role === "admin" ? `<a data-tab="general_settings">Two Factor Authentication</a>` : ""}
-                <a data-tab="admin_address_book">Address Book</a>
-                ${role === "admin" ? `
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        ACL
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="role_management">Roles</a>
-                        <a data-tab="admin_acl_administration">Access Control List Administration</a>
-                    </div>
-                </div>
-                ` : ""}
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Reports</span>
-            <div class="dropdown-content">
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Clients
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="clients_list">List</a>
-                        <a data-tab="clients_rx">Rx</a>
-                        <a data-tab="patient_list_creation">Patient List Creation</a>
-                        <a data-tab="message_list">Message List</a>
-                        <a data-tab="clinical_reports">Clinical</a>
-                        <a data-tab="referrals_reports">Referrals</a>
-                        <a data-tab="immunization_registry">Immunization Registry</a>
-                        <a data-tab="safe_harbor">Safe Harbor De-ID Export (§ 164.514)</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Clinic
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="clinic_report_results">Report Results</a>
-                        <a data-tab="clinic_standard_measures">Standard Measures</a>
-                        <a data-tab="clinic_automated_measures">Automated Measures (AMC)</a>
-                        <a data-tab="clinic_real_world_testing">2026 Real World Testing Report</a>
-                        <a data-tab="clinic_alerts_log">Alerts Log</a>
-                        <a data-tab="clinic_incident_log">Incident & Adverse Events</a>
-                        <a data-tab="clinic_critical_tat">Critical Diagnostic TAT</a>
-                        <a data-tab="clinic_hai_ssi">HAI &amp; SSI Infections</a>
-                        <a data-tab="clinic_readmission_mortality">30-Day Readmission &amp; Mortality</a>
-                        <a data-tab="clinic_surgical_safety">Surgical Safety &amp; Time-Out</a>
-                        <a data-tab="clinic_quality_dashboard">⭐ Clinical Quality &amp; Utilization</a>
-                        <a data-tab="clinic_safety_scorecard">🏆 Executive Quality Scorecard</a>
-                        <a data-tab="regulatory_disease_surveillance">🦠 Notifiable Disease Surveillance (PIDSR / CIF)</a>
-                        <a data-tab="regulatory_ahsr_export">🏛️ Annual Hospital Statistical Report (AHSR)</a>
-                    </div>
-
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Visits
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="reports_visits_daily">Daily Report</a>
-                        <a data-tab="reports_visits_appointments">Appointments</a>
-                        <a data-tab="reports_visits_flow_board">Patient Flow Board</a>
-                        <a data-tab="reports_visits_encounters">Encounters</a>
-                        <a data-tab="reports_visits_appt_enc">Appt-Enc</a>
-                        <a data-tab="reports_visits_superbill">Superbill</a>
-                        <a data-tab="reports_visits_eligibility">Eligibility</a>
-                        <a data-tab="reports_visits_eligibility_response">Eligibility Response</a>
-                        <a data-tab="reports_visits_chart_activity">Chart Activity</a>
-                        <a data-tab="reports_visits_charts_out">Charts Out</a>
-                        <a data-tab="reports_visits_services">Services</a>
-                        <a data-tab="reports_visits_syndromic_surveillance">Syndromic Surveillance</a>
-                        <a data-tab="regulatory_disease_surveillance">🦠 Notifiable Disease Surveillance (CIF)</a>
-                        <a data-tab="regulatory_ahsr_export">🏛️ Annual Hospital Statistical Report (AHSR)</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Financial
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="reports_financial_bi">💼 Executive Financial &amp; BI (RevPAB)</a>
-                        <a data-tab="reports_departmental_profitability">📊 Departmental Profitability &amp; Cost Centers</a>
-                        <a data-tab="reports_claim_denial_pareto">📉 Claim Denial Rate &amp; CARC Pareto</a>
-                        <a data-tab="reports_financial_sales">Sales</a>
-                        <a data-tab="reports_financial_cash_rec">Cash Rec</a>
-                        <a data-tab="reports_financial_front_rec">Front Rec</a>
-                        <a data-tab="reports_financial_pmt_method">Pmt Method</a>
-                        <a data-tab="reports_financial_collections">Collections and Aging</a>
-                        <a data-tab="reports_financial_pat_ledger">Pat Ledger</a>
-                        <a data-tab="reports_financial_summary_service_code">Financial Summary by Service Code</a>
-                        <a data-tab="reports_financial_payment_processing">Payment Processing</a>
-                        <a data-tab="reports_financial_prepayment_balances">Prepayment Balances</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Inventory
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="reports_inventory_list">List</a>
-                        <a data-tab="reports_inventory_activity">Activity</a>
-                        <a data-tab="reports_inventory_transactions">Transactions</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Procedures
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="reports_procedures_pending_res">Pending Res</a>
-                        <a data-tab="reports_procedures_statistics">Statistics</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Insurance
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="reports_insurance_distribution">Distribution</a>
-                        <a data-tab="reports_insurance_indigents">Indigents</a>
-                        <a data-tab="reports_insurance_unique_sp">Unique SP</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Services
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="services_background">Background Services</a>
-                        <a data-tab="services_direct_message_log">Direct Message Log</a>
-                        <a data-tab="services_ip_tracker">IP Tracker</a>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Miscellaneous</span>
-            <div class="dropdown-content">
-                <a data-tab="misc_announcements">Announcements</a>
-                <a data-tab="misc_portal_dashboard">Portal Dashboard</a>
-                <a data-tab="misc_dicom_viewer">Dicom Viewer</a>
-                <a data-tab="misc_patient_education">Patient Education</a>
-                <a data-tab="misc_authorizations">Authorizations</a>
-                <a data-tab="misc_chart_tracker">Chart Tracker</a>
-                <a data-tab="misc_office_notes">Office Notes</a>
-                <a data-tab="misc_batch_com">Batch Communication Tool</a>
-                <a data-tab="misc_new_documents">New Documents</a>
-                <a data-tab="misc_disclosures">Accounting of Disclosures</a>
-                <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
-                <a data-tab="business_associates">BAA Vendor Registry</a>
-                <a data-tab="drs_requests">Right of Access (DRS Pipeline)</a>
-                <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
-                <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
-                <a data-tab="workforce_governance">Workforce Training &amp; Sanctions Log</a>
-                <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Blank Forms
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="blank_forms_core_demographics">Demographics</a>
-                        <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                        <a data-tab="misc_blank_forms_referral">Referral</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>Popups</span>
-            <div class="dropdown-content">
-                <a data-tab="popup_issues" class="patient-dependent-nav">Issues</a>
-                <a data-tab="popup_export" class="patient-dependent-nav">Export</a>
-                <a data-tab="popup_import" class="patient-dependent-nav">Import</a>
-                <a data-tab="popup_appointments" class="patient-dependent-nav">Appointments</a>
-                <a data-tab="popup_superbill" class="patient-dependent-nav">Superbill</a>
-                <a data-tab="popup_payment" class="patient-dependent-nav">Payment</a>
-                <a data-tab="popup_checkout" class="patient-dependent-nav">Checkout</a>
-                <a data-tab="popup_letter" class="patient-dependent-nav">Letter</a>
-                <a data-tab="popup_chart_label" class="patient-dependent-nav">Chart Label</a>
-                <a data-tab="popup_barcode_label" class="patient-dependent-nav">Barcode Label</a>
-                <a data-tab="popup_address_label" class="patient-dependent-nav">Address Label</a>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>File Management</span>
-            <div class="dropdown-content">
-                <div class="dropdown-section-label">Code</div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Codes
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
-                        <a data-tab="cvx_codes">CVX Immunization Codes</a>
-                        <a data-tab="cqm_valuesets">CQM Valueset</a>
-                        <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
-                        <a data-tab="pos_codes">POS Code Management</a>
-                        <a data-tab="codes">Codes</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Immunization
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="immunizations">Immunizations</a>
-                        <a data-tab="administration_routes">Routes</a>
-                        <a data-tab="administration_sites">Administration Sites</a>
-                        <a data-tab="amount_units">Amount Units</a>
-                        <a data-tab="information_sources">Information Sources</a>
-                        <a data-tab="refusal_reasons">Refusal Reasons</a>
-                        <a data-tab="completion_statuses">Completion Statuses</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Specimen
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="specimen_sites">Specimen Site Management</a>
-                        <a data-tab="specimen_methods">Specimen Method Management</a>
-                        <a data-tab="specimen_types">Specimen Type Management</a>
-                        <a data-tab="specimen_conditions">Specimen Condition Management</a>
-                    </div>
-                </div>
-                <a data-tab="preference_types">Preference Type</a>
-                <a data-tab="surgeries">Surgeries</a>
-                <a data-tab="specializations">Specializations</a>
-                <a data-tab="void_reasons">Void Reason Management</a>
-                <a data-tab="care_plan_reason_codes">Care Plan Reason Code Management</a>
-                <div class="dropdown-section-label">Procedures</div>
+                <a data-tab="admin_address_book">System Address Book</a>
+            `
+        },
+        {
+            id: "hipaa",
+            label: "HIPAA & Security",
+            links: `
+                <a data-tab="hipaa_officers">HIPAA Officers (§ 164.530 / § 164.308)</a>
+                <a data-tab="hipaa_audit">HIPAA Audit Logs &amp; Integrity</a>
+                <a data-tab="audit_trail_diffs">Granular Change Diffs</a>
+                <a data-tab="security_incidents">Security Incidents &amp; Breach Response</a>
+                <a data-tab="business_associates">BAA Vendor Registry (§ 164.502(e))</a>
+                <a data-tab="drs_requests">Right of Access (DRS Pipeline § 164.524)</a>
+                <a data-tab="amendments">Medical Record Amendments (§ 164.526)</a>
+                <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308)</a>
+                <a data-tab="workforce_governance">Workforce HIPAA Training Log</a>
+            `
+        },
+        {
+            id: "coding",
+            label: "Clinical Dictionaries",
+            links: `
+                <a data-tab="codes">Master Coding System</a>
+                <a data-tab="icd10_diagnoses">ICD-10 Clinical Diagnoses</a>
+                <a data-tab="cvx_codes">CVX Vaccine Codes</a>
+                <a data-tab="cqm_valuesets">CQM Value Sets</a>
+                <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
+                <a data-tab="pos_codes">POS Code Management</a>
+                <a data-tab="immunizations">Immunization Registry Setup</a>
+                <a data-tab="surgeries">Surgical Procedures Catalog</a>
+                <a data-tab="allergies">Allergies Master Catalog</a>
+                <a data-tab="medical_problems">Problem List Master</a>
+                <a data-tab="specializations">Medical Specializations</a>
+                <a data-tab="preference_types">Clinical Preference Types</a>
+                <a data-tab="void_reasons">Void Reasons Management</a>
+                <a data-tab="care_plan_reason_codes">Care Plan Reason Codes</a>
+                <a data-tab="specimen_sites">Specimen Sites</a>
+                <a data-tab="specimen_methods">Specimen Methods</a>
+                <a data-tab="specimen_types">Specimen Types</a>
+                <a data-tab="specimen_conditions">Specimen Conditions</a>
+            `
+        },
+        {
+            id: "lookups",
+            label: "Operations & Payers",
+            links: `
                 <a data-tab="provider_categories">Provider Categories</a>
                 <a data-tab="visit_categories">Visit Categories</a>
+                <a data-tab="visit_types">Visit Types</a>
                 <a data-tab="screening_tools">Screening Tools</a>
-                <a data-tab="classes">Classes</a>
-                <a data-tab="visit_types">Visit Type</a>
-                <a data-tab="facilities">Facility</a>
-                <a data-tab="facility_billings">Facility Billing</a>
-                <a data-tab="vendor_management">Vendor Management</a>
-                <a data-tab="container_group_management">Container Group Name Management</a>
-                <a data-tab="allergies">Allergy Management</a>
-                <a data-tab="medical_problems">Medical Problem Management</a>
+                <a data-tab="classes">Patient Classes</a>
+                <a data-tab="payer_types">Payer Types</a>
+                <a data-tab="insurances">Insurance Providers &amp; Plans</a>
+                <a data-tab="x12_partners">EDI Clearinghouses &amp; X12 Partners</a>
+                <a data-tab="vendor_management">Vendor Directory</a>
+                <a data-tab="container_group_management">Container Groups</a>
                 <a data-tab="prescription_categories">Prescription Categories</a>
-                <a data-tab="payer_types">Payer Type Management</a>
-                <a data-tab="x12_partners">X12 Partner</a>
-                <a data-tab="insurances">Insurance Management</a>
-                <a data-tab="organization_types">Organization Type Registration</a>
+                <a data-tab="organization_types">Organization Types</a>
                 <a data-tab="price_levels">Price Level Management</a>
+                <a data-tab="information_sources">Information Sources</a>
+                <a data-tab="refusal_reasons">Refusal Reasons</a>
+                <a data-tab="completion_statuses">Completion Statuses</a>
+                <a data-tab="administration_sites">Administration Sites</a>
+            `
+        },
+        role === "admin" ? {
+            id: "system",
+            label: "System & Logs",
+            links: `
+                <a data-tab="admin_system_diagnostics">System Diagnostics</a>
+                <a data-tab="admin_system_logs">System Server Logs</a>
+                <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper Detector</a>
+                <a data-tab="admin_system_api_clients">API Clients &amp; Tokens</a>
+                <a data-tab="admin_system_email_send_test">Email Send Test</a>
+                <a data-tab="admin_system_files">System File Manager</a>
+                <a data-tab="admin_system_language">Language Settings</a>
+                <a data-tab="system_documentation">System Documentation</a>
+                <a data-tab="admin_acl_administration">ACL Administration</a>
+                <a data-tab="manage_modules">Manage Modules</a>
+                <a data-tab="admin_merge_patients">Merge Patients</a>
+                <a data-tab="admin_manage_duplicates">Manage Duplicates</a>
+            `
+        } : null,
+        role === "admin" ? {
+            id: "forms",
+            label: "Forms, Rules & Data",
+            links: `
+                <a data-tab="template_maintenance">Template Maintenance</a>
+                <a data-tab="admin_document_templates">Document Templates</a>
+                <a data-tab="admin_forms_administration">Forms Administration</a>
+                <a data-tab="admin_forms_layouts">Form Layouts</a>
+                <a data-tab="admin_forms_lists">Form Lists</a>
+                <a data-tab="admin_practice_rules">Practice Rules</a>
+                <a data-tab="admin_plans_configuration">Plans Configuration</a>
+                <a data-tab="admin_alert_manager">Alert Manager</a>
+                <a data-tab="admin_practice_alerts">Practice Alerts</a>
+                <a data-tab="admin_coding_native_data_loads">Native Data Loads</a>
+                <a data-tab="admin_coding_external_data_loads">External Data Loads</a>
+            `
+        } : null
+    ]);
+
+    const toolsMenu = buildSplitMenu("tools", "Filter tools & utilities...", [
+        {
+            id: "quick",
+            label: "Messaging & Actions",
+            links: `
+                <a data-tab="messaging">Internal Staff Messaging</a>
+                <a data-tab="popup_issues" class="patient-dependent-nav">Clinical Issues &amp; Allergies</a>
+                <a data-tab="popup_appointments" class="patient-dependent-nav">Quick Appointments</a>
+                <a data-tab="popup_superbill" class="patient-dependent-nav">Quick Superbill</a>
+                <a data-tab="popup_payment" class="patient-dependent-nav">Quick Payment</a>
+                <a data-tab="popup_checkout" class="patient-dependent-nav">Quick Checkout</a>
+                <a data-tab="popup_chart_label" class="patient-dependent-nav">Patient Chart Labels</a>
+                <a data-tab="popup_barcode_label" class="patient-dependent-nav">Specimen Barcode Labels</a>
+                <a data-tab="popup_address_label" class="patient-dependent-nav">Patient Address Labels</a>
+                <a data-tab="popup_letter" class="patient-dependent-nav">Patient Letters &amp; Referrals</a>
+                <a data-tab="popup_export" class="patient-dependent-nav">Chart Data Export</a>
+                <a data-tab="popup_import" class="patient-dependent-nav">External Data Import</a>
+            `
+        },
+        {
+            id: "office",
+            label: "Office & Governance",
+            links: `
+                <a data-tab="misc_announcements">Hospital Announcements</a>
+                <a data-tab="misc_office_notes">Department Office Notes</a>
+                <a data-tab="misc_authorizations">Prior Authorizations Log</a>
+                <a data-tab="misc_chart_tracker">Physical Chart Paper Tracker</a>
+                <a data-tab="misc_patient_education">Patient Education Handouts</a>
+                <a data-tab="misc_disclosures">Accounting of Disclosures</a>
+                <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
+                <a data-tab="misc_batch_com">Batch Communication Tool</a>
+                <a data-tab="misc_new_documents">New Documents Queue</a>
+                <a data-tab="misc_portal_dashboard">Patient Portal Dashboard</a>
+            `
+        },
+        {
+            id: "portal",
+            label: "Patient Portal Tools",
+            links: `
+                ${role === "admin" ? `<a data-tab="portal_explanations">Patient Test Explanations</a>` : ""}
+                ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `<a data-tab="portal_diagnosis_guides">Diagnosis Guides</a>` : ""}
+                ${["admin", "receptionist", "doctor", "clinician", "nurse"].includes(role) ? `
+                <a data-tab="portal_uploads">Patient Document Uploads</a>
+                <a data-tab="portal_insurance_requests">Insurance Card Requests</a>
+                <a data-tab="portal_questionnaires">Intake Questionnaires</a>
+                <a data-tab="portal_care_gaps">Health Maintenance Gaps</a>
+                <a data-tab="portal_estimates">Cost Estimates</a>
+                <a data-tab="portal_fastpass">FastPass Appointment Slots</a>` : ""}
+                ${["admin", "doctor", "clinician", "nurse"].includes(role) ? `
+                <a data-tab="portal_evisits">Online E-Visits</a>
+                <a data-tab="portal_chart">Patient Health Record View</a>` : ""}
+                ${["admin", "doctor", "clinician", "nurse", "charge_nurse", "cna"].includes(role) ? `
+                <a data-tab="portal_reading_imports">Imported Health Readings</a>` : ""}
+            `
+        },
+        {
+            id: "forms",
+            label: "Blank Forms & Help",
+            links: `
+                <a data-tab="blank_forms_core_demographics">Blank Demographics Form</a>
+                <a data-tab="blank_forms_core_superbill">Blank Superbill / Fee Sheet Form</a>
+                <a data-tab="misc_blank_forms_referral">Referral Request Form</a>
+                <a data-tab="help">Help &amp; Documentation</a>
+            `
+        }
+    ]);
+
+    return `
+        <div class="nav-dropdown">
+            <span>Clinical</span>
+            ${clinicalMenu}
+        </div>
+
+        <div class="nav-dropdown">
+            <span>Scheduling</span>
+            <div class="dropdown-content">
+                <div class="dropdown-section-label">Appointments &amp; Calendars</div>
+                <a data-tab="appointments">Master Calendar</a>
+                <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
+                <a data-tab="duty_rosters">Doctor On-Call &amp; Duty Rosters</a>
+                <a data-tab="recalls">Preventive Care Recalls</a>
+                ${role === "admin" ? `<a data-tab="admin_clinic_calendar">Facility Calendar</a>` : ""}
+                ${role === "admin" ? `<a data-tab="admin_clinic_import_holidays">Import Holidays</a>` : ""}
+                ${role === "admin" ? `<a data-tab="admin_patient_reminders">Patient Automated Reminders</a>` : ""}
             </div>
         </div>
-        <a data-tab="help">Help</a>
+
+        <div class="nav-dropdown">
+            <span>Diagnostics</span>
+            ${diagnosticsMenu}
+        </div>
+
+        <div class="nav-dropdown">
+            <span>Pharmacy</span>
+            ${pharmacyMenu}
+        </div>
+
+        <div class="nav-dropdown">
+            <span>Billing</span>
+            ${billingMenu}
+        </div>
+
+        <div class="nav-dropdown">
+            <span>Reports</span>
+            ${reportsMenu}
+        </div>
+
+        <div class="nav-dropdown">
+            <span>Admin</span>
+            ${adminMenu}
+        </div>
+
+        <div class="nav-dropdown">
+            <span>Tools</span>
+            ${toolsMenu}
+        </div>
     `;
 }
 
 const PATIENT_NAV_LINKS = `
     <a data-tab="mychart_todo">To Do</a>
-    <a data-tab="appointments">Appointments</a>
-    <a data-tab="mychart_checkin">Check In</a>
-    <a data-tab="mychart_visits">Visits</a>
-    <a data-tab="mychart_results">Test Results</a>
-    <a data-tab="mychart_track">Track My Health</a>
     <div class="nav-dropdown">
-        <span>Patient Health Records</span>
+        <span>Appointments &amp; Visits</span>
         <div class="dropdown-content">
-            <a data-tab="health_records">Health Records Summary</a>
+            <a data-tab="appointments">Appointments Calendar</a>
+            <a data-tab="mychart_checkin">Check In Online</a>
+            <a data-tab="mychart_visits">My Past Visits</a>
+            <a data-tab="recalls">Care Recalls &amp; Follow-ups</a>
         </div>
     </div>
-    <a data-tab="messaging">Messaging</a>
-    <a data-tab="recalls">Recalls</a>
-    <a data-tab="health_reminders">Health Reminders</a>
-    <a data-tab="medications">Medications</a>
-    <a data-tab="billing">Billing</a>
-    <a data-tab="reports">Medical Reports</a>
-    <a data-tab="documents">Documents</a>
-    <a data-tab="misc_announcements">Announcements</a>
-    <a data-tab="mychart_account">Account &amp; Sharing</a>
-    <a data-tab="profile">Profile</a>
-    <a data-tab="settings">Settings</a>
-    <a data-tab="help">Help</a>
+    <div class="nav-dropdown">
+        <span>Health Records</span>
+        <div class="dropdown-content">
+            <a data-tab="health_records">Health Records Summary</a>
+            <a data-tab="mychart_results">Test Results</a>
+            <a data-tab="medications">My Medications</a>
+            <a data-tab="mychart_track">Track My Health</a>
+            <a data-tab="health_reminders">Health Reminders</a>
+            <a data-tab="reports">Medical Reports</a>
+            <a data-tab="documents">My Documents</a>
+        </div>
+    </div>
+    <a data-tab="billing">Billing &amp; Payments</a>
+    <div class="nav-dropdown">
+        <span>Messages &amp; Updates</span>
+        <div class="dropdown-content">
+            <a data-tab="messaging">Doctor Messages</a>
+            <a data-tab="misc_announcements">Hospital Announcements</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Account</span>
+        <div class="dropdown-content">
+            <a data-tab="mychart_account">Account &amp; Family Sharing</a>
+            <a data-tab="profile">My Profile</a>
+            <a data-tab="settings">Account Settings</a>
+            <a data-tab="help">Help &amp; Support</a>
+        </div>
+    </div>
 `;
 
 const RECEPTIONIST_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
-    <a data-tab="patient_finder">Finder</a>
-    <a data-tab="patient_flow">Flow</a>
-    <a data-tab="portal_checkins">Online Check-ins</a>
-    <a data-tab="portal_proxy_requests">Record Access</a>
-    <a data-tab="recalls">Recalls</a>
     <div class="nav-dropdown">
-        <span>Patient</span>
+        <span>Patient Access</span>
         <div class="dropdown-content">
-            <a data-tab="patients">New/Search</a>
-            <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
-            <a data-tab="er">Emergency Room (ER)</a>
-            <a data-tab="er_report">ER Report</a>
-            <a data-tab="census">Daily Census</a>
-            <a data-tab="census_report">Census Reports</a>
-            <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <div class="dropdown-section-label">Registration &amp; Flow</div>
+            <a data-tab="patient_finder">Patient Finder</a>
+            <a data-tab="patients">Register / Search Patients</a>
+            <a data-tab="patient_flow">Patient Flow Board</a>
+            <a data-tab="portal_checkins">Online Check-ins</a>
+            <a data-tab="portal_proxy_requests">Record Access Requests</a>
+            <a data-tab="recalls">Patient Recalls</a>
             <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
-            <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Inpatient &amp; Beds</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Bed &amp; Ward Status</div>
+            <a data-tab="inpatient_admissions">Inpatient (ADT) Admissions</a>
+            <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="census">Daily Census</a>
+            <a data-tab="er">Emergency Room (ER)</a>
             <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
-            <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
-            <div class="dropdown-submenu patient-dependent-nav">
-                <span class="dropdown-submenu-trigger">
-                    Visits
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="patient_create_visit">Create Visit</a>
-                    <a data-tab="patient_current_visit">Current</a>
-                    <a data-tab="patient_visits_history">Visit History</a>
-                </div>
-            </div>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Cashiering</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Patient Accounts</div>
+            <a data-tab="payment">Collect Payment</a>
+            <a data-tab="checkout" class="patient-dependent-nav">Patient Checkout</a>
+            <a data-tab="fee_sheet" class="patient-dependent-nav">Fee Sheet</a>
+            <a data-tab="split_cashiering">Split-Tender Cashiering</a>
+            <a data-tab="patient_deposits">Advance Deposits</a>
         </div>
     </div>
     <div class="nav-dropdown">
         <span>Reports</span>
         <div class="dropdown-content">
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Clients
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="clients_list">List</a>
-                </div>
-            </div>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Visits
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="reports_visits_appointments">Appointments</a>
-                    <a data-tab="reports_visits_flow_board">Patient Flow Board</a>
-                    <a data-tab="reports_visits_eligibility">Eligibility</a>
-                    <a data-tab="reports_visits_eligibility_response">Eligibility Response</a>
-                    <a data-tab="reports_visits_chart_activity">Chart Activity</a>
-                    <a data-tab="reports_visits_charts_out">Charts Out</a>
-                    <a data-tab="reports_visits_services">Services</a>
-                </div>
-            </div>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Insurance
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="reports_insurance_unique_sp">Unique SP</a>
-                </div>
-            </div>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Blank Forms
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="blank_forms_core_demographics">Demographics</a>
-                    <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                    <a data-tab="misc_blank_forms_referral">Referral</a>
-                </div>
-            </div>
+            <div class="dropdown-section-label">Reception Reports</div>
+            <a data-tab="reports_visits_appointments">Appointments Report</a>
+            <a data-tab="reports_visits_flow_board">Patient Flow Board Report</a>
+            <a data-tab="census_report">Census Reports</a>
+            <a data-tab="er_report">ER Report</a>
+            <a data-tab="clients_list">Client List</a>
+            <a data-tab="reports_visits_daily">Daily Activity Report</a>
         </div>
     </div>
     <div class="nav-dropdown">
-        <span>Miscellaneous</span>
+        <span>Tools</span>
         <div class="dropdown-content">
-            <a data-tab="misc_announcements">Announcements</a>
-            <a data-tab="misc_portal_dashboard">Portal Dashboard</a>
-            <a data-tab="misc_dicom_viewer">Dicom Viewer</a>
-            <a data-tab="misc_patient_education">Patient Education</a>
-            <a data-tab="misc_authorizations">Authorizations</a>
-            <a data-tab="misc_chart_tracker">Chart Tracker</a>
-            <a data-tab="misc_office_notes">Office Notes</a>
-            <a data-tab="misc_batch_com">Batch Communication Tool</a>
-            <a data-tab="misc_new_documents">New Documents</a>
-            <a data-tab="misc_disclosures">Accounting of Disclosures</a>
-            <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
-            <a data-tab="business_associates">BAA Vendor Registry</a>
-            <a data-tab="drs_requests">Right of Access (DRS Pipeline)</a>
-            <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
-            <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Blank Forms
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="blank_forms_core_demographics">Demographics</a>
-                    <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                    <a data-tab="misc_blank_forms_referral">Referral</a>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="nav-dropdown">
-        <span>Popups</span>
-        <div class="dropdown-content">
-            <a data-tab="popup_issues" class="patient-dependent-nav">Issues</a>
-            <a data-tab="popup_export" class="patient-dependent-nav">Export</a>
-            <a data-tab="popup_import" class="patient-dependent-nav">Import</a>
-            <a data-tab="popup_appointments" class="patient-dependent-nav">Appointments</a>
-            <a data-tab="popup_superbill" class="patient-dependent-nav">Superbill</a>
-            <a data-tab="popup_payment" class="patient-dependent-nav">Payment</a>
-            <a data-tab="popup_checkout" class="patient-dependent-nav">Checkout</a>
-            <a data-tab="popup_letter" class="patient-dependent-nav">Letter</a>
-            <a data-tab="popup_chart_label" class="patient-dependent-nav">Chart Label</a>
-            <a data-tab="popup_barcode_label" class="patient-dependent-nav">Barcode Label</a>
-            <a data-tab="popup_address_label" class="patient-dependent-nav">Address Label</a>
+            <div class="dropdown-section-label">Front Desk Utilities</div>
+            <a data-tab="messaging">Internal Messaging</a>
+            <a data-tab="popup_address_label" class="patient-dependent-nav">Address Labels</a>
+            <a data-tab="popup_barcode_label" class="patient-dependent-nav">Barcode Labels</a>
+            <a data-tab="popup_chart_label" class="patient-dependent-nav">Chart Labels</a>
+            <a data-tab="popup_letter" class="patient-dependent-nav">Letters</a>
+            <a data-tab="blank_forms_core_demographics">Blank Demographics Form</a>
+            <a data-tab="blank_forms_core_superbill">Blank Fee Sheet</a>
+            <a data-tab="help">Help</a>
         </div>
     </div>
 `;
 
-const DOCTOR_NAV_LINKS = `
-    <a data-tab="appointments">Calendar</a>
-    <div class="nav-dropdown">
-        <span>Patient</span>
-        <div class="dropdown-content">
-            <a data-tab="patients">New/Search</a>
-            <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+const DOCTOR_CLINICAL_MENU = buildSplitMenu("doc-clinical", "Filter clinical pages...", [
+    {
+        id: "inpatient",
+        label: "Patients & Inpatient",
+        links: `
+            <a data-tab="patient_finder">Patient Finder</a>
+            <a data-tab="patients">New / Search Patients</a>
+            <a data-tab="inpatient_admissions">Inpatient (ADT) Wards</a>
+            <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+            <a data-tab="icu">ICU Flowsheet</a>
+            <a data-tab="icu_report">ICU Report</a>
             <a data-tab="er">Emergency Room (ER)</a>
             <a data-tab="er_report">ER Report</a>
             <a data-tab="census">Daily Census</a>
             <a data-tab="census_report">Census Reports</a>
-            <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
-            <a data-tab="icu">ICU Flowsheet</a>
-            <a data-tab="icu_report">ICU Report</a>
-            <a data-tab="lab_worklist">Lab Worklist</a>
-            <a data-tab="lab_report">Lab Report</a>
-            <a data-tab="rad_worklist">Radiology Worklist</a>
-            <a data-tab="rad_report">Radiology Report</a>
-            <a data-tab="mar">Medicine Rounds (MAR)</a>
-            <a data-tab="code_blue">Code Blue</a>
-            <a data-tab="code_blue_report">Code Blue Report</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
-            <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
-            <a data-tab="patient_finder">Dashboard</a>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Visits
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="patient_flow">Flow</a>
-                    <a data-tab="appointments">Appointments</a>
-                </div>
-            </div>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Records
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="health_records">Health Records</a>
-                    <a data-tab="medications">Medications</a>
-                    <a data-tab="documents">Documents</a>
-                </div>
-            </div>
-        </div>
-    </div>
-    <a data-tab="patient_flow">Flow</a>
-    <a data-tab="recalls">Recalls</a>
-    <a data-tab="messaging">Messages</a>
+        `
+    },
+    {
+        id: "chart",
+        label: "Acute Care & Chart",
+        links: `
+            <a data-tab="code_blue">Code Blue Resuscitation</a>
+            <a data-tab="code_blue_report">Code Blue Report</a>
+            <a data-tab="patient_dashboard" class="patient-dependent-nav">Patient Chart Dashboard</a>
+            <a data-tab="patient_create_visit" class="patient-dependent-nav">Create Encounter</a>
+            <a data-tab="patient_current_visit" class="patient-dependent-nav">Current Encounter</a>
+            <a data-tab="patient_visits_history" class="patient-dependent-nav">Visit History</a>
+            <a data-tab="health_records" class="patient-dependent-nav">Health Records</a>
+            <a data-tab="medications" class="patient-dependent-nav">Medications</a>
+            <a data-tab="documents" class="patient-dependent-nav">Documents</a>
+        `
+    }
+]);
+
+const DOCTOR_NAV_LINKS = `
     <div class="nav-dropdown">
-        <span>Miscellaneous</span>
+        <span>Clinical</span>
+        ${DOCTOR_CLINICAL_MENU}
+    </div>
+    <div class="nav-dropdown">
+        <span>Scheduling</span>
         <div class="dropdown-content">
-            <a data-tab="misc_announcements">Announcements</a>
-            <a data-tab="misc_portal_dashboard">Portal Dashboard</a>
-            <a data-tab="misc_dicom_viewer">Dicom Viewer</a>
-            <a data-tab="misc_patient_education">Patient Education</a>
-            <a data-tab="misc_authorizations">Authorizations</a>
-            <a data-tab="misc_chart_tracker">Chart Tracker</a>
-            <a data-tab="misc_office_notes">Office Notes</a>
-            <a data-tab="misc_batch_com">Batch Communication Tool</a>
-            <a data-tab="misc_new_documents">New Documents</a>
-            <a data-tab="misc_disclosures">Accounting of Disclosures</a>
-            <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
-            <a data-tab="business_associates">BAA Vendor Registry</a>
-            <a data-tab="drs_requests">Right of Access (DRS Pipeline)</a>
-            <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
-            <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
-            <div class="dropdown-submenu">
-                <span class="dropdown-submenu-trigger">
-                    Blank Forms
-                </span>
-                <div class="dropdown-submenu-content">
-                    <a data-tab="blank_forms_core_demographics">Demographics</a>
-                    <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                    <a data-tab="misc_blank_forms_referral">Referral</a>
-                </div>
-            </div>
+            <div class="dropdown-section-label">Appointments &amp; Rosters</div>
+            <a data-tab="appointments">My Calendar &amp; Appointments</a>
+            <a data-tab="patient_flow">Patient Flow Board</a>
+            <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
+            <a data-tab="recalls">Preventive Care Recalls</a>
         </div>
     </div>
-    <a data-tab="settings">Settings</a>
-    <a data-tab="help">Help</a>
+    <div class="nav-dropdown">
+        <span>Diagnostics</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Lab &amp; Imaging</div>
+            <a data-tab="lab_worklist">Lab Worklist</a>
+            <a data-tab="lab_report">Lab Reports</a>
+            <a data-tab="rad_worklist">Radiology Worklist</a>
+            <a data-tab="rad_report">Radiology Reports</a>
+            <a data-tab="misc_dicom_viewer">DICOM Imaging Viewer</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Pharmacy</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Medications &amp; Rounds</div>
+            <a data-tab="mar">Medicine Rounds (MAR)</a>
+            <a data-tab="pharmacy_dispensing">Dispensing</a>
+            <a data-tab="inventory_management">Drug Catalog &amp; Formulary</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Reports</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Clinical &amp; Quality</div>
+            <a data-tab="clinic_quality_dashboard">Clinical Quality &amp; Utilization</a>
+            <a data-tab="clinical_reports">Clinical Practice Reports</a>
+            <a data-tab="reports_visits_encounters">Encounter Statistics</a>
+            <a data-tab="regulatory_disease_surveillance">Disease Surveillance (PIDSR / CIF)</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Tools</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Communication &amp; Utilities</div>
+            <a data-tab="messaging">Messages &amp; Clinical Inbox</a>
+            <a data-tab="popup_issues" class="patient-dependent-nav">Clinical Issues &amp; Allergies</a>
+            <a data-tab="popup_letter" class="patient-dependent-nav">Patient Letters &amp; Referrals</a>
+            <a data-tab="misc_announcements">Hospital Announcements</a>
+            <a data-tab="misc_office_notes">Office Notes</a>
+            <a data-tab="misc_authorizations">Authorizations</a>
+            <a data-tab="misc_patient_education">Patient Education Handouts</a>
+            <a data-tab="blank_forms_core_demographics">Demographics Form</a>
+            <a data-tab="blank_forms_core_superbill">Superbill / Fee Sheet Form</a>
+            <a data-tab="misc_blank_forms_referral">Referral Form</a>
+            <a data-tab="settings">Doctor Settings</a>
+            <a data-tab="help">Help</a>
+        </div>
+    </div>
 `;
 
-// Nurses and charge nurses: patients, inpatient wards, flow, the OR, messages.
-// What each role may open on the server is set in backend/config/role_access.php.
 function nurseNavLinks(role)
 {
     return `
     <div class="nav-dropdown">
-        <span>Patient</span>
+        <span>Patients &amp; Wards</span>
         <div class="dropdown-content">
-            <a data-tab="patients">Search</a>
-            <a data-tab="patient_finder">Dashboard</a>
-            <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+            <div class="dropdown-section-label">Ward Status &amp; Admissions</div>
+            <a data-tab="inpatient_admissions">Inpatient (ADT) Wards</a>
+            <a data-tab="patient_finder">Patient Finder</a>
+            <a data-tab="patients">Patient Search</a>
+            <a data-tab="patient_flow">Patient Flow Board</a>
+            <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+            <a data-tab="icu">ICU Flowsheet</a>
+            ${role === "charge_nurse" ? `<a data-tab="icu_report">ICU Report</a>` : ""}
             <a data-tab="er">Emergency Room (ER)</a>
-            ${["admin", "receptionist", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="er_report">ER Report</a>` : ""}
-            <a data-tab="census">Daily Census</a>
-            ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
-            <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
-            <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
-            <a data-tab="patient_flow">Flow</a>
-            <a data-tab="portal_checkins">Online Check-ins</a>
+            <a data-tab="census">Daily Census</a>
+            <a data-tab="visitor_management">Visitor Passes</a>
+            <a data-tab="equipment_assets">Biomedical Equipment</a>
         </div>
     </div>
-    <a data-tab="inpatient_admissions">Wards</a>
-    <a data-tab="inpatient_vitals">Vital Signs</a>
-    <a data-tab="icu">ICU Flowsheet</a>
-    ${role === "charge_nurse" ? `<a data-tab="icu_report">ICU Report</a>` : ""}
-    <a data-tab="lab_worklist">Lab Worklist</a>
-    <a data-tab="rad_worklist">Radiology Worklist</a>
-    <a data-tab="mar">Medicine Rounds</a>
-    <a data-tab="ward_cabinet">Ward Cabinet</a>
-    <a data-tab="dd_register">DD Register</a>
-    ${role === "charge_nurse" ? `<a data-tab="ward_stock_report">Ward Stock Report</a>` : ""}
-    ${role === "charge_nurse" ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
-    <a data-tab="nurse_assignments">Shift Assignments</a>
-    <a data-tab="patient_flow">Flow</a>
-    <a data-tab="portal_checkins">Online Check-ins</a>
+    <div class="nav-dropdown">
+        <span>Clinical Care</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Nursing Documentation</div>
+            <a data-tab="mar">Medicine Rounds (MAR)</a>
+            <a data-tab="ward_cabinet">Ward Dispensing Cabinet</a>
+            <a data-tab="dd_register">DD Controlled Drug Register</a>
+            <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
+            ${role === "charge_nurse" ? `<a data-tab="nursing_staff">Nursing Staff Management</a>` : ""}
+            ${role === "charge_nurse" ? `<a data-tab="ward_stock_report">Ward Stock Report</a>` : ""}
+            <a data-tab="code_blue">Code Blue Resuscitation</a>
+            ${role === "charge_nurse" ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
+            <a data-tab="lab_worklist">Lab Worklist</a>
+            <a data-tab="rad_worklist">Radiology Worklist</a>
+        </div>
+    </div>
     <div class="nav-dropdown">
         <span>Surgery</span>
         <div class="dropdown-content">
+            <div class="dropdown-section-label">Operating Suites</div>
             <a data-tab="or_board">OR Live Board</a>
-            <a data-tab="or_schedule">OR Schedule</a>
+            <a data-tab="or_schedule">OR Surgical Schedule</a>
         </div>
     </div>
-    <a data-tab="messaging">Messages</a>
-    ${role === "charge_nurse" ? `<a data-tab="nursing_staff">Nursing Staff</a>` : ""}
+    <div class="nav-dropdown">
+        <span>Tools</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Nursing Utilities</div>
+            <a data-tab="messaging">Internal Messaging</a>
+            <a data-tab="portal_checkins">Online Check-ins</a>
+            <a data-tab="popup_issues" class="patient-dependent-nav">Clinical Issues</a>
+            <a data-tab="popup_chart_label" class="patient-dependent-nav">Chart Labels</a>
+            <a data-tab="popup_barcode_label" class="patient-dependent-nav">Barcode Labels</a>
+            <a data-tab="help">Help</a>
+        </div>
+    </div>
     `;
 }
 
-// Pharmacist: the order verification queue, patients (read), wards, messages.
 const PHARMACIST_NAV_LINKS = `
     <a data-tab="med_verification">Order Verification</a>
-    <a data-tab="mar">Medicine Rounds</a>
-    <a data-tab="dd_register">DD Register</a>
-    <a data-tab="restock_queue">Restock Requests</a>
-    <a data-tab="ward_cabinet">Ward Cabinets</a>
-    <a data-tab="ward_stock_report">Ward Stock Report</a>
-    <a data-tab="patients">Patients</a>
-    <a data-tab="inpatient_admissions">Wards</a>
-    <a data-tab="messaging">Messages</a>
+    <div class="nav-dropdown">
+        <span>Dispensing &amp; Stock</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Pharmacy Operations</div>
+            <a data-tab="pharmacy_dispensing">Outpatient Dispensing</a>
+            <a data-tab="mar">Inpatient Medicine Rounds (MAR)</a>
+            <a data-tab="dd_register">DD Controlled Register</a>
+            <a data-tab="restock_queue">Cabinet Restock Requests</a>
+            <a data-tab="ward_cabinet">Ward Cabinets</a>
+            <a data-tab="ward_stock_report">Ward Stock Report</a>
+            <a data-tab="inventory_management">Drug Catalog &amp; Par Levels</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Patients &amp; Wards</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Inpatient Census</div>
+            <a data-tab="patients">Patient Directory</a>
+            <a data-tab="inpatient_admissions">Inpatient Wards</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Tools &amp; Messages</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Pharmacy Tools</div>
+            <a data-tab="messaging">Clinical Messaging</a>
+            <a data-tab="help">Help</a>
+        </div>
+    </div>
 `;
 
-// CNA: find a patient, the wards, rooming / vital signs, messages.
 const CNA_NAV_LINKS = `
-    <a data-tab="patients">Patients</a>
-    <a data-tab="inpatient_admissions">Wards</a>
-    <a data-tab="er">ER</a>
-    <a data-tab="nurse_assignments">My Patients</a>
-    <a data-tab="inpatient_vitals">Vital Signs</a>
-    <a data-tab="icu">ICU Flowsheet</a>
-    <a data-tab="room_management">Rooms &amp; Beds</a>
-    <a data-tab="patient_flow">Flow</a>
+    <div class="nav-dropdown">
+        <span>Patients &amp; Wards</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Ward Patient Care</div>
+            <a data-tab="patients">Patient Directory</a>
+            <a data-tab="nurse_assignments">My Assigned Patients</a>
+            <a data-tab="inpatient_admissions">Inpatient Wards</a>
+            <a data-tab="er">Emergency Room (ER)</a>
+            <a data-tab="room_management">Rooms &amp; Beds</a>
+            <a data-tab="patient_flow">Patient Flow Board</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Vitals &amp; Care</span>
+        <div class="dropdown-content">
+            <div class="dropdown-section-label">Observations</div>
+            <a data-tab="inpatient_vitals">Vital Signs Entry</a>
+            <a data-tab="icu">ICU Flowsheet</a>
+        </div>
+    </div>
     <a data-tab="messaging">Messages</a>
 `;
 
-// My Work (what is assigned to me today) comes first for the clinical, pharmacy and lab roles.
+// My Work (what is assigned to me today) comes first for clinical, pharmacy, and lab roles.
 const MY_WORK_LINK_ROLES = ["nurse", "charge_nurse", "cna", "doctor", "clinician", "pharmacist", "lab_technician", "admin"];
 
 export function getNavLinks(role)
@@ -931,9 +947,13 @@ export function DashboardView()
         </div>
 
         <div class="navbar-right">
-            <div class="nav-search-wrap">
+            <button type="button" class="nav-quick-jump-btn" id="navQuickJumpBtn" title="Quick Jump to any menu or module (Ctrl+K)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                <input type="text" class="nav-search" placeholder="Search by any demographic...">
+                <kbd>Ctrl K</kbd>
+            </button>
+            <div class="nav-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <input type="text" class="nav-search" placeholder="Search patient...">
             </div>
             <div class="nav-dropdown proxy-switcher" id="proxySwitcher" style="display: none;">
                 <span id="proxySwitcherLabel">Viewing: <strong>Me</strong></span>
@@ -1042,37 +1062,49 @@ export function DashboardView()
                         </div>
                     </div>
                 </div>
-                <button type="button" class="pc-encounter-add-btn" id="patientContextAddEncounterBtn" title="New Encounter" aria-label="New Encounter">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <button type="button" class="pc-encounter-icon-btn pc-encounter-add-btn" id="patientContextNewEncounterBtn" title="Create New Encounter" aria-label="Create Encounter">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="tab-bar" id="tabBar">
-        <!-- Tabs will be rendered here dynamically -->
+    <!-- Active Patient Quick Banner (compact reminder shown below tabs if context bar is scrolled off) -->
+    <div class="active-patient-strip" id="activePatientStrip" style="display: none;">
+        <span class="active-patient-strip-icon">👤</span>
+        <span class="active-patient-strip-text">Active Chart: <strong id="activePatientStripName">--</strong></span>
+        <span class="active-patient-strip-meta" id="activePatientStripMeta"></span>
+        <button type="button" class="active-patient-strip-btn" id="activePatientStripGoChart">Open Chart</button>
+        <button type="button" class="active-patient-strip-btn-alt" id="activePatientStripEncounter">New Encounter</button>
+        <button type="button" class="active-patient-strip-clear" id="activePatientStripClear" title="Clear active patient">&times;</button>
     </div>
 
-    <main class="tab-content-area" id="tabContent">
-        <!-- Active tab content goes here -->
-    </main>
+    <div class="main-content">
+        <!-- Persistent Tab Bar -->
+        <div class="tab-bar-container">
+            <div class="tab-bar" id="tabBar">
+                <!-- Tabs will be rendered here dynamically -->
+            </div>
+        </div>
+
+        <!-- Dynamic Tab Content -->
+        <div id="tabContent" class="tab-content-container">
+            <!-- Active tab view will be rendered here -->
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="logoutConfirmModalOverlay">
-    <div class="modal-box logout-confirm-box">
-        <button type="button" class="modal-close logout-confirm-close" id="closeLogoutConfirmModal">&times;</button>
-        <div class="logout-confirm-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <path d="M16 17l5-5-5-5"></path>
-                <path d="M21 12H9"></path>
-            </svg>
-        </div>
-        <h2 class="logout-confirm-title">Log Out</h2>
-        <p class="logout-confirm-text">You're about to end your session. You'll need to sign in again to continue.</p>
-        <div class="logout-confirm-actions">
-            <button type="button" class="btn-secondary" id="cancelLogoutBtn">Cancel</button>
-            <button type="button" class="logout-confirm-btn" id="confirmLogoutBtn">Log Out</button>
+    <div class="modal-card" style="max-width: 420px; text-align: center;">
+        <div style="font-size: 32px; margin-bottom: 12px;">🔒</div>
+        <h3 style="margin-bottom: 8px;">Confirm Logout</h3>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">Are you sure you want to log out of the Intellix Hospital System?</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn btn-secondary" id="cancelLogoutBtn" type="button">Stay Logged In</button>
+            <button class="btn btn-danger" id="confirmLogoutBtn" type="button">Log Out</button>
         </div>
     </div>
 </div>

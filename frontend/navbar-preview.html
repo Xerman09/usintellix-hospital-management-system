@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Navbar Preview - Intellix</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="./src/styles/main.css?v=57">
+<style>
+body { margin: 0; background: #f8fafc; font-family: Inter, sans-serif; }
+.preview-banner {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 8px 16px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+</style>
+</head>
+<body>
+<div class="preview-banner">
+    <span>✨ <strong>Navigation Bar Preview Mode</strong> (Streamlined 9-Hub Architecture)</span>
+    <span style="color: #94a3b8;">Admin Role View</span>
+</div>
+<div id="app"></div>
+<script type="module">
+import { DashboardView } from "./src/modules/dashboard/dashboard.view.js?v=197";
+import { initNavOverflow } from "./src/core/nav-overflow.js?v=8";
+
+sessionStorage.setItem("user", JSON.stringify({ role: "admin", first_name: "System", last_name: "Admin", username: "admin" }));
+
+document.getElementById("app").innerHTML = DashboardView();
+initNavOverflow();
+</script>
+</body>
+</html>
