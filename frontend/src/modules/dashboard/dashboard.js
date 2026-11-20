@@ -22,8 +22,8 @@ import { initHealthReminders } from "../health-reminders/health-reminders.js?v=5
 import { fetchAccessiblePatients, switchPatient } from "../proxy-access/proxy-access.service.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js?v=104";
 import { initAddEmployee } from "../employees/add-employee.js?v=105";
-import { RoleManagementView } from "../role-management/role-management.view.js";
-import { initRoleManagement } from "../role-management/role-management.js";
+import { RoleManagementView } from "../role-management/role-management.view.js?v=2";
+import { initRoleManagement } from "../role-management/role-management.js?v=2";
 import { PatientsListView } from "../patients/patients-list.view.js?v=88";
 import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=117";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js?v=4";

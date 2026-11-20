@@ -273,8 +273,67 @@ export async function initRoleManagement()
         renderMatrixView();
     });
 
+    const openBizBtn = document.getElementById("roleOpenBusinessModulesBtn");
+    if (openBizBtn) {
+        openBizBtn.addEventListener("click", () => {
+            if (typeof window.__openDashboardTab === "function") {
+                window.__openDashboardTab("manage_modules", "Business Module Access");
+            }
+        });
+    }
+
+    // Live-refresh permissions matrix when Business Module Access is updated
+    const onBusinessModulesUpdated = async () => {
+        if (!document.getElementById("rolesTableBody")) {
+            window.removeEventListener("businessModulesUpdated", onBusinessModulesUpdated);
+            return;
+        }
+        await loadAllData(openBasicModal);
+        if (viewMatrix.style.display !== "none") {
+            renderMatrixView();
+        }
+    };
+    window.addEventListener("businessModulesUpdated", onBusinessModulesUpdated);
+
     // Initial load
     await loadAllData(openBasicModal);
+}
+
+function syncSubsystemFilterOptions()
+{
+    const select = document.getElementById("matrixSubsystemFilter");
+    if (!select || !matrixData || !matrixData.modules) return;
+
+    const entries = Object.entries(matrixData.modules);
+    const prevValue = selectedSubsystemFilter;
+
+    select.innerHTML = [
+        `<option value="">All Enabled Subsystems (${entries.length})</option>`,
+        ...entries.map(([key, mod], idx) => `<option value="${escapeHtml(key)}">${idx + 1}. ${escapeHtml(mod.title || key)}</option>`)
+    ].join("");
+
+    if (prevValue && matrixData.modules[prevValue]) {
+        select.value = prevValue;
+    } else {
+        selectedSubsystemFilter = "";
+        select.value = "";
+    }
+}
+
+function renderBusinessScopeBanner()
+{
+    const banner = document.getElementById("roleBusinessScopeBanner");
+    const textEl = document.getElementById("roleBusinessScopeText");
+    if (!banner || !textEl) return;
+
+    const scope = matrixData?.business_scope;
+    if (!scope || !scope.hidden_capabilities) {
+        banner.style.display = "none";
+        return;
+    }
+
+    textEl.textContent = `Showing only modules enabled for this business (${scope.allowed_capabilities} of ${scope.total_capabilities} capabilities across ${scope.allowed_subsystems} active subsystems; ${scope.hidden_capabilities} hidden).`;
+    banner.style.display = "flex";
 }
 
 async function loadAllData(openBasicModal)
@@ -292,6 +351,8 @@ async function loadAllData(openBasicModal)
         for (const [rId, caps] of Object.entries(matrixData.matrix || {})) {
             localMatrix[rId] = new Set(caps);
         }
+        syncSubsystemFilterOptions();
+        renderBusinessScopeBanner();
     }
 
     renderDirectoryRows(openBasicModal);

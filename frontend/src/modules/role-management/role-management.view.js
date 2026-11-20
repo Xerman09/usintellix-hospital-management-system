@@ -814,6 +814,12 @@ export function RoleManagementView()
             </div>
         </div>
 
+        <!-- Business Module Scope Notice -->
+        <div id="roleBusinessScopeBanner" style="display: none; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; margin-bottom: 14px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; font-size: 12.5px; font-weight: 500;">
+            <span id="roleBusinessScopeText">Showing only modules enabled for this business.</span>
+            <button type="button" id="roleOpenBusinessModulesBtn" style="border: 1px solid #93c5fd; background: #ffffff; color: #1d4ed8; font-weight: 600; font-size: 12px; padding: 5px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap;">Manage Business Modules</button>
+        </div>
+
         <!-- VIEW 1: ROLE DIRECTORY -->
         <div id="viewDirectory">
             <div class="vc-toolbar">
@@ -853,17 +859,7 @@ export function RoleManagementView()
                 <div class="vc-matrix-toolbar">
                     <div class="vc-matrix-filters">
                         <select class="vc-select-filter" id="matrixSubsystemFilter">
-                            <option value="">All Subsystems (10)</option>
-                            <option value="admin">1. System Admin & Security</option>
-                            <option value="pas">2. PAS & Bed Management</option>
-                            <option value="clinical_ehr">3. Clinical EHR & Documentation</option>
-                            <option value="pharmacy">4. Pharmacy & Medication</option>
-                            <option value="diagnostics">5. Diagnostics & Lab/Rad</option>
-                            <option value="billing">6. Billing & Revenue Cycle</option>
-                            <option value="hr">7. HR & Workforce Roster</option>
-                            <option value="supply_chain">8. Supply Chain & Equipment</option>
-                            <option value="analytics">9. Analytics & Compliance</option>
-                            <option value="doctor_portal">10. Doctor Portal & Workspace</option>
+                            <option value="">All Enabled Subsystems</option>
                         </select>
                         <div class="vc-search-wrap" style="max-width: 260px;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>

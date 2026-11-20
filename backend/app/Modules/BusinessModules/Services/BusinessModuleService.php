@@ -322,6 +322,15 @@ class BusinessModuleService
         }, $rows);
     }
 
+    public function getEnabledModuleKeys(): array
+    {
+        $map = [];
+        foreach ($this->listAll() as $mod) {
+            $map[$mod['module_key']] = $mod['is_core'] ? true : (bool) $mod['is_enabled'];
+        }
+        return $map;
+    }
+
     /**
      * Batch update enabled states. Accepts either:
      *   ['modules' => ['pharmacy' => true, 'icu' => false, ...]]
