@@ -823,9 +823,9 @@ function setupSplitMenus(navbar) {
 
         menu.classList.add("is-filtering");
         const hits = [];
-        menu.querySelectorAll(".nav-split-pane").forEach((pane) => {
+        menu.querySelectorAll(".nav-split-pane:not(.module-disabled-hidden)").forEach((pane) => {
             const sectionName = pane.getAttribute("data-section-name") || "";
-            pane.querySelectorAll("a[data-tab]").forEach((link) => {
+            pane.querySelectorAll("a[data-tab]:not(.module-disabled-hidden)").forEach((link) => {
                 const text = link.textContent.trim();
                 if (text.toLowerCase().includes(q) || sectionName.toLowerCase().includes(q)) {
                     hits.push({
@@ -878,7 +878,7 @@ function collectNavIndex() {
     const seen = new Set();
     const items = [];
 
-    linksRoot.querySelectorAll("a[data-tab]").forEach((a) => {
+    linksRoot.querySelectorAll("a[data-tab]:not(.module-disabled-hidden)").forEach((a) => {
         const tabId = a.getAttribute("data-tab");
         const title = a.textContent.trim();
         if (!tabId || !title) return;

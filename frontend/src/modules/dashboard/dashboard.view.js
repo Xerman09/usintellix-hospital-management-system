@@ -343,6 +343,7 @@ function staffNavLinks(role)
                 <a data-tab="equipment_assets">Biomedical &amp; Capital Assets</a>
                 <a data-tab="display_devices">TV Displays &amp; Waiting Queues</a>
                 <a data-tab="business_settings">Hospital &amp; Practice Settings</a>
+                ${role === "admin" ? `<a data-tab="manage_modules">Business Module Access</a>` : ""}
                 ${role === "admin" ? `<a data-tab="global_settings">Global System Settings</a>` : ""}
                 <a data-tab="settings">System Configuration</a>
                 ${role === "admin" ? `<a data-tab="general_settings">Two-Factor Authentication</a>` : ""}

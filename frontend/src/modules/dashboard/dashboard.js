@@ -1,4 +1,5 @@
-import { initNavOverflow } from "../../core/nav-overflow.js?v=8";
+import { initNavOverflow } from "../../core/nav-overflow.js?v=9";
+import { loadBusinessModules, applyModuleVisibilityToNavbar, isTabEnabled } from "../../core/business-modules.js?v=1";
 import { getUser, clearSession, syncSessionUser } from "../../core/session.js?v=5";
 import { renderAvatar } from "../../core/avatar.js";
 import { initBranding } from "../../core/branding.js";
@@ -77,8 +78,8 @@ import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
 import { initDestroyedDrugs } from "../destroyed-drugs/destroyed-drugs.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js?v=40";
-import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=105";
-import { initManageModules } from "../manage-modules/manage-modules.js?v=105";
+import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=106";
+import { initManageModules } from "../manage-modules/manage-modules.js?v=107";
 import { CareCoordinationView } from "../care-coordination/care-coordination.view.js?v=107";
 import { initCareCoordination } from "../care-coordination/care-coordination.js?v=110";
 import { ProvidersView } from "../providers/providers.view.js?v=5";
@@ -583,6 +584,12 @@ export function Dashboard()
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
         window.__openDashboardTab = openDashboardTab;
+        if (!isTabEnabled(tabId)) {
+            if (activate) {
+                showToast("This module is currently disabled for your organization.", "error");
+            }
+            return;
+        }
         // Issues is a global overlay modal (like the reference OpenEMR
         // popup it's named after), not a tab -- it needs to be reachable
         // from whatever tab is currently active, not replace it.
@@ -2108,6 +2115,23 @@ export function Dashboard()
     }
     attachNavListeners();
     initNavOverflow();
+    applyModuleVisibilityToNavbar();
+    loadBusinessModules(true).then(() => {
+        // Close any restored tabs that belong to disabled modules
+        Array.from(tabManager.tabs.keys()).forEach((openTabId) => {
+            if (openTabId !== 'dashboard' && openTabId !== 'patient_chart' && !isTabEnabled(openTabId)) {
+                tabManager.closeTab(openTabId);
+            }
+        });
+    });
+
+    window.addEventListener('businessModulesUpdated', () => {
+        Array.from(tabManager.tabs.keys()).forEach((openTabId) => {
+            if (openTabId !== 'dashboard' && openTabId !== 'patient_chart' && !isTabEnabled(openTabId)) {
+                tabManager.closeTab(openTabId);
+            }
+        });
+    });
     // Alert bell on every screen (staff only): unread count, critical pop-ups with sound.
     initAlertBell(user);
     // Results inbox "!": new lab and radiology results for my patients until I open each one.
@@ -2166,6 +2190,7 @@ export function Dashboard()
                 navLinksContainer.innerHTML = getNavLinks(freshUser.role);
                 attachNavListeners();
                 initNavOverflow();
+                applyModuleVisibilityToNavbar();
                 updatePatientNavState();
             }
             const profileRole = document.getElementById('profileRole');

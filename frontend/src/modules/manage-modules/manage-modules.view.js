@@ -1,66 +1,63 @@
 export function ManageModulesView() {
     return `
-    <div class="report-wrapper fade-in" style="padding: 24px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px;">
-        <div style="text-align: center;">
-            <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 16px;">
-                <button type="button" class="btn-secondary">
-                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    Modules Help
-                </button>
-                <button type="button" class="btn-secondary">
-                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M2 12h4l2-9 5 18 2-9h4"></path></svg>
-                    Visit Third Party Modules Wiki
-                </button>
+    <div class="bm-page fade-in">
+        <div class="bm-header">
+            <div>
+                <h1 class="bm-title">Business Module Access</h1>
+                <p class="bm-subtitle">Manage which hospital and clinical modules this business can access. Disabled modules are hidden from the navigation bar and Quick Jump across all roles.</p>
             </div>
-            <h1 style="font-size: 24px; font-weight: 500; color: #1e293b; margin: 0;">Custom Module Listings</h1>
+            <div class="bm-header-actions">
+                <button type="button" class="btn btn-secondary" id="bmResetBtn" disabled>Reset</button>
+                <button type="button" class="btn btn-primary" id="bmSaveBtn" disabled>Save Changes</button>
+            </div>
         </div>
 
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width: 50px;">ID</th>
-                        <th>Module</th>
-                        <th>Release</th>
-                        <th>Status</th>
-                        <th>Menu Text</th>
-                        <th>Nick Name</th>
-                        <th>Type</th>
-                        <th>Dependency Modules</th>
-                        <th>Action</th>
-                        <th>Configuration</th>
-                    </tr>
-                </thead>
-                <tbody id="customModulesTableBody">
-                    <!-- Populated by JS -->
-                </tbody>
-            </table>
+        <div class="bm-kpi-grid" id="bmKpiGrid">
+            <div class="bm-kpi-card">
+                <span class="bm-kpi-label">Enabled Modules</span>
+                <strong class="bm-kpi-value bm-kpi-green" id="bmKpiEnabled">--</strong>
+            </div>
+            <div class="bm-kpi-card">
+                <span class="bm-kpi-label">Disabled Modules</span>
+                <strong class="bm-kpi-value bm-kpi-muted" id="bmKpiDisabled">--</strong>
+            </div>
+            <div class="bm-kpi-card">
+                <span class="bm-kpi-label">Core (Required)</span>
+                <strong class="bm-kpi-value bm-kpi-blue" id="bmKpiCore">--</strong>
+            </div>
+            <div class="bm-kpi-card">
+                <span class="bm-kpi-label">Total Modules</span>
+                <strong class="bm-kpi-value" id="bmKpiTotal">--</strong>
+            </div>
         </div>
 
-        <div style="text-align: center; margin-top: 24px;">
-            <h1 style="font-size: 24px; font-weight: 500; color: #1e293b; margin: 0;">Lamina's Module Listings</h1>
+        <div class="bm-presets-bar" id="bmPresetsBar">
+            <span class="bm-presets-label">Quick Business Profiles:</span>
+            <div class="bm-presets-list" id="bmPresetsList">
+                <!-- Populated dynamically -->
+            </div>
         </div>
 
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width: 50px;">ID</th>
-                        <th>Module</th>
-                        <th>Release</th>
-                        <th>Status</th>
-                        <th>Menu Text</th>
-                        <th>Nick Name</th>
-                        <th>Type</th>
-                        <th>Dependency Modules</th>
-                        <th>Action</th>
-                        <th>Configuration</th>
-                    </tr>
-                </thead>
-                <tbody id="laminasModulesTableBody">
-                    <!-- Populated by JS -->
-                </tbody>
-            </table>
+        <div class="bm-toolbar">
+            <div class="bm-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <input type="text" id="bmSearchInput" class="bm-search-input" placeholder="Search modules by name or feature..." autocomplete="off">
+            </div>
+            <div class="bm-category-pills" id="bmCategoryPills">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        <div class="bm-unsaved-banner" id="bmUnsavedBanner" style="display: none;">
+            <span id="bmUnsavedText">You have unsaved module access changes.</span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="bmBannerResetBtn">Discard</button>
+                <button type="button" class="btn btn-primary btn-sm" id="bmBannerSaveBtn">Save &amp; Apply</button>
+            </div>
+        </div>
+
+        <div class="bm-grid" id="bmModulesGrid">
+            <div class="bm-loading">Loading business modules...</div>
         </div>
     </div>
     `;

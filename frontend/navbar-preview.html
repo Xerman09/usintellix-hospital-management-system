@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Navbar Preview - Intellix</title>
+<title>Navbar &amp; Business Modules Preview - Intellix</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="./src/styles/main.css?v=57">
+<link rel="stylesheet" href="./src/styles/main.css?v=58">
 <style>
 body { margin: 0; background: #f8fafc; font-family: Inter, sans-serif; }
 .preview-banner {
@@ -21,18 +21,29 @@ body { margin: 0; background: #f8fafc; font-family: Inter, sans-serif; }
 </head>
 <body>
 <div class="preview-banner">
-    <span>✨ <strong>Navigation Bar Preview Mode</strong> (Streamlined 9-Hub Architecture)</span>
+    <span><strong>Navigation &amp; Business Modules Preview</strong></span>
     <span style="color: #94a3b8;">Admin Role View</span>
 </div>
 <div id="app"></div>
 <script type="module">
-import { DashboardView } from "./src/modules/dashboard/dashboard.view.js?v=197";
-import { initNavOverflow } from "./src/core/nav-overflow.js?v=8";
+import { DashboardView } from "./src/modules/dashboard/dashboard.view.js?v=198";
+import { initNavOverflow } from "./src/core/nav-overflow.js?v=9";
+import { loadBusinessModules, applyModuleVisibilityToNavbar } from "./src/core/business-modules.js?v=1";
+import { ManageModulesView } from "./src/modules/manage-modules/manage-modules.view.js?v=106";
+import { initManageModules } from "./src/modules/manage-modules/manage-modules.js?v=107";
 
 sessionStorage.setItem("user", JSON.stringify({ role: "admin", first_name: "System", last_name: "Admin", username: "admin" }));
 
 document.getElementById("app").innerHTML = DashboardView();
 initNavOverflow();
+applyModuleVisibilityToNavbar();
+await loadBusinessModules(true);
+
+const tabContent = document.getElementById("tabContent");
+if (tabContent) {
+    tabContent.innerHTML = ManageModulesView();
+    await initManageModules();
+}
 </script>
 </body>
 </html>
