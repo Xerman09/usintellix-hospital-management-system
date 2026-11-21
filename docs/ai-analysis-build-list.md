@@ -71,7 +71,7 @@ organisation, because none of Tier 1 sends personal data.
 | Module | Method |
 |---|---|
 | `Reports` · ClinicalQualityAnalyticsService | `getSummaryMetrics` ✻, `getTrends`, `getWardBreakdown` |
-| `Reports` · ClinicalQualityScorecardService | `getDeliveries` ✻ |
+| ~~`Reports` · ClinicalQualityScorecardService~~ | ~~`getDeliveries`~~ — **moved to Tier 3 by AI-2** |
 | `Reports` · RegulatoryAhsrExportService | `getAhsrOverview` ✻ |
 
 The clinical quality dashboard — the highest-value surface in the whole plan — turns out
@@ -95,7 +95,7 @@ most useful analysis in §1 of the plan is also among the least legally fraught.
 | `DrugInventory` | `listLots`, `listDrugs`, `listDestructions` ✻ |
 | `DrugInventory` · NearExpiryQuarantineService | `runQuarantineScan` |
 | `DrugInventory` · LotRecallTraceService | `searchLots`, `listRecalls` ✻ |
-| `DrugInventory` · NarcoticsVaultService | `getVaultStats`, `getMovements` ✻ |
+| `DrugInventory` · NarcoticsVaultService | `getVaultStats` — ~~`getMovements`~~ **moved to Tier 3 by AI-2** |
 | `StockLevels` · PharmacyReorderPolicyService | `compute30DayDailyConsumption` |
 | `StockCounts` | `report` ✻ |
 | `Procurement` · ProcurementReportService | `openOrders`, `supplierPerformance`, `spend`, `priceHistory`, `priceDifferences` |
@@ -103,6 +103,35 @@ most useful analysis in §1 of the plan is also among the least legally fraught.
 
 ---
 
+### What AI-2 corrected here, 21 November 2026
+
+The ✻ marks above said "confirm the result keys before sending". That was done, by
+resolving every wildcard against `information_schema` rather than by running the methods
+— forty-three of them include `saveCounts()`, `approve()`, `send()`, `receive()` and
+`deleteImage()`, so calling them to find out what they select would have written to the
+database and dispatched stock. `scratch/scan_select_star.php` does it statically.
+
+**84 methods use a wildcard select. 62 of them would return at least one identifier
+column.** Two of those were on the Tier 1 list above and should not have been:
+
+- **`ClinicalQualityScorecardService::getDeliveries`** returns `obstetric_deliveries.*`,
+  which carries **`patient_id` and `patient_name`**. A maternity record. Listed here as
+  clean because the text scan could not see past `SELECT *`.
+- **`NarcoticsVaultService::getMovements`** returns `narcotics_vault_movements.*`, which
+  carries **`patient_id`** — a controlled-drug movement against a named patient, which is
+  about as sensitive as anything in this database.
+
+Both move to Tier 3.
+
+The remaining wildcards on the Tier 1 list expose only `created_by` / `updated_by` — a
+staff user id with no name attached. They stay, because the allowlist strips them and
+there is now a test naming each one. That is the distinction worth holding on to: a
+wildcard that exposes nothing *today* is not an allowlist, it is a column list that
+happens to be safe, and the next migration can change it without anybody deciding to.
+
+A near miss worth recording: `CensusService::sheet` exposes `patient_name` and
+`patient_no`, and the Tier 1 entry is `CensusReportService::report`, which is clean. Two
+classes, similar names, very different contents.
 ## Tier 2 — one column away
 
 These are summary reports whose only identifier is a single `patient_name` or employee

@@ -244,7 +244,66 @@ much cheaper to learn here than at AI-5.
 
 ---
 
-## AI-2 — The wildcard audit
+## AI-2 — The wildcard audit — **DONE** (21 November 2026)
+
+`scratch/scan_select_star.php`. **84 methods use a wildcard select; 62 of them would
+return at least one identifier column.**
+
+### It does not execute anything, and that is the design
+
+The obvious way to learn what a method returns is to call it and look at the keys. The
+methods in question include `saveCounts()`, `approve()`, `send()`, `receive()`,
+`cancel()`, `deleteImage()` and `releaseQuarantine()`. Calling those to find out what they
+select would write to the database, dispatch stock and delete an image.
+
+So the wildcard is resolved statically: find the table the alias belongs to — matching
+`SELECT d.*` to the `JOIN … d` rather than to the first table named, which matters in
+every multi-table query here — and ask `information_schema` what columns it has. Read-only
+against live: `SHOW COLUMNS` and nothing else.
+
+### Two reports were in the wrong tier
+
+- **`ClinicalQualityScorecardService::getDeliveries`** returns `obstetric_deliveries.*`:
+  `patient_id`, `patient_name`. A maternity record, listed as Tier 1 because the text scan
+  could not see past the wildcard.
+- **`NarcoticsVaultService::getMovements`** returns `narcotics_vault_movements.*`:
+  `patient_id`. A controlled-drug movement against a named patient.
+
+Both moved to Tier 3 in the build list. Everything else still on Tier 1 exposes only
+`created_by` / `updated_by`, which the allowlist strips and a test now names column by
+column.
+
+### It also found two allowlist entries that were wrong
+
+`financial_executive_overview` and `ar_aging_matrix` were written from what those reports
+sounded like, before their queries had been read. Every field name in both was wrong, so
+each would have projected to an empty payload. Deleted rather than corrected: neither
+report is wired into `AiReports`, and an allowlist for a report nobody can request is a
+wrong decision wearing the costume of a right one. They come back with their reports in
+AI-3.
+
+One thing AI-3 inherits from this: `getAgingMatrix` keeps its aging data in a nested
+`buckets` map and `project()` drops nested values on purpose, so that report needs
+flattening in `AiReports` before an allowlist can describe it at all.
+
+### The distinction worth keeping
+
+A wildcard that exposes nothing today is **not** an allowlist. It is a column list that
+happens to be safe, and the next migration can change it without anybody deciding to. That
+is the whole argument for `AiPayload` existing alongside this scan rather than instead
+of it.
+
+### Still open
+
+- The scan covers the report-bearing modules. Wildcards elsewhere are unexamined, which
+  is fine until a report from elsewhere is added.
+- A near miss worth not forgetting: `CensusService::sheet` exposes `patient_name` and
+  `patient_no`; the Tier 1 entry is `CensusReportService::report`, which is clean. Two
+  classes, similar names, very different contents.
+
+---
+
+## AI-2 — as originally planned
 
 **Size: S.** After AI-1.
 

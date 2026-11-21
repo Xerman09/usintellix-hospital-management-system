@@ -76,21 +76,26 @@ class AiPayload
             'responsible_owner',
         ],
 
-        'financial_executive_overview' => [
-            'period',
-            'gross_revenue',
-            'net_revenue',
-            'collections',
-            'outstanding',
-            'denial_rate',
-        ],
-
-        'ar_aging_matrix' => [
-            'bucket',
-            'payer_name',
-            'accounts_count',
-            'total_amount',
-        ],
+        // Two further entries lived here until AI-2 and have been removed.
+        //
+        // `financial_executive_overview` and `ar_aging_matrix` were written
+        // from what those reports sounded like rather than from their queries,
+        // and AI-2 established that every field name in both was wrong --
+        // getExecutiveOverview returns ward_code / revpab / margin_pct, not
+        // gross_revenue; getAgingMatrix returns payer_category and a nested
+        // `buckets` map, not a flat bucket column. Projected through those
+        // entries each report would have sent an empty payload.
+        //
+        // They are deleted rather than corrected because neither report is
+        // wired into AiReports yet, and an allowlist for a report nobody can
+        // request is not coverage -- it is a wrong decision that looks like a
+        // right one. Each comes back when AI-3 adds its report, which is the
+        // moment somebody reads the columns.
+        //
+        // One thing AI-2 turned up that AI-3 will have to solve first:
+        // getAgingMatrix keeps its aging data inside a nested `buckets` map,
+        // and project() drops nested values on purpose. That report needs
+        // flattening in AiReports before an allowlist can describe it.
     ];
 
     /**

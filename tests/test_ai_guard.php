@@ -492,6 +492,32 @@ try {
 
 check('A REPORT WITH NO ALLOWLIST SENDS NOTHING -- it throws rather than guessing', $unknownRefused);
 
+// AI-2 resolved every wildcard select in the report services against
+// information_schema. These are the column names it found behind them that
+// the text scan could not see. The allowlist has to strip each one, so each
+// one is named here rather than trusted to the general rule.
+$wildcardLeftovers = [
+    'patient_name' => 'Juan Dela Cruz',        // census_patients, obstetric_deliveries
+    'patient_no' => 'PAT-000041',              // census_patients, census_movements
+    'created_by' => 17,                        // nearly every table
+    'updated_by' => 17,
+    'assigned_to' => 22,                       // billing_claim_denials
+    'assigned_to_name' => 'Maria Santos',
+];
+
+$leftoverRow = ['denial_category' => 'prior_auth_missing', 'claims_count' => 3] + $wildcardLeftovers;
+$leftoverSent = array_keys(AiPayload::project(REPORT, [$leftoverRow])['rows'][0] ?? []);
+
+foreach (array_keys($wildcardLeftovers) as $column) {
+    check("a wildcard's {$column} is stripped", !in_array($column, $leftoverSent, true));
+}
+
+check('and the two fields that are supposed to travel still do',
+    in_array('denial_category', $leftoverSent, true) && in_array('claims_count', $leftoverSent, true));
+
+check('the speculative allowlist entries AI-2 found to be wrong are gone',
+    !AiPayload::knows('financial_executive_overview') && !AiPayload::knows('ar_aging_matrix'));
+
 // ==========================================================================
 // 10. The server assembles the payload.
 // ==========================================================================
