@@ -66,7 +66,18 @@ export async function api(endpoint, options = {})
         window.dispatchEvent(new CustomEvent("hipaaBreakGlassRequired", { detail: data }));
     }
 
-    if (sessionExpired || databaseUnreachable) {
+    // The server now enforces must_change_password (PasswordChangeGuard), so a
+    // session can be refused mid-use -- an administrator can set the flag on
+    // somebody who is already signed in. Back to the sign-in screen, where the
+    // forced-change step is already presented on the next successful login.
+    //
+    // Deliberately a round trip through login rather than opening the
+    // forced-change form here: that form lives in the login view, and a
+    // password change should start from a fresh authentication anyway.
+    const passwordChangeRequired = response.status === 403
+        && (data?.code === "PASSWORD_CHANGE_REQUIRED" || data?.password_change_required);
+
+    if (sessionExpired || databaseUnreachable || passwordChangeRequired) {
         redirectToLogin();
     }
 

@@ -116,22 +116,55 @@ honest.
 with the path. The `.htaccess` guard added for M11's own storage directory does nothing on
 nginx, or with `AllowOverride off`.
 
-### 3.3 `must_change_password` is honoured by the web UI only
+### 3.3 ~~`must_change_password` is honoured by the web UI only~~ — fixed, 21 November
 
-`frontend/src/modules/auth/auth.js:545` acts on the flag. `AuthService` authenticates and
-returns a session regardless, and nothing in `backend/app/Core/` or the middleware checks
-it. So the mobile app, a direct API call, or any client that ignores the flag gets a fully
-working session and is never asked to change anything.
+`App\Core\PasswordChangeGuard`, called from `AuthMiddleware`. A user with the flag set now
+reaches five routes and nothing else: the two credential-change endpoints, logout,
+`/auth/me` and the heartbeat. 66 tests in `tests/test_password_change_gate.php`, now the
+sixteenth suite in the HIPAA runner.
 
-The same hole sits under breach detection: when `AuthService` matches a password against
-the HIBP list it sets `must_change_password = 1` and logs `PASSWORD_BREACH_DETECTED` with
-"immediate credential change required (§ 164.308)" — then lets the login through. A
-known-compromised password keeps working, and the audit trail records that a change was
-required while nothing required it.
+**What was true.** The flag was acted on in one place — `auth.js:547` — and `AuthService`
+authenticated, granted a session and returned it regardless. Nothing in
+`backend/app/Core/` or either middleware looked at it again. Any client that ignored the
+field got a working session across all **1,343 routes** behind `AuthMiddleware`. Confirmed
+by signing in rather than by reading: `scratch/probe_must_change_password.php`.
+
+**The flag is read from the `users` row, not the session**, so an administrator who sets
+it on somebody already signed in reaches them on their next request rather than at their
+next login. 403 with `code: PASSWORD_CHANGE_REQUIRED`, not 401 — a 401 makes the browser
+client tear down the session that has to survive to call the change endpoint.
+
+**This entry was also wrong about breach detection, and that part is withdrawn.** It said
+`AuthService` logs `PASSWORD_BREACH_DETECTED` and "then lets the login through. A
+known-compromised password keeps working." It does not. The breach branch returns
+`success: false` **before** `grantSession()` is reached, so no session is ever created —
+and because `|| !empty($user['password_breached'])` is in the condition, it keeps refusing
+on every later attempt until the password is changed through
+`PUT /auth/breached-password`, which verifies the current password first. Section 6 of the
+new suite asserts all of that, so the correction cannot rot back into being true.
+
+**It nearly became a lockout, which is the part worth remembering.** `auth.js` sends every
+flagged user to the first-login screen, and `AuthService::completeFirstLogin()` requires
+the caller to confirm an email address held in `patient_contacts`. A nurse has no patient
+record, so that route can never succeed for one. With only it on the allowlist, flagging a
+staff account would have produced an account that could do nothing and had no way to
+repair itself — strictly worse than the hole being closed. `PUT /profile/password` is
+allowlisted alongside it, and both halves are asserted: that the profile route clears the
+flag for a staff user, and that the first-login route refuses one.
+
+**Two consequences to expect in production, neither of them a defect:**
+
+- **`PatientService` creates every patient with `must_change_password = 1`**, and the
+  portal routes sit behind `AuthMiddleware`. A newly registered patient is therefore
+  blocked from the portal until they set their own password. That is what the flag has
+  always meant; until now it simply did not happen.
+- **The Expo patient app is not in this repository** and cannot be updated from here. If
+  it ignores the flag — which is the reason this entry existed — new patients will receive
+  403s from it until it handles `code: PASSWORD_CHANGE_REQUIRED` the way
+  `frontend/src/core/api.js` now does, by returning to the sign-in screen.
 
 Found while resetting the admin password on 17 November: it is why that reset was not
-issued as a temporary credential forced to change at first login, which would have been a
-safeguard that does not exist.
+issued as a temporary credential forced to change at first login. It can be now.
 
 ### 3.4 Test suites write to the LIVE database — partly fixed, 18 November
 

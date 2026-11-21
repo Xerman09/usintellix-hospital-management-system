@@ -76,6 +76,18 @@ class AuthMiddleware
             }
         }
 
+        // An outstanding password change blocks everything except the routes
+        // that clear it. Until TODO 3.3 was closed this flag was honoured by
+        // auth.js alone, so any client that ignored the field -- the mobile
+        // app, curl, anything -- got a full session across all 1,343 routes
+        // behind this middleware and was never asked to change anything.
+        //
+        // Last, deliberately: a suspended account or a revoked session should
+        // be told that, not told to change its password. The guard reads the
+        // flag from the users row rather than the session, so an administrator
+        // forcing a change reaches a user who is already signed in.
+        \App\Core\PasswordChangeGuard::enforce($userId, is_array($user) ? $user : null);
+
         return true;
     }
 

@@ -19,7 +19,8 @@ $testFiles = [
     'test_field_encryption.php'                 => 'Field-Level AES-256-GCM Encryption (45 CFR § 164.312(a)(2)(iv))',
     'test_npp_consent.php'                      => 'Notice of Privacy Practices & Consent (45 CFR § 164.520)',
     'test_hipaa_retention_and_export.php'       => '6-Year Data Retention & Immutable Export (§ 164.316(b))',
-    'test_minimum_necessary.php'                => 'Role-Based Minimum Necessary Access (§ 164.502(b))'
+    'test_minimum_necessary.php'                => 'Role-Based Minimum Necessary Access (§ 164.502(b))',
+    'test_password_change_gate.php'             => 'Forced Password Change Enforced Server-Side (§ 164.308(a)(5)(ii)(D))'
 ];
 
 echo "========================================================================================\n";
