@@ -51,11 +51,12 @@ class Database
                 error_log('AutoMigrator warning: ' . $migrationError->getMessage());
             }
         } catch (PDOException $e) {
+            error_log('Database Connection Error: ' . $e->getMessage());
             http_response_code(500);
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
-                'message' => 'Database Connection Failed: ' . $e->getMessage()
+                'message' => 'Unable to connect to database service. Please contact your system administrator.'
             ]);
             exit;
         }
