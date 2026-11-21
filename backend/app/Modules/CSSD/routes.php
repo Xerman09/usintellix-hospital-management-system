@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\CSSD\Controllers\CSSDController;
 
 /** @var \App\Core\Router $router */

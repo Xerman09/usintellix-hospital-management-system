@@ -1,8 +1,6 @@
 <?php
 
 use App\Modules\CpoeDiagnostics\Controllers\CpoeDiagnosticController;
-use AuthMiddleware;
-use RoleMiddleware;
 
 /** @var \App\Core\Router $router */
 

@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\DutyRosters\Controllers\DutyRosterController;
 
 /** @var \App\Core\Router $router */

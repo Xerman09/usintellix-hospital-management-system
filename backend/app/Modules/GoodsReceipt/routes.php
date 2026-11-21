@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\GoodsReceipt\Controllers\GoodsReceiptController;
 
 /** @var \App\Core\Router $router */

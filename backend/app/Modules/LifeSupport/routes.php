@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\LifeSupport\Controllers\LifeSupportController;
 
 /** @var \App\Core\Router $router */

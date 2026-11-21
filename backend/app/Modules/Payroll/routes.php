@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\Payroll\Controllers\SalaryStructureController;
 use App\Modules\Payroll\Controllers\PayrollController;
 

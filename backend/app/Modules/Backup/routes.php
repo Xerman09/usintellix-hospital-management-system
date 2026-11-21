@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\Backup\Controllers\BackupController;
 
 /** @var \App\Core\Router $router */

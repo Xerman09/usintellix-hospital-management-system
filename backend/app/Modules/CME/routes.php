@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\CME\Controllers\CMEController;
 
 /** @var \App\Core\Router $router */

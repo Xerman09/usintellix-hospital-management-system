@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\PerformanceEvaluations\Controllers\PerformanceEvaluationController;
 
 /** @var \App\Core\Router $router */

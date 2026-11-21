@@ -1,8 +1,6 @@
 <?php
 
 use App\Modules\OpdSpecialtyConsultations\Controllers\OpdSpecialtyConsultationController;
-use AuthMiddleware;
-use RoleMiddleware;
 
 /** @var \App\Core\Router $router */
 

@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\SupplyCatalog\Controllers\SupplyCatalogController;
 
 /** @var \App\Core\Router $router */

@@ -1,7 +1,5 @@
 <?php
 
-use AuthMiddleware;
-use RoleMiddleware;
 use App\Modules\Workforce\Controllers\WorkforceController;
 
 /** @var \App\Core\Router $router */
