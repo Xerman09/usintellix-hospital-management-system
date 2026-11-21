@@ -322,13 +322,14 @@ class ProgressNoteService
             cosigned_by = :uid,
             cosigned_by_name = :uname,
             cosigned_at = NOW(),
-            updated_by = :uid,
+            updated_by = :updated_uid,
             updated_at = NOW()
             WHERE id = :id");
 
         return $stmt->execute([
             'uid' => $userId,
             'uname' => $userName,
+            'updated_uid' => $userId,
             'id' => $id,
         ]);
     }

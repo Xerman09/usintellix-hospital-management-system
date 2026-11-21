@@ -369,13 +369,15 @@ class BloodInventoryService
         $upd = $db->prepare(
             "UPDATE blood_inventory_units
              SET status = :status,
-                 quarantine_reason = CASE WHEN :status = 'quarantined' THEN :reason ELSE quarantine_reason END,
-                 quarantined_at = CASE WHEN :status = 'quarantined' THEN NOW() ELSE quarantined_at END,
+                 quarantine_reason = CASE WHEN :status_check1 = 'quarantined' THEN :reason ELSE quarantine_reason END,
+                 quarantined_at = CASE WHEN :status_check2 = 'quarantined' THEN NOW() ELSE quarantined_at END,
                  updated_at = NOW()
              WHERE id = :id"
         );
         $upd->execute([
             'status' => $status,
+            'status_check1' => $status,
+            'status_check2' => $status,
             'reason' => $reason ?: null,
             'id' => $unitId
         ]);

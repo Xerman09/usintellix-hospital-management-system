@@ -466,7 +466,7 @@ class CarePlanService
             evaluated_by = :uid,
             evaluated_by_name = :uname,
             evaluated_at = NOW(),
-            updated_by = :uid,
+            updated_by = :updated_uid,
             updated_at = NOW()
             WHERE id = :id");
 
@@ -475,6 +475,7 @@ class CarePlanService
             'notes' => $notes,
             'uid' => $userId,
             'uname' => $evaluatorName,
+            'updated_uid' => $userId,
             'id' => $id,
         ]);
     }

@@ -302,16 +302,18 @@ class RelatedPersonService
                AND u.deleted_at IS NULL
                AND p.id != :exclude_patient_id
                AND (
-                    u.username LIKE :q
-                    OR CONCAT(p.first_name, ' ', p.last_name) LIKE :q
+                    u.username LIKE :q_user
+                    OR CONCAT(p.first_name, ' ', p.last_name) LIKE :q_name
                )
              ORDER BY p.last_name, p.first_name
              LIMIT 20"
         );
 
+        $wildcard = '%' . $query . '%';
         $stmt->execute([
             'exclude_patient_id' => $excludePatientId,
-            'q' => '%' . $query . '%'
+            'q_user' => $wildcard,
+            'q_name' => $wildcard
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

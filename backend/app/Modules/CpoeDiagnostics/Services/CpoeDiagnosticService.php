@@ -256,6 +256,10 @@ class CpoeDiagnosticService
     {
         $db = Database::connection();
 
+        $encounterFilter = ($encounterId > 0)
+            ? "(o.encounter_id = :enc OR lr.encounter_id = :enc2 OR rr.encounter_id = :enc3 OR (o.patient_id = :pid AND o.created_at >= NOW() - INTERVAL 1 DAY))"
+            : "(o.patient_id = :pid AND o.created_at >= NOW() - INTERVAL 1 DAY)";
+
         $sql = "SELECT o.id, o.patient_id, o.procedure_order_config_id, o.status, o.order_date, o.created_at,
                        poc.name AS procedure_name, poc.identifying_code, poc.order_test_type, poc.lab_section,
                        poc.specimen_type, poc.rad_modality,
@@ -266,21 +270,17 @@ class CpoeDiagnosticService
                 LEFT JOIN lab_requests lr ON lr.id = o.lab_request_id
                 LEFT JOIN rad_requests rr ON rr.id = o.rad_request_id
                 WHERE o.deleted_at IS NULL
-                  AND (
-                    (o.encounter_id = :enc AND :enc > 0)
-                    OR (lr.encounter_id = :enc2 AND :enc2 > 0)
-                    OR (rr.encounter_id = :enc3 AND :enc3 > 0)
-                    OR (o.patient_id = :pid AND o.created_at >= NOW() - INTERVAL 1 DAY)
-                  )
+                  AND {$encounterFilter}
                 ORDER BY o.id DESC";
 
         $stmt = $db->prepare($sql);
-        $stmt->execute([
-            'enc' => $encounterId,
-            'enc2' => $encounterId,
-            'enc3' => $encounterId,
-            'pid' => $patientId
-        ]);
+        $params = ['pid' => $patientId];
+        if ($encounterId > 0) {
+            $params['enc'] = $encounterId;
+            $params['enc2'] = $encounterId;
+            $params['enc3'] = $encounterId;
+        }
+        $stmt->execute($params);
 
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
