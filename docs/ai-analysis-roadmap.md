@@ -42,10 +42,60 @@ is rejected, not merged.
 
 ---
 
+## AI-1a — The guard rail — **DONE** (21 November 2026)
+
+Built before the thing it guards, at the hospital's request and for the right reason:
+every other feature here costs the same whether it runs once or ten thousand times, and
+this one bills a third party per call.
+
+Schema 346 (`ai_analysis_runs`, `ai_analysis_cache`, `ai_model_rates`, nine settings),
+seeds 090–091, `AiGuardService`, `AiPayload`, 78 tests. No provider is called by any of
+it, and the suite costs nothing to run.
+
+**Three controls, because none of them works alone.** A spend cap stops the month but not
+a fast loop, since spend is measured after the fact. Rate limits stop the loop but not
+thirty days of steady legitimate use. The response cache removes the commonest cause of
+both — the expensive pattern in a reporting tool is not abuse, it is somebody opening the
+same unchanged report four times in a morning.
+
+**A cache hit is offered before every limit that exists to control cost.** It is free, so
+being told to wait for it would be nonsense, and this is the check most likely to be
+broken by a well-meaning reordering — hence the test that says so in capitals.
+
+**The caps are honestly approximate.** Output length is not known before the call, so
+spend is checked against what has already been spent and one call can cross a cap rather
+than stop exactly at it. `ai_max_output_tokens` bounds that overshoot to the cost of a
+single response: cents.
+
+**Refusals are in the ledger too.** A table of only successful calls answers "what did we
+spend" and cannot answer "who keeps hitting the cap", "is the cache working" or "when did
+this start failing" — which are the questions actually asked when a bill looks wrong.
+
+**An unpriced model is charged at the dearest rate on file**, not at zero, so a model
+missing from `ai_model_rates` is caught by a cap rather than slipping under all of them.
+
+**`allow_ai_analysis` defaults to 0.** Unlike almost every switch in this system: the rest
+cost nothing when unused. A hospital that upgrades and finds a billing relationship
+switched on by a migration has been done a disservice.
+
+**The capability is seeded for `admin` only** — every grant is a standing authority to
+spend money, so the seed ships the row to copy rather than the grants to inherit.
+
+### Still open
+
+- Nothing calls the guard yet. AI-1 is what calls it.
+- `AiPayload::ALLOWLIST` covers three reports. Each further report adds its own entry,
+  which is the deliberate moment somebody looks at the columns.
+- Cache purging is a method, not a schedule. It wants a line in `portal_notify.php` or a
+  cron of its own once there is traffic to purge.
+
+---
 ## AI-1 — The spine, and one report through it
 
-**Size: L.** Nothing before it. Needs an API key — *not* the HIPAA-ready organisation,
-because nothing in this phase sends personal data.
+**Size: M, reduced by AI-1a.** Needs an API key — *not* the HIPAA-ready organisation,
+because nothing in this phase sends personal data. The guard rail, the ledger, the field
+allowlist and the capability already exist; what is left is the provider client, the
+per-report prompt and the panel.
 
 ### Getting the key, since this is the only thing AI-1 waits on
 
