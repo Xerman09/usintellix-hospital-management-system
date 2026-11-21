@@ -53,7 +53,7 @@ $router->get('/dd-register', [MarController::class, 'ddRegister'], [AuthMiddlewa
 // MAR (charged), return it or record it as wasted.
 // ---------------------------------------------------------------
 
-$router->get('/ward-cabinet', [CabinetController::class, 'view'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'nurse', 'charge_nurse', 'pharmacist', 'doctor']]]);
+$router->get('/ward-cabinet', [CabinetController::class, 'index'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'nurse', 'charge_nurse', 'pharmacist', 'doctor']]]);
 $router->post('/ward-cabinet/withdraw', [CabinetController::class, 'withdraw'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/ward-cabinet/return', [CabinetController::class, 'giveBack'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/ward-cabinet/waste', [CabinetController::class, 'waste'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);

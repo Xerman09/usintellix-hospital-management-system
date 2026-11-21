@@ -20,7 +20,7 @@ class CabinetController extends Controller
     }
 
     /** Query: ward_id? */
-    public function view(): void
+    public function index(): void
     {
         $request = new Request();
         $this->success($this->service->view(['ward_id' => $request->input('ward_id')], $this->user()), 'Retrieved.');
