@@ -5,3 +5,12 @@ backend/storage/_test_uploads/
 # Row backups taken before a destructive cleanup. They contain real patient and
 # staff rows and must never reach a remote.
 backend/storage/retired-test-rows-*.json
+
+# Scratch, temporary and debug scripts
+backend/_temp*.php
+backend/_tmp*.php
+backend/*_tmp.php
+backend/temp/
+*.log
+build_err.txt
+build_log_decompressed.txt
