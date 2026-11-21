@@ -158,11 +158,16 @@ reportTest(
 
 // Helper for running controller endpoints that call exit;
 function runSubprocess(string $code): string {
-    $script = "require_once 'backend/app/Core/Autoload.php'; App\Core\Env::load(); " . $code;
+    $root = str_replace('\\', '/', dirname(__DIR__));
+    $autoload = "{$root}/backend/app/Core/Autoload.php";
+    $script = "chdir('{$root}'); require_once '{$autoload}'; App\Core\Env::load(); " . $code;
     $tempFile = sys_get_temp_dir() . '/test_sub_' . uniqid() . '.php';
     file_put_contents($tempFile, "<?php " . $script);
     $output = shell_exec("php " . escapeshellarg($tempFile) . " 2>&1");
     @unlink($tempFile);
+    if (preg_match('/\{[\s\S]*\}/', (string) $output, $matches)) {
+        return $matches[0];
+    }
     return (string) $output;
 }
 

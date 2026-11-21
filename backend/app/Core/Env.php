@@ -15,8 +15,14 @@ class Env
             return;
         }
 
-        $envFile = $path ?? dirname(__DIR__, 2) . '/.env';
-        if (file_exists($envFile)) {
+        if ($path === null) {
+            $envFile = dirname(__DIR__, 2) . '/.env';
+        } elseif (is_dir($path)) {
+            $envFile = rtrim($path, '/\\') . '/.env';
+        } else {
+            $envFile = $path;
+        }
+        if (file_exists($envFile) && !is_dir($envFile)) {
             $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             if ($lines !== false) {
                 foreach ($lines as $line) {
