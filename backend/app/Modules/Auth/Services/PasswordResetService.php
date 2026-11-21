@@ -185,9 +185,9 @@ class PasswordResetService
                 // Any code still open for this account stops working the moment
                 // a new one is issued, so two codes are never live at once.
                 $db->prepare(
-                    "UPDATE password_reset_codes SET expires_at = :now
-                      WHERE user_id = :u AND consumed_at IS NULL AND expires_at > :now"
-                )->execute(['now' => $now, 'u' => $userId]);
+                    "UPDATE password_reset_codes SET expires_at = :set_exp
+                      WHERE user_id = :u AND consumed_at IS NULL AND expires_at > :cur_exp"
+                )->execute(['set_exp' => $now, 'cur_exp' => $now, 'u' => $userId]);
 
                 if ($addressUsable) {
                     $sent = static::send($contactEmail, $code, $user);

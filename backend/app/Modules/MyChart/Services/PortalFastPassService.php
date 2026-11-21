@@ -195,13 +195,14 @@ class PortalFastPassService
             $db->prepare(
                 "UPDATE portal_fastpass_waitlist
                     SET status = 'active', status_note = NULL, earliest_date = :e,
-                        provider_id = :prov, declines = 0, joined_at = :now,
-                        joined_by = :by, settled_at = NULL, updated_at = :now
+                        provider_id = :prov, declines = 0, joined_at = :join_now,
+                        joined_by = :by, settled_at = NULL, updated_at = :upd_now
                   WHERE id = :id"
             )->execute([
                 'e' => $earliest !== '' ? $earliest : null,
                 'prov' => (int) $row['provider_id'],
-                'now' => $now,
+                'join_now' => $now,
+                'upd_now' => $now,
                 'by' => self::actorId($user),
                 'id' => $existing['id'],
             ]);
@@ -212,13 +213,14 @@ class PortalFastPassService
                 "INSERT INTO portal_fastpass_waitlist
                     (patient_id, appointment_id, provider_id, earliest_date, status,
                      joined_at, joined_by, created_at)
-                 VALUES (:p, :a, :prov, :e, 'active', :now, :by, :now)"
+                 VALUES (:p, :a, :prov, :e, 'active', :join_now, :by, :create_now)"
             )->execute([
                 'p' => $patientId,
                 'a' => $appointmentId,
                 'prov' => (int) $row['provider_id'],
                 'e' => $earliest !== '' ? $earliest : null,
-                'now' => $now,
+                'join_now' => $now,
+                'create_now' => $now,
                 'by' => self::actorId($user),
             ]);
 
@@ -265,9 +267,9 @@ class PortalFastPassService
         $db->prepare(
             "UPDATE portal_fastpass_waitlist
                 SET status = 'withdrawn', status_note = 'You asked to come off the list.',
-                    settled_at = :now, updated_at = :now
+                    settled_at = :set_now, updated_at = :upd_now
               WHERE id = :id AND patient_id = :p"
-        )->execute(['now' => $now, 'id' => $waitlistId, 'p' => $patientId]);
+        )->execute(['set_now' => $now, 'upd_now' => $now, 'id' => $waitlistId, 'p' => $patientId]);
 
         // Voided rather than declined: the patient did not turn this slot down,
         // they stopped taking part. Counting it as a decline would push them
@@ -348,13 +350,15 @@ class PortalFastPassService
         $claim = $db->prepare(
             "UPDATE portal_fastpass_slots
                 SET status = 'taken', taken_by_patient_id = :p, taken_by_offer_id = :o,
-                    taken_at = :now, closed_at = :now, updated_at = :now
+                    taken_at = :take_now, closed_at = :close_now, updated_at = :upd_now
               WHERE id = :id AND status = 'offered'"
         );
         $claim->execute([
             'p' => $patientId,
             'o' => (int) $offer['id'],
-            'now' => $now,
+            'take_now' => $now,
+            'close_now' => $now,
+            'upd_now' => $now,
             'id' => (int) $slot['id'],
         ]);
 
@@ -427,15 +431,17 @@ class PortalFastPassService
         $db->prepare(
             "UPDATE appointments
                 SET rescheduled_count = rescheduled_count + 1,
-                    last_rescheduled_at = :now,
+                    last_rescheduled_at = :resched_now,
                     rescheduled_from_date = :from_date,
                     rescheduled_from_time = :from_time,
                     rescheduled_by_patient = 1,
-                    patient_confirmed_at = :now,
-                    updated_at = :now
+                    patient_confirmed_at = :conf_now,
+                    updated_at = :upd_now
               WHERE id = :id"
         )->execute([
-            'now' => $now,
+            'resched_now' => $now,
+            'conf_now' => $now,
+            'upd_now' => $now,
             'from_date' => $wasDate,
             'from_time' => $wasTime,
             'id' => (int) $appointment['id'],
@@ -447,9 +453,9 @@ class PortalFastPassService
             "UPDATE portal_fastpass_waitlist
                 SET status = 'fulfilled',
                     status_note = 'You moved to an earlier appointment.',
-                    settled_at = :now, updated_at = :now
+                    settled_at = :set_now, updated_at = :upd_now
               WHERE id = :id"
-        )->execute(['now' => $now, 'id' => (int) $offer['waitlist_id']]);
+        )->execute(['set_now' => $now, 'upd_now' => $now, 'id' => (int) $offer['waitlist_id']]);
 
         // Everybody else in the same round, told plainly.
         self::missRound($db, (int) $slot['id'], (int) $slot['offer_round'], (int) $offer['id'], $now);
@@ -535,9 +541,9 @@ class PortalFastPassService
                 "UPDATE portal_fastpass_waitlist
                     SET status = 'dormant',
                         status_note = 'You turned down the last few offers, so we have paused them. Ask again whenever you want.',
-                        settled_at = :now, updated_at = :now
+                        settled_at = :set_now, updated_at = :upd_now
                   WHERE id = :id"
-            )->execute(['now' => $now, 'id' => (int) $entry['id']]);
+            )->execute(['set_now' => $now, 'upd_now' => $now, 'id' => (int) $entry['id']]);
 
             $dormant = true;
         }
@@ -627,7 +633,7 @@ class PortalFastPassService
                 "INSERT INTO portal_fastpass_slots
                     (provider_id, slot_date, slot_time, visit_category_id, facility_id,
                      source, source_appointment_id, status, published_at, published_by, created_at)
-                 VALUES (:prov, :d, :t, :vc, :fac, :src, :appt, 'open', :now, :by, :now)
+                 VALUES (:prov, :d, :t, :vc, :fac, :src, :appt, 'open', :pub_now, :by, :create_now)
                  ON DUPLICATE KEY UPDATE
                     status = IF(status IN ('open','offered'), status, 'open'),
                     status_note = IF(status IN ('open','offered'), status_note, NULL),
@@ -649,7 +655,8 @@ class PortalFastPassService
                     ? $source
                     : 'desk_manual',
                 'appt' => $appointmentId ?: null,
-                'now' => $now,
+                'pub_now' => $now,
+                'create_now' => $now,
                 'by' => $actorId ?: null,
             ]);
 
@@ -704,9 +711,9 @@ class PortalFastPassService
                     "UPDATE portal_fastpass_waitlist
                         SET status = 'withdrawn',
                             status_note = 'The appointment this was for has been cancelled.',
-                            settled_at = :now, updated_at = :now
+                            settled_at = :set_now, updated_at = :upd_now
                       WHERE appointment_id = :a AND status IN ('active','dormant')"
-                )->execute(['now' => $now, 'a' => $appointmentId]);
+                )->execute(['set_now' => $now, 'upd_now' => $now, 'a' => $appointmentId]);
             } else {
                 // Keep the entry: the patient still wants to come in sooner. Its
                 // provider is re-read on every sweep, and the target time comes
@@ -874,7 +881,7 @@ class PortalFastPassService
             "INSERT IGNORE INTO portal_fastpass_offers
                 (slot_id, waitlist_id, patient_id, appointment_id, from_date, from_time,
                  round, status, offered_at, expires_at, created_at)
-             VALUES (:s, :w, :p, :a, :fd, :ft, :r, 'open', :now, :exp, :now)"
+             VALUES (:s, :w, :p, :a, :fd, :ft, :r, 'open', :off_now, :exp, :create_now)"
         );
 
         foreach ($candidates as $candidate) {
@@ -886,8 +893,9 @@ class PortalFastPassService
                 'fd' => (string) $candidate['appointment_date'],
                 'ft' => (string) $candidate['appointment_time'],
                 'r' => $round,
-                'now' => $now,
+                'off_now' => $now,
                 'exp' => $expires,
+                'create_now' => $now,
             ]);
 
             if ($insert->rowCount() === 0) {
@@ -899,9 +907,9 @@ class PortalFastPassService
 
             $db->prepare(
                 'UPDATE portal_fastpass_waitlist
-                    SET offers_sent = offers_sent + 1, last_offer_at = :now, updated_at = :now
+                    SET offers_sent = offers_sent + 1, last_offer_at = :off_now, updated_at = :upd_now
                   WHERE id = :id'
-            )->execute(['now' => $now, 'id' => (int) $candidate['waitlist_id']]);
+            )->execute(['off_now' => $now, 'upd_now' => $now, 'id' => (int) $candidate['waitlist_id']]);
 
             self::notifyOffer($db, $candidate, $slot, $slotTime, $expires, $offerId);
         }
@@ -1264,19 +1272,19 @@ class PortalFastPassService
         $db->prepare(
             "UPDATE portal_fastpass_slots
                 SET status = :to, status_note = :note, taken_by_patient_id = NULL,
-                    taken_by_offer_id = NULL, taken_at = NULL, closed_at = :now,
-                    updated_at = :now
+                    taken_by_offer_id = NULL, taken_at = NULL, closed_at = :close_now,
+                    updated_at = :upd_now
               WHERE id = :id AND status = 'taken'"
-        )->execute(['to' => $to, 'note' => mb_substr($note, 0, 200), 'now' => $now, 'id' => $slotId]);
+        )->execute(['to' => $to, 'note' => mb_substr($note, 0, 200), 'close_now' => $now, 'upd_now' => $now, 'id' => $slotId]);
     }
 
     private static function closeSlot(PDO $db, int $slotId, string $status, string $note, string $now): void
     {
         $db->prepare(
             "UPDATE portal_fastpass_slots
-                SET status = :s, status_note = :note, closed_at = :now, updated_at = :now
+                SET status = :s, status_note = :note, closed_at = :close_now, updated_at = :upd_now
               WHERE id = :id AND status IN ('open','offered')"
-        )->execute(['s' => $status, 'note' => mb_substr($note, 0, 200), 'now' => $now, 'id' => $slotId]);
+        )->execute(['s' => $status, 'note' => mb_substr($note, 0, 200), 'close_now' => $now, 'upd_now' => $now, 'id' => $slotId]);
     }
 
     /** Everybody else in the winning round, told the truth about why. */
@@ -1295,12 +1303,13 @@ class PortalFastPassService
     {
         $db->prepare(
             "UPDATE portal_fastpass_offers
-                SET status = :s, responded_at = :now, outcome_note = :note,
-                    decline_reason = COALESCE(:dr, decline_reason), updated_at = :now
+                SET status = :s, responded_at = :resp_now, outcome_note = :note,
+                    decline_reason = COALESCE(:dr, decline_reason), updated_at = :upd_now
               WHERE id = :id"
         )->execute([
             's' => $status,
-            'now' => $now,
+            'resp_now' => $now,
+            'upd_now' => $now,
             'note' => $note !== null ? mb_substr($note, 0, 255) : null,
             'dr' => $declineReason,
             'id' => $offerId,

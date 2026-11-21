@@ -705,13 +705,14 @@ class PortalChartService
 
         $db->prepare(
             "UPDATE portal_chart_corrections
-                SET status = :s, response = :r, reviewed_by = :by, reviewed_at = :now, updated_at = :now
+                SET status = :s, response = :r, reviewed_by = :by, reviewed_at = :rev_now, updated_at = :upd_now
               WHERE id = :id AND status = 'pending'"
         )->execute([
             's' => $decision,
             'r' => $response !== '' ? mb_substr($response, 0, 500) : null,
             'by' => self::actorId($user),
-            'now' => $now,
+            'rev_now' => $now,
+            'upd_now' => $now,
             'id' => $id,
         ]);
 

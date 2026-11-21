@@ -55,19 +55,20 @@ class ResultsInboxService
             $row = $find->fetch(PDO::FETCH_ASSOC);
             $values = [
                 'k' => $o['kind'], 'c' => $critical ? 1 : 0, 'a' => count($abnormal), 'n' => count($rows),
-                's' => mb_substr($summary, 0, 500), 'h' => $hash, 'now' => $now, 'op' => $mine ? $now : null,
+                's' => mb_substr($summary, 0, 500), 'h' => $hash, 'res_now' => $now, 'op' => $mine ? $now : null,
+                'upd_now' => $now,
             ];
             if (!$row) {
                 $db->prepare(
                     "INSERT INTO results_inbox (order_id, patient_id, user_id, kind, reason, is_critical, abnormal_count, result_count, summary, content_hash, resulted_at, opened_at, created_at)
-                     VALUES (:o, :p, :u, :k, :r, :c, :a, :n, :s, :h, :now, :op, :now)"
+                     VALUES (:o, :p, :u, :k, :r, :c, :a, :n, :s, :h, :res_now, :op, :upd_now)"
                 )->execute($values + ['o' => $orderId, 'p' => $o['patient_id'], 'u' => $userId, 'r' => $reason]);
                 $sent += $mine ? 0 : 1;
             } elseif ($row['content_hash'] !== $hash) {
                 // Corrected: new again (and marked so) once it had gone out.
                 $db->prepare(
                     "UPDATE results_inbox SET kind = :k, is_critical = :c, abnormal_count = :a, result_count = :n, summary = :s, content_hash = :h,
-                            is_corrected = 1, resulted_at = :now, opened_at = :op, updated_at = :now WHERE id = :id"
+                            is_corrected = 1, resulted_at = :res_now, opened_at = :op, updated_at = :upd_now WHERE id = :id"
                 )->execute($values + ['id' => $row['id']]);
                 $sent += $mine ? 0 : 1;
             }
