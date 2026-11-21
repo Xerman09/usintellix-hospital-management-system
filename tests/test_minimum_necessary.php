@@ -107,8 +107,10 @@ echo "\n";
 // ----------------------------------------------------------------------------
 echo "2. Testing Enforcement Interception via Isolated Subprocess...\n";
 
+$testDbFile = str_replace('\\', '/', realpath(__DIR__ . '/lib/test_database.php'));
+
 // Test 2a: Assert clinical access rejects receptionist
-$cmd2a = 'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertClinicalAccess([\'role\' => \'receptionist\']);"';
+$cmd2a = sprintf('php -r "require_once \'%s\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertClinicalAccess([\'role\' => \'receptionist\']);"', $testDbFile);
 $out2a = shell_exec($cmd2a . ' 2>&1');
 $json2a = json_decode((string) $out2a, true);
 
@@ -118,7 +120,7 @@ $is2aRestricted = is_array($json2a) &&
 reportTest('Non-clinical receptionist blocked from clinical chart (403)', $is2aRestricted, $json2a['message'] ?? 'No message');
 
 // Test 2b: Assert lab access rejects receptionist
-$cmd2b = 'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'receptionist\']);"';
+$cmd2b = sprintf('php -r "require_once \'%s\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'receptionist\']);"', $testDbFile);
 $out2b = shell_exec($cmd2b . ' 2>&1');
 $json2b = json_decode((string) $out2b, true);
 
@@ -128,7 +130,7 @@ $is2bRestricted = is_array($json2b) &&
 reportTest('Receptionist blocked from laboratory records (403)', $is2bRestricted, $json2b['message'] ?? 'No message');
 
 // Test 2c: Assert lab access allows lab_technician
-$cmd2c = 'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'lab_technician\']); echo \'ALLOWED\';"';
+$cmd2c = sprintf('php -r "require_once \'%s\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertLabAccess([\'role\' => \'lab_technician\']); echo \'ALLOWED\';"', $testDbFile);
 $out2c = trim((string) shell_exec($cmd2c . ' 2>&1'));
 reportTest('Lab technician allowed access to laboratory records', $out2c === 'ALLOWED', 'Result: ' . $out2c);
 
@@ -172,7 +174,8 @@ $unassignedDoctor = [
 ];
 
 $cmd3a = sprintf(
-    'php -r "require_once \'tests/lib/test_database.php\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertPatientAccess([\'id\' => 888888, \'role\' => \'doctor\'], %d);"',
+    'php -r "require_once \'%s\'; TestDatabase::use(); App\Core\PhiAccessGuard::assertPatientAccess([\'id\' => 888888, \'role\' => \'doctor\'], %d);"',
+    $testDbFile,
     $testPatientId
 );
 $out3a = shell_exec($cmd3a . ' 2>&1');
