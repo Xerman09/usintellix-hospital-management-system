@@ -515,8 +515,35 @@ foreach (array_keys($wildcardLeftovers) as $column) {
 check('and the two fields that are supposed to travel still do',
     in_array('denial_category', $leftoverSent, true) && in_array('claims_count', $leftoverSent, true));
 
-check('the speculative allowlist entries AI-2 found to be wrong are gone',
-    !AiPayload::knows('financial_executive_overview') && !AiPayload::knows('ar_aging_matrix'));
+// AI-2 deleted two allowlist entries whose every field name was invented, and
+// asserted here that they were gone. AI-3 brought both back with the field
+// names their getters actually return, so that assertion has done its job and
+// would now be wrong. What is worth keeping is the thing it was really
+// protecting: that the invented shapes never come back.
+// `net_revenue` was on the invented list and turns out to be a real column on
+// ward_class_benchmarks -- a guess that happened to land. It is left out here
+// rather than asserted against, because a test that fails on a correct field
+// name is worse than no test.
+$invented = [
+    'financial_executive_overview' => ['gross_revenue', 'collections', 'outstanding', 'denial_rate'],
+    'ar_aging_matrix' => ['bucket', 'payer_name', 'accounts_count', 'total_amount'],
+];
+
+foreach ($invented as $report => $madeUpFields) {
+    check("{$report} is declared from its real query", AiPayload::knows($report));
+
+    $declared = AiPayload::ALLOWLIST[$report] ?? [];
+    $stillWrong = array_intersect($madeUpFields, $declared);
+
+    check("{$report}: none of AI-2's invented field names came back",
+        $stillWrong === [], implode(', ', $stillWrong));
+}
+
+check('the executive overview allowlist names a field its getter really returns',
+    in_array('ward_class', AiPayload::ALLOWLIST['financial_executive_overview'] ?? [], true));
+check('and the aging matrix names the flattened buckets rather than the nested map',
+    in_array('bucket_0_30_balance', AiPayload::ALLOWLIST['ar_aging_matrix'] ?? [], true)
+    && !in_array('buckets', AiPayload::ALLOWLIST['ar_aging_matrix'] ?? [], true));
 
 // ==========================================================================
 // 10. The server assembles the payload.

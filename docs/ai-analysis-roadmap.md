@@ -324,7 +324,69 @@ worklist.
 
 ---
 
-## AI-3 — The rest of Tier 1 financial
+## AI-3 — The rest of Tier 1 financial — **DONE** (21 November 2026)
+
+Five more reports: executive overview, cost-centre margins, monthly trends, the AR aging
+matrix and doctor commission metrics. Six registered in all. A shared panel component,
+mounted four times. 100 tests in the analysis suite, 91 in the guard suite.
+
+### Every shape was observed, not read off the SQL
+
+AI-2 deleted two allowlist entries written from what a report sounded like. So each of
+these five was built by **calling the getter against the test database and reading the
+keys that came back**, and the registry says so. Three further Tier 1 financial reports
+— sales by item, summary by service code, and services — are deliberately **not** here:
+they have no rows in the test database, so their shapes could only have been read off
+their SQL, which is the mistake that made AI-2 necessary.
+
+### Three things the registry had to learn
+
+- **A branch that is a nested map.** `getAgingMatrix` keeps its aging inside
+  `buckets`, and `project()` drops nested values on purpose — so the one report about
+  ageing would have arrived with no ages in it. Reports may now declare a `shape`
+  transform, run *before* projection, so the allowlist still names every field that
+  leaves. `flattenAgingBuckets` turns the map into `bucket_0_30_balance` and friends.
+- **A getter with a different signature.** `getMonthlyTrends(int $limitMonths = 6)`
+  takes an int, and handing it a filters array is a TypeError. `args: 'none'` exists
+  because of exactly one method, and would have been a runtime crash on first use.
+- **A report with no rows.** `getCommissionMetrics` returns a flat map of totals.
+  `project()` already normalises a non-list array into a single row, so `branch: null`
+  was enough.
+
+### Two branches rejected in favour of better ones
+
+`getExecutiveOverview` offers `ward_yield_rankings` (41 columns of `SELECT *`, including
+`id`, `calculated_source` and timestamps) and `ward_class_benchmarks` (13, ward-class
+level). `getCostCenterMargins` offers `departments` (33 columns of raw table) and
+`cost_center_groups` (10). Neither rejected branch names a patient; both are rows the
+model would have to read past to find the figures, and both would cost more to send.
+
+### The test that matters most here
+
+The analysis suite now walks **`AiReports::REPORTS` itself** — not a list written in the
+test, which would drift the first time somebody adds a report and forgets — builds each
+one against the real database, and asserts no identifying key and no nested structure
+survived. A new report is covered by that the moment it is registered.
+
+### A test that had served its purpose
+
+AI-2 asserted the two deleted allowlist entries stayed gone. AI-3 brought both back with
+real field names, so that assertion became wrong. It is replaced by the thing it was
+actually protecting: the **invented** field names must never come back. One of them,
+`net_revenue`, turned out to be a real column on `ward_class_benchmarks` — a guess that
+happened to land — so it is excluded from that check rather than asserted against.
+
+### Still open
+
+- Three Tier 1 financial reports await data to observe, as above.
+- The shared panel is mounted on the pareto screen and the financial BI dashboard. The
+  AR aging and doctor commission screens have registered reports and no panel yet.
+- Still nobody has judged an answer. Six reports can now be analysed and none ever has
+  been.
+
+---
+
+## AI-3 — as originally planned
 
 **Size: M.** After AI-2.
 

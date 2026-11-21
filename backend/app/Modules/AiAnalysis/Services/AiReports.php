@@ -2,6 +2,8 @@
 
 namespace App\Modules\AiAnalysis\Services;
 
+use App\Modules\ArAging\Services\ArAgingService;
+use App\Modules\DoctorCommissions\Services\DoctorCommissionService;
 use App\Modules\Reports\Services\FinancialBusinessIntelligenceService;
 
 /**
@@ -31,9 +33,22 @@ class AiReports
      *
      *   label   -- what a person calls it
      *   source  -- [class, method] on the report's own service
-     *   branch  -- the key in that method's result holding the rows to send
+     *   branch  -- the key in that method's result holding the rows to send,
+     *              or null when the method returns the rows directly
+     *   args    -- 'filters' (default) passes the filters array; 'none' calls
+     *              the method with no arguments
+     *   shape   -- optional static method on this class, run over the rows
+     *              before projection
      *   context -- scalar branches sent alongside, already aggregate
      *   asks    -- what the model is asked to do with it
+     *
+     * EVERY SHAPE BELOW WAS OBSERVED, NOT INFERRED. AI-2 deleted two allowlist
+     * entries written from what a report sounded like; each of these was built
+     * by calling the getter against the test database and reading the keys that
+     * came back. Three further Tier 1 financial reports -- sales by item,
+     * summary by service code, and services -- are deliberately absent: they
+     * have no rows in the test database, so their shapes could only have been
+     * read off their SQL, which is the mistake AI-2 caught.
      */
     public const REPORTS = [
         'claim_denial_pareto' => [
@@ -44,7 +59,99 @@ class AiReports
             'asks' => 'Explain where denied money is concentrated, which categories are worth attacking first, '
                 . 'and what the overturn rates suggest about which denials are worth appealing.',
         ],
+
+        // ward_class_benchmarks, not ward_yield_rankings. Both are ward-level
+        // and neither names a patient, but the rankings branch is a 41-column
+        // SELECT * including id, calculated_source and timestamps -- rows the
+        // model would have to read past to find the figures.
+        'financial_executive_overview' => [
+            'label' => 'Financial executive overview',
+            'source' => [FinancialBusinessIntelligenceService::class, 'getExecutiveOverview'],
+            'branch' => 'ward_class_benchmarks',
+            'context' => ['summary_month'],
+            'asks' => 'Compare the ward classes on occupancy, revenue per available bed and margin, and say '
+                . 'which class is carrying the hospital and which is not paying for itself.',
+        ],
+
+        // cost_center_groups, for the same reason: `departments` is 33 columns
+        // of raw table.
+        'financial_cost_center_margins' => [
+            'label' => 'Cost centre margins',
+            'source' => [FinancialBusinessIntelligenceService::class, 'getCostCenterMargins'],
+            'branch' => 'cost_center_groups',
+            'context' => ['summary_month'],
+            'asks' => 'Say which kinds of cost centre are contributing margin and which are consuming it, and '
+                . 'what the direct cost mix suggests about where the money goes.',
+        ],
+
+        // getMonthlyTrends(int $limitMonths = 6) -- not (array $filters) like
+        // every other report here. Passing filters to it is a TypeError, which
+        // is why `args` exists at all.
+        'financial_monthly_trends' => [
+            'label' => 'Financial monthly trends',
+            'source' => [FinancialBusinessIntelligenceService::class, 'getMonthlyTrends'],
+            'branch' => 'trend_series',
+            'args' => 'none',
+            'context' => ['months_count'],
+            'asks' => 'Describe the direction of occupancy, revenue and margin across these months. Say plainly '
+                . 'if there are too few months to call a trend.',
+        ],
+
+        'ar_aging_matrix' => [
+            'label' => 'AR aging matrix',
+            'source' => [ArAgingService::class, 'getAgingMatrix'],
+            'branch' => 'matrix',
+            'shape' => 'flattenAgingBuckets',
+            'asks' => 'Say which payers are slow and where the balance is concentrated by age. Note anything '
+                . 'sitting beyond ninety days.',
+        ],
+
+        // No rows at all: this getter returns a flat map of totals, which
+        // project() normalises into a single row.
+        'doctor_commission_metrics' => [
+            'label' => 'Doctor commission metrics',
+            'source' => [DoctorCommissionService::class, 'getCommissionMetrics'],
+            'branch' => null,
+            'asks' => 'Summarise the commission position: what has been earned, what is withheld, what is still '
+                . 'to be paid out.',
+        ],
     ];
+
+    /**
+     * The aging matrix keeps its aging inside a nested `buckets` map, and
+     * project() drops nested values on purpose -- so without this the one
+     * report about ageing would arrive with no ages in it.
+     *
+     * Flattened to `bucket_0_30_balance` and friends rather than sent nested,
+     * because the allowlist can only name fields it can see. A nested shape
+     * would have to be allowlisted recursively, which is a bigger mechanism
+     * than any report here has yet needed.
+     */
+    public static function flattenAgingBuckets(array $rows): array
+    {
+        $out = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $buckets = $row['buckets'] ?? [];
+            unset($row['buckets']);
+
+            if (is_array($buckets)) {
+                foreach ($buckets as $label => $bucket) {
+                    $key = 'bucket_' . str_replace(['-', '+'], ['_', '_plus'], (string) $label);
+                    $row[$key . '_count'] = is_array($bucket) ? ($bucket['count'] ?? 0) : 0;
+                    $row[$key . '_balance'] = is_array($bucket) ? ($bucket['balance'] ?? 0) : 0;
+                }
+            }
+
+            $out[] = $row;
+        }
+
+        return $out;
+    }
 
     /**
      * The stable instructions. Byte-identical between calls, on purpose: this
@@ -128,21 +235,37 @@ PROMPT;
         $report = self::REPORTS[$reportKey];
         [$class, $method] = $report['source'];
 
-        $result = (new $class())->{$method}($filters);
+        // Not every report getter takes a filters array -- getMonthlyTrends
+        // takes an int and raises a TypeError if handed one.
+        $result = ($report['args'] ?? 'filters') === 'none'
+            ? (new $class())->{$method}()
+            : (new $class())->{$method}($filters);
 
         if (!is_array($result)) {
             return ['rows' => [], 'context' => [], 'dropped' => []];
         }
 
-        // One named branch. Everything else the report returns stays here --
-        // including, for this report, the 50-row patient-level worklist.
-        $rows = $result[$report['branch']] ?? [];
+        // One named branch, or the whole result when the getter returns its
+        // rows directly. Everything else the report returns stays here --
+        // including, for the pareto report, the 50-row patient-level worklist.
+        $rows = $report['branch'] === null ? $result : ($result[$report['branch']] ?? []);
 
-        $projected = AiPayload::project($reportKey, is_array($rows) ? $rows : []);
+        if (!is_array($rows)) {
+            $rows = [];
+        }
+
+        // A declared reshaping, before the allowlist sees the rows -- so the
+        // allowlist still names every field that leaves, including the ones
+        // this created.
+        if (!empty($report['shape'])) {
+            $rows = self::{$report['shape']}($rows);
+        }
+
+        $projected = AiPayload::project($reportKey, $rows);
 
         $context = [];
 
-        foreach ($report['context'] as $key) {
+        foreach ($report['context'] ?? [] as $key) {
             if (isset($result[$key]) && is_scalar($result[$key])) {
                 $context[$key] = $result[$key];
             }

@@ -1,4 +1,5 @@
 import { api } from '../../core/api.js?v=10';
+import { mountAiPanel } from './ai-panel.js?v=1';
 
 let activeChartType = 'revpab';
 let cachedOverview = null;
@@ -10,6 +11,33 @@ export async function initFinancialBiDashboard() {
 }
 
 function setupEventListeners() {
+    // The month on screen is read at click time, so an analysis always matches
+    // the period the user is looking at rather than the one the page opened on.
+    const month = () => ({ month: document.getElementById('fbiMonthSelect')?.value || '' });
+
+    mountAiPanel({
+        mountId: 'fbiAiOverview',
+        report: 'financial_executive_overview',
+        title: 'AI analysis - ward classes',
+        note: 'Reads the ward-class benchmarks. No ward row identifies a person.',
+        filters: month
+    });
+
+    mountAiPanel({
+        mountId: 'fbiAiCostCentres',
+        report: 'financial_cost_center_margins',
+        title: 'AI analysis - cost centres',
+        note: 'Reads the cost-centre group totals.',
+        filters: month
+    });
+
+    mountAiPanel({
+        mountId: 'fbiAiDenials',
+        report: 'claim_denial_pareto',
+        title: 'AI analysis - denials',
+        note: 'Reads the pareto figures. The denied-claims worklist is never sent.',
+        filters: () => ({})
+    });
     // Month Dropdown Change
     const monthSelect = document.getElementById('fbiMonthSelect');
     if (monthSelect) {

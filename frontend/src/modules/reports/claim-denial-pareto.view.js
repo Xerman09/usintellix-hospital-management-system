@@ -375,63 +375,12 @@ export function ClaimDenialParetoView() {
     </div>
 
     <!--
-        AI analysis (AI-1).
-
-        Hidden until asked for, and never generated on page load: every run
-        costs money, and a panel that fills itself whenever somebody opens the
-        report is the single most expensive habit this feature could acquire.
-
-        Only the pareto figures above are sent. Not the worklist below, which
-        is patient-level -- see AiPayload::ALLOWLIST.
+        AI analysis. The panel itself lives in reports/ai-panel.js and is
+        mounted here by claim-denial-pareto.js -- six report screens use the
+        same component, so the "never run on load" rule lives in one place
+        rather than six.
     -->
-    <div class="cdp-panel" id="cdpAiPanel">
-        <div class="cdp-panel-header">
-            <h3>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
-                    <path d="M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9"></path>
-                </svg>
-                AI analysis
-            </h3>
-            <span style="font-size:12px; color:#64748b;">
-                Reads the pareto figures above. Patient-level rows are never sent.
-            </span>
-        </div>
-
-        <div style="padding:14px 16px;">
-            <div id="cdpAiIdle">
-                <button class="cdp-btn cdp-btn-primary" id="cdpAiRunBtn">Analyse these figures</button>
-                <span id="cdpAiUsage" style="font-size:12px; color:#64748b; margin-left:12px;"></span>
-            </div>
-
-            <div id="cdpAiBusy" style="display:none; font-size:13px; color:#64748b;">
-                Reading the figures&hellip;
-            </div>
-
-            <!--
-                Failure is shown, never swallowed. A panel that silently shows
-                nothing when the provider is down is indistinguishable from one
-                that found nothing to say.
-            -->
-            <div id="cdpAiMessage" style="display:none; font-size:13px; padding:10px 12px;
-                 border-radius:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a;"></div>
-
-            <div id="cdpAiResult" style="display:none;">
-                <p id="cdpAiSummary" style="margin:0 0 12px; font-size:14px; line-height:1.6; color:#1e293b;"></p>
-
-                <div id="cdpAiFindingsWrap" style="display:none;">
-                    <div style="font-size:12px; font-weight:600; color:#475569; margin-bottom:6px;">Findings</div>
-                    <ul id="cdpAiFindings" style="margin:0 0 12px 18px; font-size:13px; line-height:1.7; color:#334155;"></ul>
-                </div>
-
-                <div id="cdpAiWatchWrap" style="display:none;">
-                    <div style="font-size:12px; font-weight:600; color:#475569; margin-bottom:6px;">Worth watching</div>
-                    <ul id="cdpAiWatch" style="margin:0 0 12px 18px; font-size:13px; line-height:1.7; color:#334155;"></ul>
-                </div>
-
-                <div id="cdpAiFootnote" style="font-size:11px; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:8px;"></div>
-            </div>
-        </div>
-    </div>
+    <div id="cdpAiPanel"></div>
 
     <!-- CARC Root-Cause & Immediate Billing Correction Matrix -->
     <div class="cdp-panel">

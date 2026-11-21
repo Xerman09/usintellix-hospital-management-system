@@ -76,7 +76,95 @@ class AiPayload
             'responsible_owner',
         ],
 
-        // Two further entries lived here until AI-2 and have been removed.
+        // AI-3. Every field below was read off a row the getter actually
+        // returned against the test database, not off its SQL.
+        //
+        // `ward_class_benchmarks` rows. Ward-class level: no ward is a person
+        // and no column here points at one.
+        'financial_executive_overview' => [
+            'ward_class',
+            'units_count',
+            'total_beds',
+            'total_available_bed_days',
+            'total_occupied_bed_days',
+            'avg_occupancy_rate',
+            'total_revenue',
+            'net_revenue',
+            'total_cost',
+            'total_margin',
+            'class_revpab',
+            'class_revpob',
+            'class_margin_pct',
+        ],
+
+        // `cost_center_groups` rows, grouped by type of cost centre.
+        'financial_cost_center_margins' => [
+            'cost_center_type',
+            'dept_count',
+            'gross_collections',
+            'cost_staff_salaries',
+            'cost_medications',
+            'cost_surgical_supplies',
+            'total_direct_costs',
+            'contribution_margin_amount',
+            'contribution_margin_pct',
+            'net_operating_income',
+        ],
+
+        // `trend_series` rows, one per month, from an explicit column list.
+        'financial_monthly_trends' => [
+            'summary_month',
+            'available_bed_days',
+            'occupied_bed_days',
+            'bed_occupancy_rate',
+            'total_inpatient_revenue',
+            'net_inpatient_revenue',
+            'total_operating_cost',
+            'department_margin_amount',
+            'department_margin_pct',
+            'revpab',
+            'revpob',
+            'insurance_accrued_revenue',
+            'cash_collected_revenue',
+        ],
+
+        // `matrix` rows, after AiReports::flattenAgingBuckets has turned the
+        // nested `buckets` map into columns. `buckets` itself is absent, so a
+        // change that stopped the flattening would send no ages rather than
+        // send a nested structure nobody allowlisted.
+        'ar_aging_matrix' => [
+            'payer_category',
+            'payer_label',
+            'total_balance',
+            'total_accounts',
+            'weighted_days',
+            'avg_days_in_ar',
+            'pct_of_total_ar',
+            'bucket_0_30_count', 'bucket_0_30_balance',
+            'bucket_31_60_count', 'bucket_31_60_balance',
+            'bucket_61_90_count', 'bucket_61_90_balance',
+            'bucket_91_120_count', 'bucket_91_120_balance',
+            'bucket_120_plus_count', 'bucket_120_plus_balance',
+        ],
+
+        // A flat map of totals rather than a list of rows; project()
+        // normalises it into a single row. Money only -- no doctor is named,
+        // and `active_doctors_count` is a count rather than a roster.
+        'doctor_commission_metrics' => [
+            'total_transactions_count',
+            'total_gross_pf',
+            'total_hospital_share',
+            'total_doctor_share_gross',
+            'total_withholding_tax',
+            'total_net_payable',
+            'total_disbursed',
+            'total_pending_payout',
+            'active_doctors_count',
+            'active_schedules_count',
+            'disbursed_batches_count',
+        ],
+
+        // Two entries lived here until AI-2 and were removed.
         //
         // `financial_executive_overview` and `ar_aging_matrix` were written
         // from what those reports sounded like rather than from their queries,

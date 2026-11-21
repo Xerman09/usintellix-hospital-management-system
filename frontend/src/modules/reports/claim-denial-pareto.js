@@ -1,4 +1,5 @@
 import { api } from '../../core/api.js?v=10';
+import { mountAiPanel } from './ai-panel.js?v=1';
 
 export async function initClaimDenialPareto() {
     setupEventListeners();
@@ -34,163 +35,17 @@ function setupEventListeners() {
         });
     }
 
-    const aiBtn = document.getElementById('cdpAiRunBtn');
-    if (aiBtn) {
-        aiBtn.addEventListener('click', () => {
-            runAiAnalysis();
-        });
-    }
-
-    showAiUsage();
-}
-
-// ===================================================================
-// AI analysis (AI-1)
-//
-// Asked for, never automatic. Every run costs money, so nothing here fires
-// on page load or on a filter change -- a panel that refreshes itself is the
-// most expensive habit this feature could pick up.
-//
-// Note what is NOT sent: this posts a report key and the two filters. The
-// server runs the query itself and projects the result through the field
-// allowlist. The browser never sees, and never sends, the patient-level
-// worklist that the same endpoint returns for the table below.
-// ===================================================================
-
-async function runAiAnalysis() {
-    const idle = document.getElementById('cdpAiIdle');
-    const busy = document.getElementById('cdpAiBusy');
-    const result = document.getElementById('cdpAiResult');
-    const message = document.getElementById('cdpAiMessage');
-
-    if (busy) busy.style.display = '';
-    if (idle) idle.style.display = 'none';
-    if (result) result.style.display = 'none';
-    if (message) message.style.display = 'none';
-
-    let res = null;
-
-    try {
-        res = await api('/ai/analyse', {
-            method: 'POST',
-            body: JSON.stringify({
-                report: 'claim_denial_pareto',
-                filters: {
-                    payer: document.getElementById('cdpPayerSelect')?.value || '',
-                    status: document.getElementById('cdpStatusSelect')?.value || ''
-                }
-            })
-        });
-    } catch (err) {
-        res = null;
-    }
-
-    if (busy) busy.style.display = 'none';
-    if (idle) idle.style.display = '';
-
-    const data = res?.data ?? res;
-
-    // A refusal is a normal answer with a reason -- switched off, over the
-    // cap, too soon, the provider is down. Show the reason; it is the whole
-    // point of having written one.
-    if (!res || data?.refused || !data?.analysis) {
-        showAiMessage(data?.message || 'The analysis could not be generated just now.');
-        showAiUsage();
-        return;
-    }
-
-    renderAiAnalysis(data);
-    showAiUsage();
-}
-
-function showAiMessage(text) {
-    const message = document.getElementById('cdpAiMessage');
-    if (!message) return;
-
-    message.textContent = text;
-    message.style.display = '';
-}
-
-function renderAiAnalysis(data) {
-    const result = document.getElementById('cdpAiResult');
-    if (!result) return;
-
-    const analysis = data.analysis || {};
-
-    const summary = document.getElementById('cdpAiSummary');
-    if (summary) summary.textContent = analysis.summary || '';
-
-    fillAiList('cdpAiFindings', 'cdpAiFindingsWrap', analysis.findings);
-    fillAiList('cdpAiWatch', 'cdpAiWatchWrap', analysis.watch);
-
-    const footnote = document.getElementById('cdpAiFootnote');
-    if (footnote) {
-        // Saying a figure came from the cache matters: somebody comparing the
-        // panel against a report they have just re-filtered needs to know
-        // whether they are reading this minute's answer or an earlier one.
-        footnote.textContent = [
-            `${data.rows_analysed || 0} categories analysed`,
-            data.from_cache ? `cached answer from ${data.generated_at}` : `generated ${data.generated_at}`,
-            'figures come from the report, not from the model'
-        ].join(' · ');
-    }
-
-    result.style.display = '';
-}
-
-function fillAiList(listId, wrapId, items) {
-    const list = document.getElementById(listId);
-    const wrap = document.getElementById(wrapId);
-
-    if (!list || !wrap) return;
-
-    list.innerHTML = '';
-
-    if (!Array.isArray(items) || items.length === 0) {
-        wrap.style.display = 'none';
-        return;
-    }
-
-    items.forEach((item) => {
-        const li = document.createElement('li');
-        li.textContent = String(item);
-        list.appendChild(li);
+    mountAiPanel({
+        mountId: 'cdpAiPanel',
+        report: 'claim_denial_pareto',
+        note: 'Reads the pareto figures above. The denied-claims worklist below is never sent.',
+        // Read at click time, not at mount time, so the analysis always
+        // matches the filters on screen.
+        filters: () => ({
+            payer: document.getElementById('cdpPayerSelect')?.value || '',
+            status: document.getElementById('cdpStatusSelect')?.value || ''
+        })
     });
-
-    wrap.style.display = '';
-}
-
-async function showAiUsage() {
-    const label = document.getElementById('cdpAiUsage');
-    if (!label) return;
-
-    let res = null;
-
-    try {
-        res = await api('/ai/usage');
-    } catch (err) {
-        label.textContent = '';
-        return;
-    }
-
-    const data = res?.data ?? res;
-
-    if (!data) {
-        label.textContent = '';
-        return;
-    }
-
-    if (!data.enabled) {
-        label.textContent = 'AI analysis is switched off for this hospital.';
-        const btn = document.getElementById('cdpAiRunBtn');
-        if (btn) btn.disabled = true;
-        return;
-    }
-
-    const spent = Number(data.spend?.today || 0);
-    const cap = Number(data.caps?.daily_usd || 0);
-
-    label.textContent = `$${spent.toFixed(2)} of $${cap.toFixed(2)} used today`;
 }
 
 async function loadDenialParetoData() {

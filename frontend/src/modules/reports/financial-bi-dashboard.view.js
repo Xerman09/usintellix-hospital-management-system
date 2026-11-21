@@ -671,6 +671,15 @@ export function FinancialBiDashboardView() {
             </table>
         </div>
     </div>
+    <!--
+        AI analysis. Three panels, not one: the overview, the cost centres and
+        the denials are three different questions, and an answer to all of them
+        at once is worse than three answers. Mounted by the module; the shared
+        component is reports/ai-panel.js.
+    -->
+    <div id="fbiAiOverview" style="margin-top:16px;"></div>
+    <div id="fbiAiCostCentres" style="margin-top:16px;"></div>
+    <div id="fbiAiDenials" style="margin-top:16px;"></div>
 </div>
 `;
 }

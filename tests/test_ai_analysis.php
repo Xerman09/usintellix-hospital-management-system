@@ -452,6 +452,95 @@ check('non-strings in a list are dropped rather than rendered',
     $messy['findings'] === ['a', '42', 'b'], json_encode($messy['findings']));
 
 // ==========================================================================
+// 7b. EVERY REGISTERED REPORT, built from its real query (AI-3).
+//
+// This is the assertion that has to keep holding as reports are added. It
+// takes whatever is in AiReports::REPORTS -- not a list written here, which
+// would drift the moment somebody adds a report and forgets the test -- builds
+// each one against the real database, and checks that nothing identifying came
+// through.
+// ==========================================================================
+echo "\n-- Every registered report --\n";
+
+$identifierish = [
+    'patient_id', 'patient_no', 'patient_name', 'first_name', 'last_name', 'middle_name',
+    'birthdate', 'date_of_birth', 'dob', 'mrn', 'email', 'phone', 'mobile_phone',
+    'address_line', 'employee_id', 'employee_no', 'user_id', 'created_by', 'updated_by',
+    'assigned_to', 'assigned_to_name', 'encounter_id', 'full_name',
+];
+
+check('there is more than one report registered by now', count(AiReports::REPORTS) >= 6,
+    (string) count(AiReports::REPORTS));
+
+foreach (array_keys(AiReports::REPORTS) as $key) {
+    $built = null;
+    $threw = '';
+
+    try {
+        $built = AiReports::build($key, []);
+    } catch (Throwable $e) {
+        $threw = get_class($e) . ': ' . $e->getMessage();
+    }
+
+    check("{$key}: builds without throwing", $threw === '', $threw);
+
+    if (!is_array($built)) {
+        continue;
+    }
+
+    // Every key across every row, so a column that only appears on some rows
+    // is still caught.
+    $keysSeen = [];
+
+    foreach ($built['rows'] as $row) {
+        foreach (array_keys($row) as $k) {
+            $keysSeen[strtolower($k)] = true;
+        }
+    }
+
+    $leaked = array_intersect(array_keys($keysSeen), $identifierish);
+
+    check("{$key}: NOTHING IDENTIFYING IN THE PAYLOAD", $leaked === [], implode(', ', $leaked));
+
+    // Nothing nested either: project() drops those, so a nested value here
+    // would mean something bypassed it.
+    $nested = false;
+
+    foreach ($built['rows'] as $row) {
+        foreach ($row as $value) {
+            if (is_array($value) || is_object($value)) {
+                $nested = true;
+            }
+        }
+    }
+
+    check("{$key}: no nested structures survived projection", !$nested);
+}
+
+// The aging matrix is the one report whose data had to be reshaped to survive
+// the allowlist at all, so it gets its own check rather than relying on the
+// loop above to notice an empty payload.
+$aging = AiReports::build('ar_aging_matrix', []);
+$agingKeys = array_keys($aging['rows'][0] ?? []);
+
+check('the aging matrix was flattened, so it still has ages in it',
+    in_array('bucket_0_30_balance', $agingKeys, true)
+    && in_array('bucket_120_plus_balance', $agingKeys, true),
+    implode(',', $agingKeys));
+check('and the nested map it came from is gone', !in_array('buckets', $agingKeys, true));
+
+// getMonthlyTrends takes an int, not a filters array. Passing filters to it is
+// a TypeError, which is what the registry's `args` key exists to prevent.
+$trends = AiReports::build('financial_monthly_trends', ['month' => '2026-10']);
+check('a getter with a different signature is still called correctly',
+    is_array($trends['rows']), 'threw or returned nothing');
+
+// A flat map of totals, not a list of rows.
+$commissions = AiReports::build('doctor_commission_metrics', []);
+check('a report that returns totals rather than rows projects to one row',
+    count($commissions['rows']) === 1, (string) count($commissions['rows']));
+
+// ==========================================================================
 // 8. An unknown report builds nothing.
 // ==========================================================================
 echo "\n-- An unknown report --\n";
