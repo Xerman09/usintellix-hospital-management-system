@@ -517,6 +517,53 @@ foreach (array_keys(AiReports::REPORTS) as $key) {
     check("{$key}: no nested structures survived projection", !$nested);
 }
 
+// ==========================================================================
+// 7c. NO REGISTERED REPORT MAY CALL A METHOD THAT WRITES (AI-4).
+//
+// This is here because of a near miss. NearExpiryQuarantineService::
+// runQuarantineScan was on the Tier 1 "buildable now" report list, reads like
+// a report, and contains UPDATE and INSERT -- it quarantines stock. It was
+// caught by a check written into the probe rather than by anything permanent,
+// which is the wrong place for a check that matters.
+//
+// Analysis reads. A report whose getter writes is not a report, and
+// registering one would mean an analysis panel mutating the database every
+// time somebody clicked it.
+// ==========================================================================
+echo "\n-- No report may write --\n";
+
+$writeWords = '/\b(INSERT|UPDATE|DELETE|REPLACE|TRUNCATE|ALTER\s+TABLE|DROP\s+TABLE)\b/i';
+
+foreach (AiReports::REPORTS as $key => $report) {
+    [$class, $method] = $report['source'];
+
+    $file = (new ReflectionClass($class))->getFileName();
+    $src = $file !== false ? (string) file_get_contents($file) : '';
+
+    if ($src === '' || !preg_match('/function ' . preg_quote($method, '/') . '\s*\(/', $src, $m, PREG_OFFSET_CAPTURE)) {
+        check("{$key}: its getter could be read", false, "{$class}::{$method}");
+        continue;
+    }
+
+    $rest = substr($src, $m[0][1]);
+    $next = preg_match('/\n    (?:public|private|protected) function /', $rest, $nm, PREG_OFFSET_CAPTURE)
+        ? $nm[0][1]
+        : strlen($rest);
+
+    preg_match_all($writeWords, substr($rest, 0, $next), $writes);
+
+    check(
+        "{$key}: {$method}() does not write",
+        $writes[0] === [],
+        implode(',', array_unique(array_map('strtoupper', $writes[0])))
+    );
+}
+
+// The one that prompted this check, asserted by name so the reason survives.
+check('runQuarantineScan is NOT registered as a report -- it quarantines stock',
+    !array_key_exists('near_expiry_quarantine_scan', AiReports::REPORTS)
+    && !in_array('runQuarantineScan', array_column(array_column(AiReports::REPORTS, 'source'), 1), true));
+
 // The aging matrix is the one report whose data had to be reshaped to survive
 // the allowlist at all, so it gets its own check rather than relying on the
 // loop above to notice an empty payload.

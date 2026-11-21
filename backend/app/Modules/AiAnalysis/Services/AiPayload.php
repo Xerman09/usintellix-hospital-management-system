@@ -164,6 +164,119 @@ class AiPayload
             'disbursed_batches_count',
         ],
 
+        // ---------------- AI-4: operations, pharmacy, procurement ----------
+        // Observed, as above. None of these reports has a patient column to
+        // leave out: they count bed days, theatre minutes, vials and purchase
+        // orders. The allowlist is still written, because "this table has no
+        // patient column today" is not the same promise.
+
+        // `series` rows, one per period.
+        'census_daily' => [
+            'period',
+            'calendar_days',
+            'days_saved',
+            'patient_days',
+            'bed_days',
+            'occupancy_pct',
+            'admitted',
+            'discharged',
+            'died',
+            'transfers',
+            'death_rate_pct',
+            'left',
+            'alos_days',
+        ],
+
+        'or_utilisation' => [
+            'cases',
+            'used_minutes',
+            'staffed_minutes',
+            'used_pct',
+            'booked_pct',
+            'missing_times',
+        ],
+
+        'or_timeliness' => [
+            'first_cases',
+            'on_time',
+            'on_time_pct',
+            'avg_minutes_late',
+            'turnovers',
+            'turnover_avg',
+            'turnover_median',
+            'turnover_over_target',
+        ],
+
+        'or_volume' => [
+            'completed',
+            'surgeons',   // a count of surgeons, not a list of them
+            'procedures',
+        ],
+
+        'or_compliance' => [
+            'cases',
+            'full',
+            'full_pct',
+            'sign_in_pct',
+            'time_out_pct',
+            'sign_out_pct',
+            'sign_in_done',
+            'time_out_done',
+            'sign_out_done',
+            'count_issues',
+            'near_misses',
+            'equipment_problems',
+        ],
+
+        'narcotics_vault_stats' => [
+            'total_items',
+            'schedule_ii_items',
+            'low_stock_items',
+            'total_units_in_safe',
+            'today_movements',
+            'today_ward_transfers',
+            'today_waste_events',
+            'today_audits',
+            'unresolved_discrepancies',
+        ],
+
+        'blood_inventory_stats' => [
+            'total_available',
+            'total_quarantined',
+            'total_reserved',
+            'near_expiry_3days',
+        ],
+
+        'procurement_open_orders' => [
+            'open_count',
+            'open_value',
+            'late_count',
+            'late_value',
+            'late_receipts',
+        ],
+
+        'procurement_supplier_performance' => [
+            'deliveries',
+            'on_time_rate',
+            'rejection_rate',
+            'received_value',
+        ],
+
+        'procurement_price_differences' => [
+            'lines',
+            'overcharged',
+            'undercharged',
+            'net',
+            'approved_lines',
+        ],
+
+        'stock_count_variance' => [
+            'gain',
+            'loss',
+            'net',
+            'lines',
+        ],
+
         // Two entries lived here until AI-2 and were removed.
         //
         // `financial_executive_overview` and `ar_aging_matrix` were written

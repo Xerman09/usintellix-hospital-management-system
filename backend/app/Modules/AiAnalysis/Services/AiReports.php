@@ -3,8 +3,14 @@
 namespace App\Modules\AiAnalysis\Services;
 
 use App\Modules\ArAging\Services\ArAgingService;
+use App\Modules\BloodBank\Services\BloodInventoryService;
+use App\Modules\Census\Services\CensusReportService;
 use App\Modules\DoctorCommissions\Services\DoctorCommissionService;
+use App\Modules\DrugInventory\Services\NarcoticsVaultService;
+use App\Modules\OrManagement\Services\OrReportService;
+use App\Modules\Procurement\Services\ProcurementReportService;
 use App\Modules\Reports\Services\FinancialBusinessIntelligenceService;
+use App\Modules\StockCounts\Services\StockCountService;
 
 /**
  * Which reports may be analysed, how the server builds each one, and what it
@@ -114,6 +120,100 @@ class AiReports
             'branch' => null,
             'asks' => 'Summarise the commission position: what has been earned, what is withheld, what is still '
                 . 'to be paid out.',
+        ],
+
+        // ---------------- AI-4: operations, pharmacy, procurement ----------
+        //
+        // Same rule as AI-3: each shape below was observed by calling the
+        // getter, and each getter was first read to confirm it does not write.
+        // That check was not ceremony -- `NearExpiryQuarantineService::
+        // runQuarantineScan` was on the Tier 1 report list and contains UPDATE
+        // and INSERT. It quarantines stock. It is not a report and is not here.
+
+        'census_daily' => [
+            'label' => 'Daily census',
+            'source' => [CensusReportService::class, 'report'],
+            'branch' => 'series',
+            'context' => ['from', 'to', 'group'],
+            'asks' => 'Describe how occupancy and length of stay moved over this period, and whether admissions '
+                . 'and discharges are in balance.',
+        ],
+
+        // The `summary` branch of each OR report, not the by_* lists.
+        // `volume` in particular offers `by_surgeon`, which names staff.
+        'or_utilisation' => [
+            'label' => 'Theatre utilisation',
+            'source' => [OrReportService::class, 'utilization'],
+            'branch' => 'summary',
+            'context' => ['operating_days'],
+            'asks' => 'Say how well theatre time is being used and what the gap between booked and used time '
+                . 'suggests.',
+        ],
+
+        'or_timeliness' => [
+            'label' => 'Theatre timeliness',
+            'source' => [OrReportService::class, 'timeliness'],
+            'branch' => 'summary',
+            'context' => ['grace_minutes'],
+            'asks' => 'Say whether first cases start on time and whether turnovers are within target.',
+        ],
+
+        'or_volume' => [
+            'label' => 'Theatre volume',
+            'source' => [OrReportService::class, 'volume'],
+            'branch' => 'summary',
+            'asks' => 'Summarise the case volume for this period.',
+        ],
+
+        'or_compliance' => [
+            'label' => 'Surgical safety checklist compliance',
+            'source' => [OrReportService::class, 'compliance'],
+            'branch' => 'summary',
+            'asks' => 'Say which part of the checklist is least complete and what the issue counts suggest. '
+                . 'Do not speculate about individual cases -- you have counts, not cases.',
+        ],
+
+        'narcotics_vault_stats' => [
+            'label' => 'Narcotics vault',
+            'source' => [NarcoticsVaultService::class, 'getVaultStats'],
+            'branch' => null,
+            'asks' => 'Summarise the vault position and flag anything unresolved.',
+        ],
+
+        'blood_inventory_stats' => [
+            'label' => 'Blood inventory',
+            'source' => [BloodInventoryService::class, 'getInventoryStats'],
+            'branch' => null,
+            'asks' => 'Summarise what is available against what is quarantined, reserved or close to expiry.',
+        ],
+
+        'procurement_open_orders' => [
+            'label' => 'Open purchase orders',
+            'source' => [ProcurementReportService::class, 'openOrders'],
+            'branch' => 'totals',
+            'asks' => 'Say how much is committed and how much of it is late.',
+        ],
+
+        'procurement_supplier_performance' => [
+            'label' => 'Supplier performance',
+            'source' => [ProcurementReportService::class, 'supplierPerformance'],
+            'branch' => 'totals',
+            'asks' => 'Say what the on-time and rejection rates mean for the value being received.',
+        ],
+
+        'procurement_price_differences' => [
+            'label' => 'Purchase price differences',
+            'source' => [ProcurementReportService::class, 'priceDifferences'],
+            'branch' => 'totals',
+            'asks' => 'Say whether the hospital is being over- or under-charged against agreed prices, and by '
+                . 'how much on balance.',
+        ],
+
+        'stock_count_variance' => [
+            'label' => 'Stock count variance',
+            'source' => [StockCountService::class, 'report'],
+            'branch' => 'totals',
+            'asks' => 'Say what the gain and loss totals suggest about counting accuracy or shrinkage.',
         ],
     ];
 

@@ -403,7 +403,58 @@ where the two live in the same screen.
 
 ---
 
-## AI-4 — Operations, pharmacy, procurement
+## AI-4 — Operations, pharmacy, procurement — **DONE** (21 November 2026)
+
+Eleven more reports: daily census, four theatre reports, the narcotics vault, blood
+inventory, three procurement reports and stock-count variance. **Seventeen registered in
+all.** A tab-aware panel on the theatre reports screen. 151 tests in the analysis suite.
+
+### A near miss, and the permanent check it produced
+
+The candidate probe reads each getter **before calling it** and refuses anything
+containing INSERT, UPDATE, DELETE, REPLACE or TRUNCATE. That was not ceremony:
+
+> `NearExpiryQuarantineService::runQuarantineScan` — **WRITES (UPDATE, INSERT)**
+
+It was on the Tier 1 "buildable now" report list in the build list. It reads like a
+report. It quarantines stock. Calling it to find out what it returned would have
+quarantined inventory in the test database, and registering it would have meant an
+analysis panel mutating the database every time somebody clicked it.
+
+Caught by a check in a throwaway probe, which is the wrong place for a check that matters
+— so the analysis suite now walks `AiReports::REPORTS`, reads each registered getter's
+body and **asserts it does not write**, with `runQuarantineScan` named by name so the
+reason survives. Seventeen reports, seventeen assertions, and the eighteenth is written
+the moment somebody registers one.
+
+### Everything else was already built
+
+Eleven reports and not one new mechanism. `branch: null` for the flat stat maps
+(narcotics, blood), a named `summary` branch for the theatre reports, `context` for the
+census period — all of it AI-3's machinery, used as intended. The registry-walking test
+from AI-3 picked up all eleven without being touched, which is what it was for.
+
+### Branches rejected
+
+`or_volume` offers `by_surgeon`. The `summary` branch is registered instead: a count of
+surgeons rather than a list of them. `pharmacy_dashboard::overview` is **not** registered
+at all — its figures live three levels down in nested maps (`low_stock.totals`,
+`expiry.buckets`) and it would need a shape transform of its own. Worth doing; not worth
+guessing at.
+
+### Still open
+
+- `ErReportService::report` and `LabReportService::report` take two required arguments
+  each, and `compute30DayDailyConsumption` takes a drug id — it is a per-drug calculation
+  rather than a report. All three skipped rather than guessed at.
+- The pharmacy dashboard, procurement reports and stock-count screens have registered
+  reports and no panel. Both of those screens re-render their whole body on load, so a
+  panel needs to sit outside it, the way the theatre one now does.
+- Seventeen reports can be analysed. None ever has been.
+
+---
+
+## AI-4 — as originally planned
 
 **Size: M.** After AI-3.
 

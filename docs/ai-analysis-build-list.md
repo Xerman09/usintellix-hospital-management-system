@@ -93,7 +93,7 @@ most useful analysis in §1 of the plan is also among the least legally fraught.
 |---|---|
 | `PharmacyDashboard` | `overview` |
 | `DrugInventory` | `listLots`, `listDrugs`, `listDestructions` ✻ |
-| `DrugInventory` · NearExpiryQuarantineService | `runQuarantineScan` |
+| ~~`DrugInventory` · NearExpiryQuarantineService~~ | ~~`runQuarantineScan`~~ — **NOT A REPORT. It contains UPDATE and INSERT: it quarantines stock. Removed by AI-4.** |
 | `DrugInventory` · LotRecallTraceService | `searchLots`, `listRecalls` ✻ |
 | `DrugInventory` · NarcoticsVaultService | `getVaultStats` — ~~`getMovements`~~ **moved to Tier 3 by AI-2** |
 | `StockLevels` · PharmacyReorderPolicyService | `compute30DayDailyConsumption` |

@@ -91,5 +91,11 @@ export function OrReportsView() {
         <button type="button" class="orr-btn small" data-range="year">This year</button>
     </div>
     <div id="orrBody"><div class="orr-empty">Loading...</div></div>
+    <!--
+        AI analysis. Sits OUTSIDE #orrBody, which is replaced wholesale on
+        every load -- a panel inside it would be wiped, along with any answer
+        showing in it, each time a filter moved.
+    -->
+    <div id="orrAiPanel"></div>
 </div>`;
 }

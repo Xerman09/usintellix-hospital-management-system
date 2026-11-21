@@ -1,4 +1,5 @@
 import { fetchOrReportOptions, fetchOrReport } from "./or-reports.service.js?v=4";
+import { mountAiPanel } from '../reports/ai-panel.js?v=1';
 import { openOrCase } from "../or-board/or-case-panel.js?v=7";
 import { todayISO } from "../../core/timezone.js?v=3";
 
@@ -27,6 +28,41 @@ const bar = (value, tone = "good", max = 100) => {
     return `<div class="orr-bar ${cls}"><i style="width:${w}%"></i><span>${value}%</span></div>`;
 };
 
+const AI_REPORT_FOR_TAB = {
+    utilization: "or_utilisation",
+    timeliness: "or_timeliness",
+    volume: "or_volume",
+    compliance: "or_compliance"
+};
+
+// `cancellations` and `ssi` have no registered report, so the panel hides for
+// those tabs rather than offering an analysis of something nobody wrote an
+// allowlist for.
+function refreshAiPanel() {
+    const mount = document.getElementById("orrAiPanel");
+    if (!mount) return;
+
+    const report = AI_REPORT_FOR_TAB[state.report];
+
+    if (!report) {
+        mount.innerHTML = "";
+        return;
+    }
+
+    mountAiPanel({
+        mountId: "orrAiPanel",
+        report,
+        note: "Reads the summary figures for this tab. Per-surgeon and per-case rows are never sent.",
+        // Read at click time, so an analysis matches the dates on screen.
+        filters: () => ({
+            date_from: document.getElementById("orrFrom")?.value || "",
+            date_to: document.getElementById("orrTo")?.value || "",
+            specialization_id: document.getElementById("orrSpec")?.value || "",
+            suite_id: document.getElementById("orrSuite")?.value || ""
+        })
+    });
+}
+
 export async function initOrReports() {
     state = { report: "utilization", data: null, options: null, tables: {} };
     const today = todayISO();
@@ -35,9 +71,11 @@ export async function initOrReports() {
     document.querySelectorAll("[data-orr]").forEach((b) => b.addEventListener("click", () => {
         state.report = b.dataset.orr;
         document.querySelectorAll("[data-orr]").forEach((x) => x.classList.toggle("active", x === b));
+        refreshAiPanel();
         load();
     }));
     ["orrFrom", "orrTo", "orrSpec", "orrSuite", "orrHours", "orrDays"].forEach((id) => $(id).addEventListener("change", load));
+    refreshAiPanel();
     document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => {
         const t = todayISO();
         const [y, m] = t.split("-").map(Number);
