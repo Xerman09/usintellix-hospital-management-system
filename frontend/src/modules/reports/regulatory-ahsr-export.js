@@ -1,6 +1,27 @@
 import { api } from '../../core/api.js?v=10';
+import { mountAiPanel } from './ai-panel.js?v=1';
+
+// This screen reports one year and has no year selector -- the fetch below
+// asks for 2026 outright. The panel sends the same year, so the analysis is of
+// the figures on screen rather than of a different year's. When this screen
+// gains a selector, both of these read from it.
+const AHSR_REPORTING_YEAR = 2026;
 
 export function initRegulatoryAhsrExport() {
+    // The three tables on this screen -- morbidity, mortality, surgical and
+    // obstetric output -- are registered reports with no panel. Four Analyse
+    // buttons on one screen is a worse screen than one, and the summary is
+    // what a person reads first. They remain reachable through POST
+    // /ai/analyse for anyone who wants them, and a panel is a later decision
+    // about this screen's layout rather than about the feature.
+    mountAiPanel({
+        mountId: 'ahsrAiPanel',
+        report: 'ahsr_kpis',
+        title: 'AI analysis of the statutory figures',
+        note: 'Reads the twenty-one annual return figures above. Nothing patient-level is sent.',
+        filters: () => ({ year: AHSR_REPORTING_YEAR })
+    });
+
     let latestExportResult = null;
 
     const kpiMorbidityTotal = document.getElementById('ahsrKpiMorbidityTotal');

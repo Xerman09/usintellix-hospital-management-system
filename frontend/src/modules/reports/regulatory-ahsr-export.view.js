@@ -224,6 +224,9 @@ export function RegulatoryAhsrExportView() {
             </div>
         </div>
 
+        <!-- AI analysis of the statutory summary figures. -->
+        <div id="ahsrAiPanel"></div>
+
         <!-- Two-Column Grid: Top 10 Leading Causes of Morbidity & Top 10 Leading Causes of Mortality -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px;">
             <!-- Top 10 Morbidity -->

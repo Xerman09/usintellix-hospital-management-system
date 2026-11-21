@@ -15,12 +15,21 @@ namespace App\Modules\AiAnalysis\Services;
  *                                             / rate / spend, in that order
  *   5. the provider is asked               -- the only step that costs money
  *   6. the ledger is written               -- success, refusal or failure
- *   7. the answer is cached                -- so the next identical ask is free
+ *   7. the figures are checked             -- every numeral against the payload
+ *   8. the answer is cached                -- so the next identical ask is free
  *
  * Step 4 before step 5 is the only ordering that matters financially, and step
  * 3 before step 4 is the only one that matters legally -- the guard hashes what
  * it is given, so projecting afterwards would mean caching and billing against
  * a payload that is not the one that was sent.
+ *
+ * STEP 7 IS AFTER THE LEDGER AND BEFORE THE CACHE, and both halves of that are
+ * deliberate. After the ledger, because the call happened and the tokens were
+ * spent whatever the text turns out to say, and a run that cost money and was
+ * then discarded is the single most useful thing this ledger can record.
+ * Before the cache, because an answer that failed its own figures must not be
+ * stored and served again for free -- that would turn one bad answer into
+ * every subsequent view of the report.
  *
  * NOTHING HERE IS PERSISTED INTO A PATIENT'S RECORD. The generated text goes to
  * the screen and into the short-lived cache, and the ledger keeps a hash of
@@ -136,7 +145,47 @@ class AiAnalysisService
 
         $parsed = self::parse($answer['text']);
 
-        // 7. Remember it, so the next identical question costs nothing.
+        // 7. Every number in the answer must have come from the payload.
+        //
+        // The system prompt's first rule forbids arithmetic. This is the part
+        // that notices when it happened anyway, and from AI-5 the reports
+        // include clinical quality -- where "the CLABSI rate is 1.4 per 1,000
+        // line-days" is a clinical claim however it was produced, and no
+        // reader can tell a figure read off the rows from one that was
+        // computed, misremembered or invented.
+        //
+        // THE WHOLE ANSWER GOES, not the offending sentence. A paragraph with
+        // one invented number in it is not partially trustworthy, and a reader
+        // handed a half-struck summary would rightly wonder what else is
+        // wrong.
+        //
+        // It runs for every report, not only the clinical ones. A fabricated
+        // peso total on a denial report is the same defect with a cheaper
+        // consequence, and a check that applies to some answers is a check
+        // somebody has to remember.
+        $figures = AiFigures::check($parsed, $payload);
+
+        if (!$figures['ok']) {
+            AiGuardService::record(
+                $reportKey, $userId, $role, 'failed',
+                mb_substr('figures_unsupported: ' . implode(' ', $figures['unsupported']), 0, 190),
+                $answer['model'], $verdict['payload_hash'], $verdict['payload_bytes'],
+                $answer['usage'], $ip, $durationMs, $built['dropped']
+            );
+
+            // The numerals go back to the caller as well as into the ledger.
+            // Nobody has yet judged a single real answer from this system, so
+            // a check that misfires needs to show up as data a person can read
+            // rather than as a report that mysteriously never summarises.
+            return [
+                'success' => false,
+                'message' => 'The generated summary contained figures that are not in the report, so it was '
+                    . 'discarded rather than shown.',
+                'data' => ['unsupported_figures' => $figures['unsupported']],
+            ];
+        }
+
+        // 8. Remember it, so the next identical question costs nothing.
         //
         // Keyed on the model that was REQUESTED, not $answer['model'] which is
         // the one that answered. Those differ whenever a fallback runs, and

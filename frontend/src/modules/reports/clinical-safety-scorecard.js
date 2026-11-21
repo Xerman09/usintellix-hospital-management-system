@@ -1,5 +1,6 @@
 import { api } from '../../core/api.js?v=10';
 import { todayISO } from '../../core/timezone.js?v=3';
+import { mountAiPanel } from './ai-panel.js?v=1';
 
 let cachedScorecard = null;
 let cachedDeliveries = [];
@@ -8,6 +9,31 @@ export async function initClinicalSafetyScorecard() {
     setupDateDefaults();
     setupEventListeners();
     await loadScorecardData();
+
+    // Two panels on this screen, reading the same filters. Both send only the
+    // flat figures: the readmission causes and caesarean indications shown
+    // elsewhere on this page are clinical free text somebody typed, and free
+    // text does not leave until it has been through the scrubber.
+    const window_ = () => ({
+        from: document.getElementById('cqsDateFrom')?.value || '',
+        to: document.getElementById('cqsDateTo')?.value || ''
+    });
+
+    mountAiPanel({
+        mountId: 'cqsAiPanel',
+        report: 'clinical_safety_scorecard',
+        title: 'AI analysis of the safety scorecard',
+        note: 'Reads the composite score, the four pillars and their benchmarks. Nothing patient-level is sent.',
+        filters: window_
+    });
+
+    mountAiPanel({
+        mountId: 'cqsErAiPanel',
+        report: 'er_acuity_timeliness',
+        title: 'AI analysis by acuity',
+        note: 'Reads the five triage levels and their door-to-doctor times.',
+        filters: window_
+    });
 }
 
 function setupDateDefaults() {

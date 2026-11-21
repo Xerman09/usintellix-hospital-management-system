@@ -64,15 +64,18 @@ organisation, because none of Tier 1 sends personal data.
 | `Reports` · FinancialBusinessIntelligenceService | `getClaimDenialParetoAnalytics` ✻ — **build this one first**, pareto groups only, never section 5's worklist |
 | `Reports` · FinancialBusinessIntelligenceService | `getExecutiveOverview` ✻, `getMonthlyTrends`, `getCostCenterMargins` ✻ |
 | `Reports` · ReportService | `getSalesByItemReport`, `getFinancialSummaryByServiceCodeReport`, `getServicesReport` |
-| `ArAging` | `getAgingMatrix` — the matrix is buckets and totals; the per-account list is Tier 3 |
+| ~~`ArAging`~~ | ~~`getAgingMatrix`~~ — **NOT A REPORT. It calls `recalculateAgingBuckets()`, which runs `UPDATE billing_ar_accounts`: reading the matrix re-ages every account. Registered in AI-3, de-registered by AI-5.** |
 | `DoctorCommissions` | `getCommissionMetrics`, `getDoctorStatements` |
 
 ### Clinical quality — aggregate, and a genuine surprise
 | Module | Method |
 |---|---|
-| `Reports` · ClinicalQualityAnalyticsService | `getSummaryMetrics` ✻, `getTrends`, `getWardBreakdown` |
+| ~~`Reports` · ClinicalQualityAnalyticsService~~ | ~~`getSummaryMetrics`~~ — **NOT A REPORT. It calls `backfillRange()` → `calculateForDate()`, which runs `INSERT INTO analytics_clinical_quality_daily`: it materialises every missing day before reporting. Removed by AI-5.** |
+| `Reports` · ClinicalQualityAnalyticsService | `getTrends` — **built in AI-5** as `clinical_trends` |
+| `Reports` · ClinicalQualityAnalyticsService | `getWardBreakdown` — **deferred by AI-5**: needs `ward_id > 0` and joins `hospital_wards`, which is empty in the test database, so its shape cannot be observed |
+| `Reports` · ClinicalQualityScorecardService | `getScorecardOverview` — **built in AI-5** as `clinical_safety_scorecard` and `er_acuity_timeliness` |
 | ~~`Reports` · ClinicalQualityScorecardService~~ | ~~`getDeliveries`~~ — **moved to Tier 3 by AI-2** |
-| `Reports` · RegulatoryAhsrExportService | `getAhsrOverview` ✻ |
+| `Reports` · RegulatoryAhsrExportService | `getAhsrOverview` ✻ — **built in AI-5** as `ahsr_kpis`, `ahsr_morbidity_top10`, `ahsr_mortality_top10` and `ahsr_surgical_obstetric` |
 
 The clinical quality dashboard — the highest-value surface in the whole plan — turns out
 to be rates and counts by ward with no patient column anywhere. If the ✻ checks hold, the
@@ -99,7 +102,7 @@ most useful analysis in §1 of the plan is also among the least legally fraught.
 | `StockLevels` · PharmacyReorderPolicyService | `compute30DayDailyConsumption` |
 | `StockCounts` | `report` ✻ |
 | `Procurement` · ProcurementReportService | `openOrders`, `supplierPerformance`, `spend`, `priceHistory`, `priceDifferences` |
-| `BloodBank` · BloodInventoryService | `getInventoryStats` |
+| ~~`BloodBank` · BloodInventoryService~~ | ~~`getInventoryStats`~~ — **NOT A REPORT. It calls `autoQuarantineExpiredUnits()`, which runs `UPDATE blood_inventory_units`: reading the inventory quarantines expired blood. Registered in AI-4, de-registered by AI-5.** |
 
 ---
 
@@ -122,6 +125,39 @@ column.** Two of those were on the Tier 1 list above and should not have been:
   about as sensitive as anything in this database.
 
 Both move to Tier 3.
+
+---
+
+### What AI-5 corrected here, 21 November 2026
+
+AI-4 added a check that a registered report's getter contains no write statement. It read
+the getter's own body. **Three entries on the Tier 1 list above write to the database one
+call deeper than that check could see**, and two of them were already registered and
+shipped:
+
+| Method | How it writes | Was it live? |
+|---|---|---|
+| `ClinicalQualityAnalyticsService::getSummaryMetrics` | `backfillRange()` → `calculateForDate()` → `INSERT` | No — caught before registering |
+| `ArAgingService::getAgingMatrix` | `recalculateAgingBuckets()` → `UPDATE billing_ar_accounts` | **Yes, since AI-3** |
+| `BloodInventoryService::getInventoryStats` | `autoQuarantineExpiredUnits()` → `UPDATE blood_inventory_units` | **Yes, since AI-4** |
+
+The third is the one to remember: **reading the blood inventory quarantines expired blood
+units.** That is the same failure as `runQuarantineScan`, which AI-4's check was written
+to prevent — and it was sitting in the registry, one method call out of the regex's reach,
+in the same phase that added the check.
+
+The pattern is not about blood or stock. It is that these services lazily materialise
+their own derived data on read, which is sensible for a dashboard and disqualifying for an
+analysis button. A check that stops at the first method body will keep clearing exactly
+the thing it exists to catch.
+
+The check now follows `$this->` calls within the class to a bounded depth and reports the
+path. It is asserted against `getSummaryMetrics` by name, so a refactor that quietly stops
+following calls fails the suite rather than silently clearing the next one.
+
+Each of the three has a real fix — split the recalculation out of the getter — and that is
+a change to three modules that have nothing to do with this feature. None of them is worth
+making as a side effect of adding an analysis panel.
 
 The remaining wildcards on the Tier 1 list expose only `created_by` / `updated_by` — a
 staff user id with no name attached. They stay, because the allowlist strips them and

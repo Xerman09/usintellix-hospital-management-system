@@ -471,7 +471,170 @@ Still advice to a person, never an action.
 
 ---
 
-## AI-5 — Clinical quality
+## AI-5 — Clinical quality — **DONE** (21 November 2026)
+
+Seven reports added, **two already-shipped reports removed**, and one new mechanism: every
+numeral in a generated answer is now checked against the payload before anything is
+rendered. **Twenty-two reports registered** (24 added minus the 2 withdrawn). 206 tests in
+the analysis suite, 91 in the guard suite.
+
+The removals are the more valuable half of this phase.
+
+### Reading the blood inventory quarantines blood
+
+AI-4 ended with a check that no registered report's getter writes to the database, after
+`NearExpiryQuarantineService::runQuarantineScan` — which quarantines stock — turned up on
+the Tier 1 report list. That check read the getter's own body.
+
+AI-5's candidate probe followed `$this->` calls instead, and found three writers:
+
+| Method | How it writes | State |
+|---|---|---|
+| `ClinicalQualityAnalyticsService::getSummaryMetrics` | `backfillRange()` → `calculateForDate()` → `INSERT INTO analytics_clinical_quality_daily` | caught before registering |
+| `ArAgingService::getAgingMatrix` | `recalculateAgingBuckets()` → `UPDATE billing_ar_accounts` | **registered since AI-3** |
+| `BloodInventoryService::getInventoryStats` | `autoQuarantineExpiredUnits()` → `UPDATE blood_inventory_units` | **registered since AI-4** |
+
+So for two phases, clicking Analyse on the AR aging screen re-aged every account, and
+clicking it on the blood inventory screen quarantined expired units. The second is the
+same failure `runQuarantineScan` was caught for — in the registry, one method call out of
+the regex's reach, added in the very phase that introduced the check.
+
+These three services lazily materialise their own derived data when read. For a dashboard
+that is sensible. For an analysis button it is disqualifying, and not only on principle:
+the "nothing that writes" rule is what keeps this feature outside IRR § 46(b), and a
+button that quarantines stock is hard to describe as processing that decides nothing.
+
+Both reports are de-registered. Their allowlists are kept, which is **not** the thing AI-2
+warned against — those entries were invented, these were observed and are correct. What is
+missing is a read-only path to the same figures, which means splitting the recalculation
+out of a getter in three modules that have nothing to do with this feature. That is a
+change somebody should make on purpose.
+
+The check in `tests/test_ai_analysis.php` now follows `$this->` calls to a bounded depth,
+reports the path rather than the verdict, and is **asserted against `getSummaryMetrics` by
+name** — so a refactor that quietly stops following calls fails there rather than silently
+clearing the next writer.
+
+### The figures check
+
+`AiFigures` — every numeral in the generated text must appear in the payload that was
+sent. It runs after the ledger and before the cache, and both halves of that are
+deliberate: after the ledger because the tokens were spent whatever the text says, and a
+run that cost money and was then discarded is the most useful thing this ledger can
+record; before the cache because storing a failed answer would turn one invented figure
+into every future view of that report, served free and therefore for ever.
+
+**The whole answer is discarded, not the offending sentence.** A paragraph with one
+invented number in it is not partially trustworthy.
+
+**The hard part was false positives, not the comparison.** A naive version refuses almost
+every real answer, because all of this is legitimate text containing numerals that the
+payload's *values* do not hold:
+
+- "the 30-day readmission rate" — from the key `readmissions_30d_count`
+- "4.1 per 1,000 device-days" — from the key `cauti_rate_per_1000`
+- "Level 1 arrivals" — from a label string in the payload
+- "1. Readmissions are above target" — a numbered list, not a figure
+
+So the supported set is harvested from the payload's **keys** and its **string values** as
+well as its numbers, and ordered-list markers are stripped first. Rounding is allowed
+(4.567 supports "4.6" and "5"); conversion is not (0.41 does not support "41%"), because
+rounding never changes a value's magnitude. Eighteen tests, and most of them are about
+not crying wolf — a check that misfires gets switched off by whoever is on shift.
+
+**What it cannot do, stated as tests rather than left in a comment:**
+
+- It checks **provenance, not meaning**. If 25 is a discharge count and the answer calls
+  it a death count, every numeral checks out and the sentence is still wrong. No amount of
+  tightening changes that.
+- Numbers written as words pass unexamined.
+- It says nothing about whether a finding is clinically sound.
+
+**There is no setting to turn it off**, and that is a decision rather than an omission:
+nobody has yet seen a single real answer from this system, so any threshold would be a
+guess dressed as configuration. The failure direction is safe — a false positive shows no
+analysis rather than a wrong one — and the unsupported numerals go back to the caller and
+into `ai_analysis_runs.reason`, so a check that misfires shows up as data a person can
+read.
+
+It applies to **every** report, not only the clinical ones. A fabricated peso total is the
+same defect with a cheaper consequence, and a check that applies to some answers is a
+check somebody has to remember.
+
+### The clinical reports, and the ones refused
+
+Built: `clinical_trends` (the daily series), `clinical_safety_scorecard`,
+`er_acuity_timeliness`, and four from the statutory annual return — `ahsr_kpis`,
+`ahsr_morbidity_top10`, `ahsr_mortality_top10`, `ahsr_surgical_obstetric`.
+
+Two new shape transforms, for two reasons neither of which existed before:
+
+- **`flattenScorecard`** — every one of the scorecard's five branches is a map with maps
+  inside it, and `project()` drops nested values, so the unflattened report would have
+  sent a reporting period and nothing else: a scorecard with no scores.
+- **`pluckAcuityBreakdown`** — `branch` names one key of a result and that is all it can
+  do, so a list nested inside a branch needs a transform to reach it at all.
+
+Three things the transform deliberately does not lift, and the third is the one worth
+keeping: `label` and `device_name` (static display text), `generated_at` (a timestamp in
+the payload changes the hash on every call, so the cache would never hit and every view
+would be billed), and **`top_causes` and `top_indications`** — lists of clinical free text
+somebody typed. `AiPayload::SCRUB` is empty, and the rule it states is that a free-text
+column that has not been through the scrubber does not leave. These are the first reports
+to test that rule rather than merely declare it.
+
+**SSI is a count and nothing else**, which is correct rather than missing: a surgical site
+infection is not device-associated, so there are no device-days to divide by and the
+service returns no rate, benchmark or status for it. The first version of the transform
+looped it in with CAUTI, CLABSI and VAP and produced four fields that were always empty —
+an allowlist naming fields that never arrive, which is the AI-2 mistake in a smaller key.
+
+`getWardBreakdown` is **deferred, not refused**: it requires `ward_id > 0` and joins
+`hospital_wards`, which is empty in the test database, so it returns nothing however much
+analytics data is backfilled and its shape could only be read off its SQL. It is the
+fourth report held back on those grounds.
+
+### A fixture that had to be written before a test meant anything
+
+`clinical_trends` reads `analytics_clinical_quality_daily` and does **not** create the
+days it reports on — that is `getSummaryMetrics`' backfill, which is exactly why
+`getSummaryMetrics` is not a report. So the suite materialises the table with the cron's
+own `backfillRange` before the registry walk runs, and asserts the rows are there. Without
+that, `clinical_trends` would have been checked for leaked identifiers against **zero
+rows** and passed for free. A suite reassured by an empty payload is not checking anything.
+
+### Panels
+
+Four, on three screens: the daily series on the clinical quality dashboard (one panel for
+four chart tabs, because they are four views of one series), the scorecard and the ER
+acuity breakdown on the safety scorecard screen, and the statutory figures on the AHSR
+screen.
+
+The clinical quality dashboard's **KPI cards are deliberately not what gets analysed.**
+They come from `getSummaryMetrics`. The daily series behind the charts is the same data
+without the write.
+
+### Still open
+
+- **The clinical sign-off has not happened.** The wording in the prompts and the panel
+  notes is mine. "Infection rate is rising on Ward 3" is a clinical claim however it was
+  produced, and this phase was supposed to end with somebody qualified reading the
+  phrasing. It cannot happen before there is an answer to read.
+- **Still nobody has judged an answer.** Twenty-two reports can be analysed; none ever
+  has. This is now the oldest open item in the project and the one the next phase is worth
+  the least without.
+- One capability, `ai_analysis`, gates every report. The cross-cutting note in this
+  document says "a capability per surface"; the implementation has one. Today only admin
+  is granted it, so the divergence is theoretical — but a clinician who can analyse
+  theatre figures would also be able to analyse the mortality return, and that is a
+  decision nobody has taken.
+- Three AHSR table reports are registered with no panel: four Analyse buttons on one
+  screen is a worse screen. They are reachable through `POST /ai/analyse`.
+- `getWardBreakdown` and the three Tier 1 financial reports still await data to observe.
+
+---
+
+## AI-5 — as originally planned
 
 **Size: M, plus a sign-off that is not code.** After AI-4.
 

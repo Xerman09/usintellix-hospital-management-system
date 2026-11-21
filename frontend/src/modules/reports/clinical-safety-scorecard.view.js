@@ -558,6 +558,9 @@ export function ClinicalSafetyScorecardView() {
         </div>
     </div>
 
+    <!-- AI analysis of the composite score and the four pillars. -->
+    <div id="cqsAiPanel"></div>
+
     <!-- 4 Core Pillars Grid -->
     <div class="cqs-pillars-grid">
 
@@ -711,6 +714,12 @@ export function ClinicalSafetyScorecardView() {
             <div class="cqs-bar-list" id="cqsAcuityList">
                 <!-- Dynamically populated acuity rows -->
             </div>
+
+            <!-- Its own panel rather than a line in the scorecard one: the
+                 acuity breakdown is five rows of door-to-doctor times, and
+                 the question a clinician asks of it ("are the sickest seen
+                 first?") is not the question they ask of a composite score. -->
+            <div id="cqsErAiPanel" style="margin-top:12px;"></div>
         </div>
 
         <!-- PILLAR 4: Caesarean Section Rate % -->

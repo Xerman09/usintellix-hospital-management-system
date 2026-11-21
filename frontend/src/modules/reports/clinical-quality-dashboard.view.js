@@ -563,6 +563,11 @@ export function ClinicalQualityDashboardView() {
         </div>
     </div>
 
+    <!-- AI analysis of the daily series. Outside the chart section on
+         purpose: the charts re-render on every filter change and tab switch,
+         and a panel inside them would be destroyed mid-analysis. -->
+    <div id="cqdAiPanel"></div>
+
     <!-- Trend Visualizations -->
     <div class="cqd-chart-section">
         <div class="cqd-chart-header">

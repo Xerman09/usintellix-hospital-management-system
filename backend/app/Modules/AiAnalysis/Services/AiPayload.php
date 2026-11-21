@@ -128,6 +128,11 @@ class AiPayload
             'cash_collected_revenue',
         ],
 
+        // KEPT, BUT NOT CURRENTLY REQUESTABLE. AI-5 de-registered this report:
+        // getAgingMatrix() re-ages every AR account before returning. The
+        // field list below was observed against real rows and is correct, and
+        // it comes back into use the day that getter has a read-only path.
+        //
         // `matrix` rows, after AiReports::flattenAgingBuckets has turned the
         // nested `buckets` map into columns. `buckets` itself is absent, so a
         // change that stopped the flattening would send no ages rather than
@@ -240,6 +245,8 @@ class AiPayload
             'unresolved_discrepancies',
         ],
 
+        // KEPT, BUT NOT CURRENTLY REQUESTABLE, as above: getInventoryStats()
+        // quarantines expired units before returning the counts.
         'blood_inventory_stats' => [
             'total_available',
             'total_quarantined',
@@ -275,6 +282,186 @@ class AiPayload
             'loss',
             'net',
             'lines',
+        ],
+
+        // ---------------- AI-5: clinical quality ---------------------------
+        // Observed against the test database, as above -- for the trends
+        // report that first meant materialising the analytics table with the
+        // cron's own backfill, because getTrends() does not create the days it
+        // reports on. Rows that cannot be produced cannot be observed, and a
+        // field list written from SQL is the mistake AI-2 exists to stop.
+        //
+        // These are the first reports written for clinicians, so the figures
+        // check in AiFigures runs over every answer from here on. That is a
+        // check on the OUTPUT; this list is still the only thing that decides
+        // what goes out.
+
+        // `series` rows, one per census day. `ward_name` is deliberately
+        // absent: it is the same string on all thirty rows, so it belongs in
+        // context rather than repeated thirty times at the hospital's expense.
+        'clinical_trends' => [
+            'census_date',
+            'total_available_beds',
+            'occupied_beds',
+            'vacant_beds',
+            'maintenance_blocked_beds',
+            'admissions_count',
+            'discharges_count',
+            'inpatient_deaths_count',
+            'total_discharge_days',
+            'bor_percentage',
+            'alos_days',
+            'bti_days',
+            'readmissions_30d_count',
+            'readmission_rate_pct',
+            'mortality_rate_pct',
+            'hai_ssi_cases_count',
+        ],
+
+        // One row, built by AiReports::flattenScorecard from five nested
+        // branches. Every name below is one that function creates, which is
+        // the point of running a shape transform before projection rather than
+        // after: the allowlist still names every field that leaves.
+        //
+        // `top_causes` and `top_indications` are not here and are not lifted
+        // by the transform either. Both are clinical free text somebody typed,
+        // SCRUB is empty, and a free-text column that has not been through the
+        // scrubber does not leave.
+        'clinical_safety_scorecard' => [
+            'composite_score',
+            'max_score',
+            'performance_grade',
+            'pillar_readmission_points',
+            'pillar_hai_device_points',
+            'pillar_er_turnaround_pts',
+            'pillar_csection_points',
+            'readmission_rate_pct',
+            'total_readmissions',
+            'total_discharges',
+            'preventable_count',
+            'avg_days_to_return',
+            'cms_benchmark_pct',
+            'variance_from_target',
+            'readmission_status',
+            'composite_device_rate_per_1000',
+            'total_device_cases',
+            'total_device_days',
+            'cauti_cases', 'cauti_device_days', 'cauti_rate_per_1000', 'cauti_benchmark', 'cauti_status',
+            'clabsi_cases', 'clabsi_device_days', 'clabsi_rate_per_1000', 'clabsi_benchmark', 'clabsi_status',
+            'vap_cases', 'vap_device_days', 'vap_rate_per_1000', 'vap_benchmark', 'vap_status',
+            // `ssi_cases` alone, and deliberately: SSI is not device-associated,
+            // so the service computes no device-days, rate, benchmark or status
+            // for it. Naming those four here would describe fields that never
+            // arrive.
+            'ssi_cases',
+            'total_er_visits',
+            'median_door_to_doctor_mins',
+            'p90_door_to_doctor_mins',
+            'avg_door_to_doctor_mins',
+            'median_door_to_triage_mins',
+            'national_target_mins',
+            'er_status',
+            'total_deliveries',
+            'csection_count',
+            'overall_csection_rate',
+            'who_benchmark_pct',
+            'csection_status',
+            'ntsv_total',
+            'ntsv_csection',
+            'ntsv_rate_pct',
+            'ntsv_target_pct',
+            'ntsv_status',
+            'delivery_vaginal_spontaneous',
+            'delivery_vaginal_assisted',
+            'delivery_cesarean_elective',
+            'delivery_cesarean_emergency',
+        ],
+
+        // `er_turnaround.acuity_breakdown` rows. `name` is the hospital's own
+        // label for the triage level ("Level 1: Resuscitation / Immediate"),
+        // not free text anybody typed per case.
+        'er_acuity_timeliness' => [
+            'acuity',
+            'name',
+            'visits_count',
+            'median_mins',
+            'target_mins',
+            'compliance_pct',
+            'status',
+        ],
+
+        // The statutory annual return. `kpis` is a flat map of twenty-one
+        // figures; project() normalises it into a single row.
+        'ahsr_kpis' => [
+            'total_inpatient_discharges',
+            'total_inpatient_bed_days',
+            'bed_occupancy_rate_pct',
+            'average_los_days',
+            'morbidity_top10_total',
+            'pediatric_morbidity_cases',
+            'mortality_top10_total',
+            'deaths_under_48h',
+            'deaths_over_48h_net',
+            'gross_mortality_rate_pct',
+            'net_mortality_rate_pct',
+            'major_surgeries_count',
+            'minor_surgeries_count',
+            'total_surgeries_count',
+            'major_surgery_share_pct',
+            'normal_deliveries_nsvd',
+            'caesarean_deliveries_cs',
+            'assisted_deliveries',
+            'total_deliveries_count',
+            'caesarean_section_rate_pct',
+            'live_births_count',
+        ],
+
+        // `SELECT *` over regulatory_ahsr_morbidity_top10, so `id` and
+        // `reporting_year` come back on every row and are dropped here --
+        // the year is sent once, as context.
+        'ahsr_morbidity_top10' => [
+            'rank_no',
+            'icd10_code',
+            'disease_description',
+            'clinical_category',
+            'male_cases',
+            'female_cases',
+            'pediatric_under_18',
+            'adult_18_to_59',
+            'geriatric_60_plus',
+            'total_discharges',
+            'share_of_morbidity_pct',
+            'average_los_days',
+        ],
+
+        'ahsr_mortality_top10' => [
+            'rank_no',
+            'icd10_code',
+            'underlying_cause_of_death',
+            'clinical_department',
+            'male_deaths',
+            'female_deaths',
+            'deaths_under_48h_er_inpatient',
+            'deaths_over_48h_net_institutional',
+            'total_deaths',
+            'share_of_mortality_pct',
+            'case_fatality_rate_pct',
+        ],
+
+        // `regulatory_benchmark_note` is on these rows and is not here. It is
+        // advice the hospital wrote down, and sending it would feed the model
+        // its own conclusions to hand back as findings -- the same reason
+        // `immediate_correction` and `recommended_strategy` are absent from
+        // claim_denial_pareto.
+        'ahsr_surgical_obstetric' => [
+            'category_group',
+            'procedure_classification',
+            'specialty_department',
+            'elective_scheduled_count',
+            'emergency_stat_count',
+            'total_procedures_count',
+            'share_of_group_pct',
+            'complication_or_ssi_rate_pct',
         ],
 
         // Two entries lived here until AI-2 and were removed.

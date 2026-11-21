@@ -1,5 +1,6 @@
 import { api } from '../../core/api.js?v=10';
 import { todayISO } from '../../core/timezone.js?v=3';
+import { mountAiPanel } from './ai-panel.js?v=1';
 
 let activeChartType = 'bor';
 let cachedSummary = null;
@@ -10,6 +11,26 @@ export async function initClinicalQualityDashboard() {
     setupDateDefaults();
     setupEventListeners();
     await loadAllDashboardData();
+
+    // One panel for four chart tabs, because they are four views of ONE daily
+    // series -- unlike the theatre screen, where each tab is a different
+    // report and the panel has to follow the tab.
+    //
+    // The KPI cards above are deliberately NOT what gets analysed. They come
+    // from getSummaryMetrics, which backfills the analytics table before
+    // reporting on it, and an Analyse button is not allowed to write. The
+    // daily series behind the charts is the same data without the write.
+    mountAiPanel({
+        mountId: 'cqdAiPanel',
+        report: 'clinical_trends',
+        title: 'AI analysis of the daily series',
+        note: 'Reads the daily census, stay and infection counts for this window. No patient rows are sent.',
+        filters: () => ({
+            from: document.getElementById('cqdDateFrom')?.value || '',
+            to: document.getElementById('cqdDateTo')?.value || '',
+            ward_id: document.getElementById('cqdWardSelect')?.value || '0'
+        })
+    });
 }
 
 function setupDateDefaults() {
