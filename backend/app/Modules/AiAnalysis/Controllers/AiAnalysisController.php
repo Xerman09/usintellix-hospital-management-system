@@ -5,6 +5,10 @@ namespace App\Modules\AiAnalysis\Controllers;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Modules\MyChart\Services\PortalGuard;
+use App\Modules\AiAnalysis\Services\AiAnalysisService;
+use App\Modules\AiAnalysis\Services\AiGuardService;
+use App\Modules\AiAnalysis\Services\AiPayload;
+use App\Modules\AiAnalysis\Services\AiReports;
 use App\Core\Request;
 
 class AiAnalysisController extends Controller
@@ -89,6 +93,105 @@ class AiAnalysisController extends Controller
                 'generated_at' => date('Y-m-d H:i:s')
             ]
         ], 'AI Health Assessment generated successfully.');
+    }
+
+    // ===================================================================
+    // AI analysis of reports (AI-1).
+    //
+    // Nothing below shares code with healthAssessment() above, on purpose.
+    // That endpoint is the mock, it takes its data from the request body, and
+    // AI-9 replaces it. Reusing any of it here would carry that mistake into
+    // the part that calls a real provider and spends real money.
+    // ===================================================================
+
+    /** GET /ai/reports -- which reports this build can analyse. */
+    public function reports(): void
+    {
+        $this->success([
+            'reports' => AiReports::available(),
+            'enabled' => (int) (AiGuardService::limits()['allow_ai_analysis'] ?? 0) === 1,
+        ]);
+    }
+
+    /**
+     * POST /ai/analyse -- analyse one report.
+     *
+     * Takes a report key and that report's own filters. It does NOT take the
+     * data: the server runs the report's query itself. A request that carries
+     * data is refused rather than cleaned up, because such a request is a
+     * caller that has misunderstood the contract, not a payload to salvage.
+     */
+    public function analyse(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $body = $request->all();
+
+        try {
+            AiPayload::assertServerAssembled(is_array($body) ? $body : []);
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage(), 422);
+            return;
+        }
+
+        $reportKey = (string) $request->input('report', '');
+
+        if ($reportKey === '') {
+            $this->error('Which report?', 422);
+            return;
+        }
+
+        // Filters are passed through to the report's own service method, which
+        // already validates them -- this endpoint adds no new way to query.
+        $filters = $request->input('filters', []);
+
+        if (is_string($filters)) {
+            $filters = json_decode($filters, true) ?: [];
+        }
+
+        $result = (new AiAnalysisService())->analyse(
+            $reportKey,
+            is_array($filters) ? $filters : [],
+            isset($user['id']) ? (int) $user['id'] : null,
+            $user['role'] ?? null,
+            $_SERVER['REMOTE_ADDR'] ?? null
+        );
+
+        if (empty($result['success'])) {
+            // 200, not an error code. Every one of these is an ordinary
+            // operational answer -- switched off, over the cap, too soon, the
+            // provider is down -- and the panel shows the message. A 4xx would
+            // put them in the browser console instead of in front of a person.
+            $this->success(['refused' => true, 'message' => $result['message']]);
+            return;
+        }
+
+        $this->success($result['data']);
+    }
+
+    /**
+     * GET /ai/usage -- what has been spent today and this month.
+     *
+     * Open to anyone who can reach the reports. Knowing the hospital is near
+     * its cap is how somebody understands why their analysis was refused, and
+     * there is nothing confidential in a running total.
+     */
+    public function usage(): void
+    {
+        $limits = AiGuardService::limits();
+        $summary = AiGuardService::spendSummary();
+
+        $this->success([
+            'enabled' => (int) ($limits['allow_ai_analysis'] ?? 0) === 1,
+            'spend' => $summary,
+            'caps' => [
+                'daily_usd' => (float) $limits['ai_cap_daily_usd'],
+                'monthly_usd' => (float) $limits['ai_cap_monthly_usd'],
+                'user_daily_usd' => (float) $limits['ai_cap_user_daily_usd'],
+                'runs_per_hour' => (int) $limits['ai_max_runs_per_user_per_hour'],
+            ],
+        ]);
     }
 
     /**

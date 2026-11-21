@@ -126,7 +126,7 @@ function samplePayload(int $rows = 3): array
         $out[] = [
             'denial_category' => 'category_' . $i,
             'claims_count' => $i * 4,
-            'total_denied' => $i * 1000.5,
+            'denied_amount' => $i * 1000.5,
         ];
     }
 
@@ -447,7 +447,7 @@ echo "\n-- The field allowlist --\n";
 $realRow = [
     'denial_category' => 'prior_auth_missing',
     'claims_count' => 7,
-    'total_denied' => 48000.00,
+    'denied_amount' => 48000.00,
     'patient_id' => 41,
     'encounter_id' => 903,
     'service_date' => '2026-10-02',
@@ -464,7 +464,7 @@ foreach (['patient_id', 'encounter_id', 'service_date', 'patient_responsibility'
     check("{$mustNotLeave} is NOT sent", !in_array($mustNotLeave, $sentKeys, true));
 }
 
-foreach (['denial_category', 'claims_count', 'total_denied'] as $mustLeave) {
+foreach (['denial_category', 'claims_count', 'denied_amount'] as $mustLeave) {
     check("{$mustLeave} is sent", in_array($mustLeave, $sentKeys, true));
 }
 

@@ -97,14 +97,37 @@ class AiGuardService
      *               payload_hash: string, payload_bytes: int,
      *               cached: ?array, limits: array}
      */
+    /**
+     * @param ?string $model The model the request WILL be made with, from the
+     *                       provider. Null falls back to config, which is only
+     *                       right when there is no provider to ask.
+     *
+     *                       This matters more than it looks. The cache is keyed
+     *                       on the model, and the model a response comes back
+     *                       carrying is not always the one that was asked for
+     *                       -- a server-side fallback answers as a different
+     *                       model, and a platform may return a versioned id.
+     *                       Keying the write on the answer and the read on the
+     *                       request means the cache writes to one key, reads
+     *                       from another and never hits, with no symptom beyond
+     *                       a bill that does not fall. So both ends use the
+     *                       model that was REQUESTED; the ledger separately
+     *                       records the one that actually ran, because that is
+     *                       what the cost has to be computed from.
+     */
     public static function check(
         string $reportKey,
         array $payload,
         ?int $userId,
         ?string $role,
-        ?string $ip = null
+        ?string $ip = null,
+        ?string $model = null
     ): array {
         $limits = self::limits();
+
+        if ($model !== null && $model !== '') {
+            $limits['model'] = $model;
+        }
         $encoded = self::encode($payload);
         $hash = hash('sha256', $reportKey . '|' . $encoded);
         $bytes = strlen($encoded);

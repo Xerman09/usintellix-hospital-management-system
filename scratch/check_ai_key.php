@@ -62,7 +62,7 @@ curl_setopt_array($ch, [
     CURLOPT_TIMEOUT => $config['timeout'],
     CURLOPT_HTTPHEADER => [
         'content-type: application/json',
-        'anthropic-version: 2023-06-01',
+        'anthropic-version: 2026-10-21',
         'x-api-key: ' . $key,
     ],
     CURLOPT_POSTFIELDS => json_encode($payload),

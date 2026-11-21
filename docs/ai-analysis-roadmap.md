@@ -90,7 +90,66 @@ spend money, so the seed ships the row to copy rather than the grants to inherit
   cron of its own once there is traffic to purge.
 
 ---
-## AI-1 — The spine, and one report through it
+## AI-1 — The spine, and one report through it — **DONE** (21 November 2026)
+
+Shipped with claim-denial-pareto as the single consumer, as planned.
+`AiProvider` (the seam), `AnthropicProvider` (the transport), `AiReports` (which reports
+exist, how the server builds each, and the system prompt), `AiAnalysisService` (the
+seven-step path), three endpoints, a panel on the pareto screen, 77 tests. No provider is
+called by the suite, so it costs nothing to run.
+
+### Two deviations from what this section originally said
+
+**It is not built on the official PHP SDK.** That needs Composer, and this project has no
+`composer.json`, no `vendor/`, and no composer binary on the machine. Installing it is a
+change to how the system is deployed and not a decision to take quietly inside a feature.
+So the transport is hand-written behind `AiProvider`, and swapping it for an SDK-backed
+class is one file and a line of config. The debt is real and is recorded here rather than
+in a commit message: the Mailer is what hand-maintaining a protocol looks like after two
+years.
+
+**No structured outputs.** The response shape is asked for in the system prompt and parsed
+defensively instead. A first build that cannot be tested against the real API should not
+carry a parameter whose exact wire shape is unverified — being wrong there means the first
+real call fails on a parameter rather than on something that teaches us anything. Worth
+adding the day there is a key to test with.
+
+### A bug the tests caught, worth knowing about
+
+The cache was keyed on the model the response came back carrying, while the lookup used
+the model from config. Those are the same string until a server-side fallback answers, or
+a platform returns a versioned id — and then the cache writes to one key, reads from
+another, and never hits again, with no symptom except a bill that does not fall. Both ends
+now use the model that was **requested**; the ledger separately records the one that
+actually ran, because that is what the cost must be computed from.
+
+### Also decided here
+
+**`immediate_correction` and `recommended_strategy` are not sent.** Both are static advice
+the hospital wrote into `$categoryMeta` and the CARC dictionary. Feeding them to the model
+would get them back as findings — an answer that looks like analysis and is a quotation.
+If that advice is worth showing, show it as the hospital's, beside the summary.
+
+**The panel never runs on load**, or on a filter change. Only on a click. A report panel
+that fills itself whenever somebody opens the screen is the most expensive habit this
+feature could acquire.
+
+**A refusal answers 200**, not 4xx. Switched off, over the cap, too soon, provider down —
+all ordinary operational answers that belong in front of a person, not in the browser
+console.
+
+### Still open
+
+- **Nobody has judged the output.** The ten-saved-outputs step below has not happened,
+  because there is no API key yet. Until it does, this is a working pipeline and an
+  unproven feature.
+- Structured outputs, and the SDK, as above.
+- `AiPayload::ALLOWLIST` covers three reports; `AiReports::REPORTS` covers one. AI-3 adds
+  the rest.
+
+---
+
+## AI-1 — as originally planned
 
 **Size: M, reduced by AI-1a.** Needs an API key — *not* the HIPAA-ready organisation,
 because nothing in this phase sends personal data. The guard rail, the ledger, the field

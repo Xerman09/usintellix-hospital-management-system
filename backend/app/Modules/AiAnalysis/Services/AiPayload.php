@@ -50,15 +50,30 @@ class AiPayload
         // encounter_id and service_date, and the same endpoint returns a 50-row
         // worklist built from SELECT d.* that contains all three. The pareto
         // groups below are the only part that may be sent.
+        // Field names taken from the rows FinancialBusinessIntelligenceService
+        // actually builds, not from the SQL above them.
+        //
+        // Two fields that exist on those rows are deliberately absent:
+        // `immediate_correction` and `recommended_strategy`. Both are static
+        // advice the hospital wrote into $categoryMeta and the CARC dictionary.
+        // Sending them would feed the model its own conclusions and get them
+        // back as findings -- an answer that looks like analysis and is a
+        // quotation. If the advice is worth showing it should be shown as the
+        // hospital's, next to the summary, not laundered through a model.
         'claim_denial_pareto' => [
             'denial_category',
+            'category_label',
             'carc_codes',
             'primary_carc_title',
             'claims_count',
-            'total_billed',
-            'total_denied',
-            'total_recovered',
-            'total_written_off',
+            'denied_amount',
+            'recovered_amount',
+            'dollar_share_pct',
+            'count_share_pct',
+            'cumulative_pareto_pct',
+            'overturn_rate_pct',
+            'preventability',
+            'responsible_owner',
         ],
 
         'financial_executive_overview' => [
