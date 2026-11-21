@@ -299,6 +299,9 @@ here so it is a decision rather than an oversight.
 
 ## Suggested order
 
+**Built out as nine phases in `docs/ai-analysis-roadmap.md` on 21 November 2026.**
+The order below is the reasoning; that document is the plan of work.
+
 1. §A. Pick the provider and settle the BAA question. Nothing starts before this.
 2. One shared service — `AiAnalysisService` with a real provider behind it, a capability
    gate, a per-report prompt, and a hard rule that the figures come from the report's own

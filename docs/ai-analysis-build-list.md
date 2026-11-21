@@ -159,6 +159,8 @@ thing already wired up.
 
 ## Order
 
+The phases are in `docs/ai-analysis-roadmap.md`; this is the summary.
+
 1. Tier 0, end to end, with `getClaimDenialParetoAnalytics` as the single consumer.
 2. The ✻ runtime key check for everything in Tier 1, as allowlist tests.
 3. The rest of Tier 1 financial, then operations, then pharmacy.
