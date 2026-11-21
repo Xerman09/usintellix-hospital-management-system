@@ -7,8 +7,8 @@
  * user generate and download de-identified data for other patients.
  */
 
-use App\Core\AuthMiddleware;
-use App\Core\RoleMiddleware;
+use AuthMiddleware;
+use RoleMiddleware;
 use App\Modules\Deidentification\Controllers\DeidentificationController;
 
 /** @var \App\Core\Router $router */

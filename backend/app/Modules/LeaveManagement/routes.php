@@ -1,7 +1,7 @@
 <?php
 
-use App\Core\AuthMiddleware;
-use App\Core\RoleMiddleware;
+use AuthMiddleware;
+use RoleMiddleware;
 use App\Modules\LeaveManagement\Controllers\LeaveController;
 
 /** @var \App\Core\Router $router */
