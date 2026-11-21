@@ -2088,6 +2088,51 @@ export function Dashboard()
                 setTimeout(initSystemDocumentation, 0);
                 return SystemDocumentationView({ isTab: true });
             }, activate);
+        } else if (tabId === 'admin_address_book') {
+            tabManager.openTab(tabId, title || 'Facilities & Practice Address Book', () => {
+                setTimeout(initFacilities, 0);
+                return FacilitiesView();
+            }, activate);
+        } else if (tabId === 'admin_clinic_calendar') {
+            tabManager.openTab(tabId, title || 'Facility Operating Calendar', () => {
+                setTimeout(() => initClinicSchedules(user), 0);
+                return ClinicSchedulesView(user);
+            }, activate);
+        } else if (tabId === 'admin_forms_layouts' || tabId === 'admin_forms_lists') {
+            tabManager.openTab(tabId, title || 'Form Layouts & Lists Administration', () => {
+                setTimeout(initFormsAdministration, 0);
+                return FormsAdministrationView();
+            }, activate);
+        } else if (tabId === 'admin_practice_alerts') {
+            tabManager.openTab(tabId, title || 'Clinical Practice Rules & Alerts', () => {
+                setTimeout(initAlertManager, 0);
+                return AlertManagerView();
+            }, activate);
+        } else if (tabId === 'admin_system_diagnostics' || tabId === 'admin_system_api_clients') {
+            tabManager.openTab(tabId, title || 'System Diagnostics & API Clients', () => {
+                setTimeout(initSystemConfig, 0);
+                return SystemConfigView();
+            }, activate);
+        } else if (tabId === 'admin_system_email_send_test' || tabId === 'admin_system_language') {
+            tabManager.openTab(tabId, title || 'Language & System Communications', () => {
+                setTimeout(initGeneralSettings, 0);
+                return GeneralSettingsView();
+            }, activate);
+        } else if (tabId === 'admin_system_files') {
+            tabManager.openTab(tabId, title || 'System Document Manager', () => {
+                setTimeout(initNewDocuments, 0);
+                return NewDocumentsView();
+            }, activate);
+        } else if (tabId === 'services_direct_message_log') {
+            tabManager.openTab(tabId, title || 'Direct Messaging Audit Log', () => {
+                setTimeout(initMessageListReport, 0);
+                return MessageListView();
+            }, activate);
+        } else if (tabId === 'services_ip_tracker') {
+            tabManager.openTab(tabId, title || 'Network & IP Access Tracker', () => {
+                setTimeout(() => initHipaaAudit({ initialTab: 'auth' }), 0);
+                return HipaaAuditView({ initialTab: 'auth' });
+            }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
         }
