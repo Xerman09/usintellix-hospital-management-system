@@ -2259,8 +2259,8 @@ export function Dashboard()
             logoutModalOverlay.classList.add('open');
         });
 
-        document.getElementById('closeLogoutConfirmModal').addEventListener('click', closeLogoutModal);
-        document.getElementById('cancelLogoutBtn').addEventListener('click', closeLogoutModal);
+        document.getElementById('closeLogoutConfirmModal')?.addEventListener('click', closeLogoutModal);
+        document.getElementById('cancelLogoutBtn')?.addEventListener('click', closeLogoutModal);
         logoutModalOverlay.addEventListener('click', (event) => {
             if (event.target === logoutModalOverlay) {
                 closeLogoutModal();
@@ -2269,18 +2269,20 @@ export function Dashboard()
 
         const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
-        confirmLogoutBtn.addEventListener('click', async () => {
-            // Disable immediately -- clicking again before the request
-            // resolves (e.g. because the session already died and there's
-            // no visible feedback yet) would otherwise fire a second,
-            // redundant /logout request.
-            confirmLogoutBtn.disabled = true;
+        if (confirmLogoutBtn) {
+            confirmLogoutBtn.addEventListener('click', async () => {
+                // Disable immediately -- clicking again before the request
+                // resolves (e.g. because the session already died and there's
+                // no visible feedback yet) would otherwise fire a second,
+                // redundant /logout request.
+                confirmLogoutBtn.disabled = true;
 
-            await logout();
-            clearSession();
-            clearLastActivePatientChart();
-            window.location.hash = "#/login";
-        });
+                await logout();
+                clearSession();
+                clearLastActivePatientChart();
+                window.location.hash = "#/login";
+            });
+        }
     }
 
     // Profile dropdown: click-to-toggle instead of CSS hover, so moving the
