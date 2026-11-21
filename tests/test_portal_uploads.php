@@ -3,6 +3,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Database;
 use App\Core\Env;
 use App\Modules\MyChart\Services\PortalUploadService;
@@ -224,15 +241,37 @@ $dirMethod = $svc->getMethod('storageDir');
 $dirMethod->setAccessible(true);
 $dir = $dirMethod->invoke(null);
 
-check('the storage directory exists', is_dir($dir), $dir);
-check('it carries an .htaccess denying access', is_file($dir . '/.htaccess'));
+// TWO DIRECTORIES, AND THE DISTINCTION IS THE POINT.
+//
+// $dir is where THIS RUN writes, which TestDatabase::use() redirects into
+// backend/storage/_test_uploads so a test never drops a file into the
+// deployment's own store (and _test_uploads is gitignored). PortalUploadService
+// mkdir()s it on first upload and nothing puts an .htaccess there, so asserting
+// about $dir's .htaccess tests the harness, not the protection.
+//
+// The protection being asserted is a checked-in file in the deployment tree:
+// backend/storage/patient-uploads/.htaccess, tracked in git, which is how a
+// fresh deployment gets it. That is what has to exist and deny, so that is what
+// is checked.
+//
+// Until 21 November both assertions pointed at $dir and passed, because $dir
+// WAS the deployment's directory -- this suite ran against live and wrote into
+// the real patient-upload store (docs/TODO.md 3.4).
+$deployedDir = dirname(__DIR__) . '/backend/storage/patient-uploads';
 
-if (is_file($dir . '/.htaccess')) {
-    $rules = (string) file_get_contents($dir . '/.htaccess');
+check('the deployment\'s upload directory exists', is_dir($deployedDir), $deployedDir);
+check('it carries an .htaccess denying access', is_file($deployedDir . '/.htaccess'));
+
+if (is_file($deployedDir . '/.htaccess')) {
+    $rules = (string) file_get_contents($deployedDir . '/.htaccess');
     check('the .htaccess denies all', str_contains($rules, 'Require all denied') && str_contains($rules, 'Deny from all'));
 }
 
+// And the shape of what storageDir() resolves to, wherever it is rooted.
 check('uploads are NOT stored under public/', !str_contains(str_replace('\\', '/', $dir), '/public/'), $dir);
+
+check('and this run is writing to the disposable root, not the deployment store',
+    str_contains(str_replace('\\', '/', $dir), '_test_uploads'), $dir);
 
 @unlink($png);
 @unlink($fakeImage);

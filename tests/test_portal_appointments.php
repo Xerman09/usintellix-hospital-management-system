@@ -3,6 +3,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_fixtures.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Database;
 use App\Core\Env;
 use App\Modules\MyChart\Services\PortalAppointmentService;
@@ -111,12 +128,26 @@ check('cut-off resolves to a sane number', is_int($live['cutoff_hours']) && $liv
 check('the two switches resolve to booleans', is_bool($live['allow_reschedule']) && is_bool($live['allow_cancel']));
 
 // --------------------------------------------------------------------------
-// 3. Ownership. Every refusal below happens before anything is written, so
-//    these run safely against the live database.
+// 3. Ownership.
+//
+// This section used to begin "Every refusal below happens before anything is
+// written, so these run safely against the live database" -- which was true,
+// and was the reason the suite confined itself to refusals. It no longer runs
+// against the live database, so the constraint has gone with it.
+//
+// It also used to need a future appointment to ALREADY EXIST and printed a
+// WARN when none did. Against the live database one always did; against a fresh
+// test database none does, and the whole section -- 31 of this suite's
+// assertions -- silently stopped running. An appointment is created here
+// instead.
 // --------------------------------------------------------------------------
 echo "\n-- Ownership and guard clauses (no writes) --\n";
 
 $db = Database::connection();
+
+// Far enough out to be clear of any cut-off this hospital might configure.
+TestFixtures::appointment(date('Y-m-d', strtotime('+20 days')), '10:00:00', 'scheduled');
+
 $mine = $db->query(
     "SELECT id, patient_id FROM appointments
       WHERE deleted_at IS NULL AND is_provider_block = 0 AND status = 'scheduled'
@@ -124,8 +155,10 @@ $mine = $db->query(
       ORDER BY appointment_date LIMIT 1"
 )->fetch(PDO::FETCH_ASSOC);
 
+check('a future scheduled appointment exists for section 3 to act on', !empty($mine));
+
 if (!$mine) {
-    echo "  [WARN] No future scheduled appointment in this database; ownership not exercised.\n";
+    echo "  [WARN] the fixture appointment was not created; ownership not exercised.\n";
 } else {
     $patientId = (int) $mine['patient_id'];
     $appointmentId = (int) $mine['id'];
@@ -232,10 +265,13 @@ if (!$mine) {
 }
 
 echo "\n";
-echo "  NOTE: the successful reschedule, cancel and confirm writes are not exercised\n";
-echo "        here -- they would alter real appointments in this database. Every\n";
-echo "        refusal path above returns before any UPDATE, and the slot safety\n";
-echo "        itself is AppointmentService::update()'s existing checks.\n";
+echo "  NOTE: the successful reschedule, cancel and confirm writes are still not\n";
+echo "        exercised here. The old reason -- that they would alter real\n";
+echo "        appointments -- stopped being true on 21 November, when this suite\n";
+echo "        moved to the disposable database. What remains is that covering them\n";
+echo "        means asserting on slot safety and notification side effects, which\n";
+echo "        is a larger piece of work than pointing the suite somewhere safe.\n";
+echo "        Recorded in docs/TODO.md 3.4 rather than left as a stale excuse.\n";
 
 echo "\n==================================================\n";
 echo "   {$pass} passed, {$fail} failed\n";

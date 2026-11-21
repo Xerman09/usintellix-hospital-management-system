@@ -20,7 +20,8 @@ $testFiles = [
     'test_npp_consent.php'                      => 'Notice of Privacy Practices & Consent (45 CFR § 164.520)',
     'test_hipaa_retention_and_export.php'       => '6-Year Data Retention & Immutable Export (§ 164.316(b))',
     'test_minimum_necessary.php'                => 'Role-Based Minimum Necessary Access (§ 164.502(b))',
-    'test_password_change_gate.php'             => 'Forced Password Change Enforced Server-Side (§ 164.308(a)(5)(ii)(D))'
+    'test_password_change_gate.php'             => 'Forced Password Change Enforced Server-Side (§ 164.308(a)(5)(ii)(D))',
+    'test_suite_safety.php'                     => 'Test Harness Safety: no suite may touch the live database'
 ];
 
 echo "========================================================================================\n";

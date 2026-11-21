@@ -2,6 +2,23 @@
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Env;
 use App\Core\Database;
 use App\Core\Session;
@@ -157,10 +174,25 @@ reportTest(
 );
 
 // Helper for running controller endpoints that call exit;
+//
+// THE CHILD HAS TO BE POINTED AT THE TEST DATABASE ITSELF. The override lives
+// in $_ENV and PHP here does not pass the parent's $_ENV into a child, so a
+// child that only calls Env::load() connects to whatever backend/.env names --
+// the live database.
+//
+// That was not hypothetical. Until 21 November these children exported the LIVE
+// audit log and wrote their own AUDIT_EXPORT_CSV / AUDIT_EXPORT_PDF rows into it
+// on every run, and the suite passed because the parent was reading the same
+// live table. Pointing the parent at the test database is what surfaced it: the
+// parent looked for the row the child had just written and could not find it,
+// because the child had written it somewhere else.
+//
+// Bootstrapping through tests/lib/test_database.php is the same fix
+// test_minimum_necessary.php applies to its own children, for the same reason.
 function runSubprocess(string $code): string {
     $root = str_replace('\\', '/', dirname(__DIR__));
-    $autoload = "{$root}/backend/app/Core/Autoload.php";
-    $script = "chdir('{$root}'); require_once '{$autoload}'; App\Core\Env::load(); " . $code;
+    $harness = "{$root}/tests/lib/test_database.php";
+    $script = "chdir('{$root}'); require_once '{$harness}'; TestDatabase::use(); " . $code;
     $tempFile = sys_get_temp_dir() . '/test_sub_' . uniqid() . '.php';
     file_put_contents($tempFile, "<?php " . $script);
     $output = shell_exec("php " . escapeshellarg($tempFile) . " 2>&1");

@@ -3,6 +3,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Database;
 use App\Core\Env;
 use App\Modules\MyChart\Services\PortalGuard;

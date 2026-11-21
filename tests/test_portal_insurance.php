@@ -3,6 +3,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Database;
 use App\Core\Env;
 use App\Modules\MyChart\Services\PortalInsuranceService;
@@ -185,28 +202,63 @@ check('reviewing a missing request is refused', empty($r['success']) && !empty($
 $r = PortalInsuranceService::review(999999999, ['decision' => 'perhaps'], 1);
 check('a decision that is neither apply nor decline is refused', empty($r['success']));
 
+// A pending request to review, created rather than hoped for.
+//
+// These two guards used to be checked BY INSPECTION when no pending row existed
+// -- str_contains() over the service's own source, which proves the line is
+// written and nothing about whether it runs. That fallback was honest about
+// itself and labelled [INFO], but it was reached on every run against a fresh
+// test database (docs/TODO.md 3.4), so the two guards the desk actually relies
+// on were never executed.
+//
+// A free-text insurer ('insurer_name_text' with no insurance_id) is used
+// deliberately: it is the shape that exercises both the decline-note guard and
+// the "you cannot apply an insurer that is not in the list" guard.
+$insuranceFixtureRequest = null;
+
+if ($patientId > 0) {
+    $ins = $db->prepare(
+        "INSERT INTO patient_insurance_requests
+            (patient_id, action, insurance_type, insurance_id, insurer_name_text, policy_number,
+             status, created_at)
+         VALUES (:p, 'add', 'primary', NULL, 'ZZTEST Free Text Insurer', 'ZZTEST-POL-1',
+                 'pending', NOW())"
+    );
+    $ins->execute(['p' => $patientId]);
+    $insuranceFixtureRequest = (int) $db->lastInsertId();
+}
+
+check('a pending request exists for the review guards to run against',
+    $insuranceFixtureRequest !== null);
+
 $pendingRow = $db->query(
     "SELECT id, action, insurance_id, insurer_name_text FROM patient_insurance_requests
       WHERE status = 'pending' AND deleted_at IS NULL ORDER BY id LIMIT 1"
 )->fetch(PDO::FETCH_ASSOC);
 
 if (!$pendingRow) {
-    echo "  [INFO] No pending request in this database, so the decline-note and\n";
-    echo "         free-text-insurer guards are checked by inspection, not execution.\n";
-    $src = file_get_contents(__DIR__ . '/../backend/app/Modules/MyChart/Services/PortalInsuranceService.php');
-    check('decline requires a note (guard present in source)',
-        str_contains($src, "decision === 'decline' && \$note === ''"));
-    check('applying a free-text insurer is refused (guard present in source)',
-        str_contains($src, "\$row['insurance_id'] === null"));
-    check('apply runs inside a transaction', str_contains($src, 'beginTransaction') && str_contains($src, 'rollBack'));
+    echo "  [WARN] the fixture request was not created; the review guards did not run.\n";
 } else {
     $r = PortalInsuranceService::review((int) $pendingRow['id'], ['decision' => 'decline', 'note' => ''], 1);
     check('declining without a reason is refused', empty($r['success']) && isset($r['errors']['note']));
+
+    check('the request is still pending after that refusal',
+        (string) $db->query("SELECT status FROM patient_insurance_requests WHERE id = " . (int) $pendingRow['id'])->fetchColumn() === 'pending');
 
     if ($pendingRow['action'] !== 'remove' && $pendingRow['insurance_id'] === null) {
         $r = PortalInsuranceService::review((int) $pendingRow['id'], ['decision' => 'apply'], 1);
         check('applying a request whose insurer is only free text is refused', empty($r['success']));
     }
+
+    // The source check is kept for the one property that cannot be observed
+    // from outside: that apply is transactional.
+    $src = file_get_contents(__DIR__ . '/../backend/app/Modules/MyChart/Services/PortalInsuranceService.php');
+    check('apply runs inside a transaction', str_contains($src, 'beginTransaction') && str_contains($src, 'rollBack'));
+}
+
+if ($insuranceFixtureRequest !== null) {
+    $db->prepare('DELETE FROM patient_insurance_requests WHERE id = :id')
+        ->execute(['id' => $insuranceFixtureRequest]);
 }
 
 $coverageAfter = (int) $db->query("SELECT COUNT(*) FROM patient_insurances WHERE deleted_at IS NULL")->fetchColumn();
@@ -216,6 +268,31 @@ check('no coverage was created or removed by anything above', $coverageAfter ===
 // 6. The payloads the app and the desk render.
 // --------------------------------------------------------------------------
 echo "\n-- Payload shape --\n";
+
+// A coverage row, so the shape checks below run.
+//
+// patient_insurances is empty in a fresh test database, so `if
+// ($mine['coverage'])` was false and the six assertions about what each
+// coverage row must carry -- the fields the app renders -- stopped running when
+// this suite moved off the live database (docs/TODO.md 3.4).
+$coverageFixture = null;
+
+if ($patientId > 0) {
+    $insurerId = (int) $db->query("SELECT id FROM insurances ORDER BY id LIMIT 1")->fetchColumn();
+
+    if ($insurerId > 0) {
+        $ins = $db->prepare(
+            "INSERT INTO patient_insurances
+                (patient_id, insurance_id, insurance_type, policy_number, subscriber_name,
+                 effective_date, created_at)
+             VALUES (:p, :i, 'primary', 'ZZTEST-COVER-1', 'Zz Testpatient', CURDATE(), NOW())"
+        );
+        $ins->execute(['p' => $patientId, 'i' => $insurerId]);
+        $coverageFixture = (int) $db->lastInsertId();
+    }
+}
+
+check('a coverage row exists for the payload-shape checks', $coverageFixture !== null);
 
 if ($patientId > 0) {
     $mine = PortalInsuranceService::mine($patientId);
@@ -276,8 +353,23 @@ if ($pendingRow) {
 }
 
 echo "\n";
-echo "  NOTE: a successful request, apply and decline are not exercised here -- they\n";
-echo "        would add rows to this database and, on apply, change real coverage.\n";
+// Only the coverage row this run created, by id. Without this the row
+// survives into the next run, mine() returns two, and the suite reports a
+// different number of assertions every time it is run -- 53, then 55, then
+// 55 -- which is how this was noticed. A suite whose own numbers move is
+// worse than a failing one: it looks like coverage changing.
+if ($coverageFixture !== null) {
+    $db->prepare('DELETE FROM patient_insurances WHERE id = :id')
+        ->execute(['id' => $coverageFixture]);
+}
+
+echo "  NOTE: a successful request, apply and decline are still not exercised here.\n";
+echo "        The old reason -- that they would change real coverage -- stopped\n";
+echo "        being true on 21 November, when this suite moved to the disposable\n";
+echo "        database. What remains is that covering them means asserting on the\n";
+echo "        desk notifications and the applied-coverage side effects, which is a\n";
+echo "        larger piece of work. Recorded in docs/TODO.md 3.4 rather than left\n";
+echo "        as a stale excuse.\n";
 echo "        Every refusal path above returns before any write, and the row counts\n";
 echo "        for both tables are asserted unchanged.\n";
 

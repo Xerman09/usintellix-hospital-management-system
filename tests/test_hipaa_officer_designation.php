@@ -8,6 +8,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Database;
 use App\Core\Env;
 use App\Core\AuditLogger;
@@ -289,44 +306,75 @@ try {
     // ------------------------------------------------------------------
     echo "\n6. Testing Dynamic Subsystem Auto-Population Integration...\n";
 
-    // 6a. SecurityIncidentService integration
-    $incidentService = new SecurityIncidentService($pdo);
-    $incidentRow = $pdo->query("SELECT id FROM hipaa_security_incidents ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    // THE ROWS SECTION 6 NEEDS, CREATED RATHER THAN HOPED FOR.
+    //
+    // Every branch below used to be guarded by "if there is a row" and, when
+    // there was not, called report(true, "... skipped ...") -- a PASS printed
+    // for an assertion that never ran. On the live database those rows happened
+    // to exist, so the real paths ran and nobody noticed. Pointed at a fresh
+    // test database on 21 November, hipaa_security_incidents,
+    // hipaa_drs_access_requests and amendments are all empty, and five of this
+    // suite's green lines were being fabricated.
+    //
+    // A skipped test reporting a pass is the worst thing a suite can do: it is
+    // indistinguishable from coverage. So the rows are created here, the
+    // branches are unconditional below, and anything created is removed in the
+    // teardown at the end of this block.
+    $createdFixtures = ['incident' => null, 'drs' => null, 'amendment' => null, 'patient' => null];
+
     $patientRow = $pdo->query("SELECT id FROM patients WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 
-    if ($incidentRow && $patientRow) {
-        $letterRes = $incidentService->getBreachLetterData((int)$incidentRow['id'], (int)$patientRow['id'], $adminUser);
-        if ($letterRes['success']) {
-            $letterData = $letterRes['data'];
-            report(!empty($letterData['contact_phone']), "SecurityIncidentService breach letter populated contact_phone: " . $letterData['contact_phone']);
-            report(!empty($letterData['contact_email']), "SecurityIncidentService breach letter populated contact_email: " . $letterData['contact_email']);
-            report(!empty($letterData['facility_address']), "SecurityIncidentService breach letter populated facility_address");
-        } else {
-            report(false, "SecurityIncidentService getBreachLetterData succeeded", $letterRes['message'] ?? '');
-        }
-
-        $ocrRes = $incidentService->getOcrExportData((int)$incidentRow['id'], $adminUser);
-        if ($ocrRes['success']) {
-            $ocrData = $ocrRes['data'];
-            report(!empty($ocrData['investigating_officer']), "SecurityIncidentService OCR export populated investigating_officer: " . ($ocrData['investigating_officer'] ?? ''));
-            report(str_contains($ocrData['investigating_officer'] ?? '', 'Marcus Vance') || str_contains($ocrData['investigating_officer'] ?? '', 'Security'), "OCR export investigating_officer references designated Security Officer");
-        } else {
-            report(false, "SecurityIncidentService getOcrExportData succeeded", $ocrRes['message'] ?? '');
-        }
-    } else {
-        report(true, "SecurityIncidentService breach letter tested (skipped specific row due to empty test table)");
-        report(true, "SecurityIncidentService OCR export tested (skipped specific row due to empty test table)");
+    if (!$patientRow) {
+        $pdo->exec("INSERT INTO patients (patient_no, first_name, last_name, birthdate, sex, created_at)
+                    VALUES ('ZZTEST-OFFICER', 'Zz', 'Officerfixture', '1990-01-01', 'female', NOW())");
+        $createdFixtures['patient'] = (int) $pdo->lastInsertId();
+        $patientRow = ['id' => $createdFixtures['patient']];
     }
+
+    $officerPatientId = (int) $patientRow['id'];
+
+    $incidentRow = $pdo->query("SELECT id FROM hipaa_security_incidents ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+
+    if (!$incidentRow) {
+        $stmt = $pdo->prepare("INSERT INTO hipaa_security_incidents
+            (incident_number, incident_title, incident_date, discovery_date, incident_description)
+            VALUES (:n, :t, NOW(), NOW(), :d)");
+        $stmt->execute([
+            'n' => 'ZZTEST-INC-OFFICER',
+            't' => 'Fixture incident for the officer-designation suite',
+            'd' => 'Created by tests/test_hipaa_officer_designation.php so the breach-letter and '
+                . 'OCR-export assertions run instead of reporting a pass for a skipped test.',
+        ]);
+        $createdFixtures['incident'] = (int) $pdo->lastInsertId();
+        $incidentRow = ['id' => $createdFixtures['incident']];
+    }
+
+    report(!empty($incidentRow['id']), "A security incident exists for section 6a to read");
+    report($officerPatientId > 0, "A patient exists for section 6a to read");
+
+    // 6a. SecurityIncidentService integration
+    $incidentService = new SecurityIncidentService($pdo);
+
+    $letterRes = $incidentService->getBreachLetterData((int)$incidentRow['id'], $officerPatientId, $adminUser);
+    report(!empty($letterRes['success']), "SecurityIncidentService getBreachLetterData succeeded", $letterRes['message'] ?? '');
+
+    $letterData = $letterRes['data'] ?? [];
+    report(!empty($letterData['contact_phone']), "SecurityIncidentService breach letter populated contact_phone: " . ($letterData['contact_phone'] ?? ''));
+    report(!empty($letterData['contact_email']), "SecurityIncidentService breach letter populated contact_email: " . ($letterData['contact_email'] ?? ''));
+    report(!empty($letterData['facility_address']), "SecurityIncidentService breach letter populated facility_address");
+
+    $ocrRes = $incidentService->getOcrExportData((int)$incidentRow['id'], $adminUser);
+    report(!empty($ocrRes['success']), "SecurityIncidentService getOcrExportData succeeded", $ocrRes['message'] ?? '');
+
+    $ocrData = $ocrRes['data'] ?? [];
+    report(!empty($ocrData['investigating_officer']), "SecurityIncidentService OCR export populated investigating_officer: " . ($ocrData['investigating_officer'] ?? ''));
+    report(str_contains($ocrData['investigating_officer'] ?? '', 'Marcus Vance') || str_contains($ocrData['investigating_officer'] ?? '', 'Security'), "OCR export investigating_officer references designated Security Officer");
 
     // 6b. DisclosureService integration
-    $tempCreatedPatientId = null;
-    if (!$patientRow) {
-        $pdo->query("INSERT INTO patients (patient_no, first_name, last_name, birthdate, sex, created_at) VALUES ('MRN-TEST-OFFICER', 'Test', 'Patient', '1990-01-01', 'female', NOW())");
-        $tempCreatedPatientId = (int)$pdo->lastInsertId();
-        $testPatientId = $tempCreatedPatientId;
-    } else {
-        $testPatientId = (int)$patientRow['id'];
-    }
+    //
+    // The patient this uses is the one the fixture block above guaranteed, so
+    // this no longer creates and deletes its own.
+    $testPatientId = $officerPatientId;
 
     $disclosureService = new DisclosureService($pdo);
     $reportRes = $disclosureService->getReportData($testPatientId, '2020-01-01', '2026-12-31', $adminUser);
@@ -334,47 +382,81 @@ try {
     report(isset($reportRes['data']['privacy_officer']), "DisclosureService report data contains 'privacy_officer' block");
     report(!empty($reportRes['data']['privacy_officer']['email']), "DisclosureService report includes Privacy Officer email: " . ($reportRes['data']['privacy_officer']['email'] ?? ''));
 
-    if ($tempCreatedPatientId) {
-        $pdo->query("DELETE FROM patients WHERE id = {$tempCreatedPatientId}");
-    }
-
     // 6c. DrsRequestService integration
     $drsService = new DrsRequestService($pdo);
     $drsRow = $pdo->query("SELECT id FROM hipaa_drs_access_requests ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if ($drsRow) {
-        $drsNoticeRes = $drsService->getExtensionNoticeData((int)$drsRow['id']);
-        if ($drsNoticeRes['success']) {
-            $drsNotice = $drsNoticeRes['data'];
-            report(!empty($drsNotice['privacy_office_phone']), "DrsRequestService extension notice populated privacy_office_phone: " . $drsNotice['privacy_office_phone']);
-            report(!empty($drsNotice['privacy_office_email']), "DrsRequestService extension notice populated privacy_office_email: " . $drsNotice['privacy_office_email']);
-            report(!empty($drsNotice['privacy_officer_name']), "DrsRequestService extension notice populated privacy_officer_name: " . $drsNotice['privacy_officer_name']);
-        } else {
-            report(false, "DrsRequestService getExtensionNoticeData succeeded", $drsNoticeRes['message'] ?? '');
-        }
-    } else {
-        report(true, "DrsRequestService extension notice tested (skipped specific row due to empty table)");
+
+    if (!$drsRow) {
+        $stmt = $pdo->prepare("INSERT INTO hipaa_drs_access_requests
+            (request_number, patient_id, request_date, requestor_name, initial_deadline,
+             created_at, updated_at, created_by)
+            VALUES (:n, :p, CURDATE(), :r, DATE_ADD(CURDATE(), INTERVAL 30 DAY), NOW(), NOW(), :by)");
+        $stmt->execute([
+            'n' => 'ZZTEST-DRS-OFFICER',
+            'p' => $officerPatientId,
+            'r' => 'Zz Officerfixture',
+            'by' => (int) ($adminUser['id'] ?? 1),
+        ]);
+        $createdFixtures['drs'] = (int) $pdo->lastInsertId();
+        $drsRow = ['id' => $createdFixtures['drs']];
     }
+
+    $drsNoticeRes = $drsService->getExtensionNoticeData((int)$drsRow['id']);
+    report(!empty($drsNoticeRes['success']), "DrsRequestService getExtensionNoticeData succeeded", $drsNoticeRes['message'] ?? '');
+
+    $drsNotice = $drsNoticeRes['data'] ?? [];
+    report(!empty($drsNotice['privacy_office_phone']), "DrsRequestService extension notice populated privacy_office_phone: " . ($drsNotice['privacy_office_phone'] ?? ''));
+    report(!empty($drsNotice['privacy_office_email']), "DrsRequestService extension notice populated privacy_office_email: " . ($drsNotice['privacy_office_email'] ?? ''));
+    report(!empty($drsNotice['privacy_officer_name']), "DrsRequestService extension notice populated privacy_officer_name: " . ($drsNotice['privacy_officer_name'] ?? ''));
 
     // 6d. AmendmentService integration
     $amendmentService = new AmendmentService($pdo);
     $amdRow = $pdo->query("SELECT id FROM amendments ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if ($amdRow) {
-        $amdNoticeRes = $amendmentService->getExtensionNoticeData((int)$amdRow['id']);
-        if ($amdNoticeRes['success']) {
-            $amdNotice = $amdNoticeRes['data'];
-            report(!empty($amdNotice['privacy_office_phone']), "AmendmentService extension notice populated privacy_office_phone: " . $amdNotice['privacy_office_phone']);
-            report(!empty($amdNotice['privacy_officer_name']), "AmendmentService extension notice populated privacy_officer_name: " . $amdNotice['privacy_officer_name']);
-        }
 
-        $denialNoticeRes = $amendmentService->getDenialNoticeData((int)$amdRow['id']);
-        if ($denialNoticeRes['success']) {
-            $denialNotice = $denialNoticeRes['data'];
-            report(!empty($denialNotice['privacy_office_phone']), "AmendmentService denial notice populated privacy_office_phone: " . $denialNotice['privacy_office_phone']);
-            report(!empty($denialNotice['privacy_office_email']), "AmendmentService denial notice populated privacy_office_email: " . $denialNotice['privacy_office_email']);
+    if (!$amdRow) {
+        // Denied, with a statutory ground, deliberately: getDenialNoticeData()
+        // refuses an amendment that has not been denied -- "Amendment has not
+        // been denied with a statutory ground" -- which is the service being
+        // right, not a missing feature. A bare row would make the denial-notice
+        // assertions fail for a reason that has nothing to do with the officer
+        // designation this suite is about.
+        $stmt = $pdo->prepare("INSERT INTO amendments
+            (patient_id, status, denial_statutory_ground, denial_rationale, denial_notice_date)
+            VALUES (:p, 'denied', 'accurate_and_complete', :r, CURDATE())");
+        $stmt->execute([
+            'p' => $officerPatientId,
+            'r' => 'Fixture for tests/test_hipaa_officer_designation.php section 6d.',
+        ]);
+        $createdFixtures['amendment'] = (int) $pdo->lastInsertId();
+        $amdRow = ['id' => $createdFixtures['amendment']];
+    }
+
+    $amdNoticeRes = $amendmentService->getExtensionNoticeData((int)$amdRow['id']);
+    report(!empty($amdNoticeRes['success']), "AmendmentService getExtensionNoticeData succeeded", $amdNoticeRes['message'] ?? '');
+
+    $amdNotice = $amdNoticeRes['data'] ?? [];
+    report(!empty($amdNotice['privacy_office_phone']), "AmendmentService extension notice populated privacy_office_phone: " . ($amdNotice['privacy_office_phone'] ?? ''));
+    report(!empty($amdNotice['privacy_officer_name']), "AmendmentService extension notice populated privacy_officer_name: " . ($amdNotice['privacy_officer_name'] ?? ''));
+
+    $denialNoticeRes = $amendmentService->getDenialNoticeData((int)$amdRow['id']);
+    report(!empty($denialNoticeRes['success']), "AmendmentService getDenialNoticeData succeeded", $denialNoticeRes['message'] ?? '');
+
+    $denialNotice = $denialNoticeRes['data'] ?? [];
+    report(!empty($denialNotice['privacy_office_phone']), "AmendmentService denial notice populated privacy_office_phone: " . ($denialNotice['privacy_office_phone'] ?? ''));
+    report(!empty($denialNotice['privacy_office_email']), "AmendmentService denial notice populated privacy_office_email: " . ($denialNotice['privacy_office_email'] ?? ''));
+
+    // Teardown for section 6's fixtures. Only what this run created, by id, so
+    // a database that already had rows is left exactly as it was.
+    foreach ([
+        'amendment' => 'amendments',
+        'drs' => 'hipaa_drs_access_requests',
+        'incident' => 'hipaa_security_incidents',
+        'patient' => 'patients',
+    ] as $key => $table) {
+        if (!empty($createdFixtures[$key])) {
+            $pdo->prepare("DELETE FROM `{$table}` WHERE id = :id")
+                ->execute(['id' => $createdFixtures[$key]]);
         }
-    } else {
-        report(true, "AmendmentService extension notice tested (skipped specific row due to empty table)");
-        report(true, "AmendmentService denial notice tested (skipped specific row due to empty table)");
     }
 
     // 6e. DeidentificationService default attestation officer

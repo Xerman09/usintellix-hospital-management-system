@@ -166,34 +166,126 @@ flag for a staff user, and that the first-login route refuses one.
 Found while resetting the admin password on 17 November: it is why that reset was not
 issued as a temporary credential forced to change at first login. It can be now.
 
-### 3.4 Test suites write to the LIVE database — partly fixed, 18 November
+### 3.4 ~~Test suites write to the LIVE database~~ — fixed, 21 November
 
-**Correction, 19 November.** The entry below was wrong about the scope, and the error was
-mine. Four suites were fixed because four suites had left rows matching the username
-patterns I searched for. That is not the same question as "which suites connect to the
-live database", and nobody asked the second one until a mail problem sent me back through
-`tests/`.
+**All 35 suites in `tests/` now call `TestDatabase::use()`. Zero connect to the live
+database.** `tests/run_all_hipaa_tests.php` is no longer a script that writes to
+production.
 
-The honest count: of 31 suites in `tests/`, **12 call `TestDatabase::use()` and 18 do
-not**. The 18 run against whatever `backend/.env` points at, which is the live database:
+`tests/test_suite_safety.php` is the new suite that keeps it that way — the seventeenth in
+the runner. It reads every other suite and asserts three things, each of which was a real
+mistake nobody could see:
 
-    test_accounting_of_disclosures      test_npp_consent
-    test_backup_and_disaster_recovery   test_portal_appointments
-    test_business_associates            test_portal_health_maintenance
-    test_diagnosis_guides               test_portal_insurance
-    test_eye_exam                       test_portal_questionnaires
-    test_field_encryption               test_portal_uploads
-    test_gad7                           test_safe_harbor_deidentification
-    test_hipaa_officer_designation      test_security_incidents
-    test_hipaa_retention_and_export     test_visit_summary
-    test_hitech_restriction             test_workforce_training_and_sanctions
+1. **Every suite calls `TestDatabase::use()`, before its own `Env::load()`.** Writing a new
+   suite is exactly the moment somebody forgets.
+2. **Every child process bootstraps through the harness.** See below — this one had been
+   writing to production for months.
+3. **No suite reports a pass for a test it did not run.** See below.
 
-Some of those only read. Several plainly do not. Each one needs the same two lines the
-other four got, and each needs running afterwards to see what it was relying on — the four
-already fixed each broke in some small way once moved, so expect that again rather than a
-clean sweep.
+It strips comments with `token_get_all()` before scanning, because its first version
+reported three failures that were all its own prose, and it excludes itself, because
+section 5 necessarily contains samples of every pattern it hunts for. That section runs
+each detector against a synthetic violation and a synthetic clean case: all four checks now
+pass against the real tree, and a scanner that finds nothing is indistinguishable from one
+that cannot find anything.
 
-Until that is done, `tests/run_all_hipaa_tests.php` is a script that writes to production.
+#### What moving them off live exposed
+
+The warning in the old entry — "expect that rather than a clean sweep" — was right, and
+what turned up was worse than small breakage. **Four suites were quietly measuring less
+than their output claimed, and two had been writing to production in a way nobody had
+looked for.**
+
+**A child process is not covered by its parent's override.** `$_ENV` is not inherited, so
+`test_hipaa_retention_and_export`'s `runSubprocess()` — which did
+`require_once Autoload.php; Env::load();` and nothing else — connected to the live
+database. It **exported the live audit log and wrote its own `AUDIT_EXPORT_CSV` and
+`AUDIT_EXPORT_PDF` rows into it on every run**, and the suite passed throughout because the
+parent was reading the same live table. Pointing the parent at the test database is what
+surfaced it: the parent looked for the row the child had just written and could not find
+it. `test_minimum_necessary` had documented this hazard for its own children in November;
+nothing generalised it.
+
+**Five assertions were fabricated passes.** `test_hipaa_officer_designation` guarded each
+of its subsystem-integration branches with "if there is a row" and, when there was not,
+called `report(true, "... skipped specific row due to empty test table")`. On live those
+rows happened to exist. On a fresh test database all three tables — `hipaa_security_incidents`,
+`hipaa_drs_access_requests`, `amendments` — are empty, and the suite printed five green
+lines for assertions that never ran. The rows are now created, the branches are
+unconditional, and the fixtures are torn down by id. **91 assertions on live → 88 with the
+fabricated passes → 102 real ones.**
+
+The amendment fixture had to be a *denied* amendment with a statutory ground, because
+`getDenialNoticeData()` correctly refuses one that was never denied. A bare row made three
+assertions fail for a reason that had nothing to do with officer designation.
+
+**Three more suites were silently skipping their most important section.** Each needed a
+row that happened to exist on live and printed a `WARN` or an `[INFO]` when it did not —
+visible, not dishonest, but reached on every single run against a fresh database:
+
+| Suite | What stopped running | Before → after |
+|---|---|---|
+| `test_portal_appointments` | the whole ownership section — 31 assertions | 46 → 15 → **47** |
+| `test_diagnosis_guides` | the patient filter, which the suite itself calls "the privacy boundary" | 41 → 38 → **42** |
+| `test_portal_insurance` | the review guards (checked by `str_contains` over the service's own source instead) and the coverage payload shape | 51 → 42 → **53** |
+
+Each now creates what it needs and removes it by id. `test_portal_insurance` was also **not
+idempotent** once its fixture was added — it reported 53, then 55, then 55, because the
+coverage row survived into the next run. A suite whose own numbers move is worse than a
+failing one: it looks like coverage changing.
+
+**Two stale comments were load-bearing excuses.** `test_portal_appointments` and
+`test_portal_insurance` both explained that they do not exercise successful writes because
+those "would alter real appointments / change real coverage **in this database**". True
+when written; false the moment the suite moved. Both notes now say what the actual
+remaining reason is — asserting on notifications and applied-coverage side effects is a
+larger piece of work — rather than leaving a reason that has expired.
+
+**`test_portal_uploads` revealed a real distinction.** Its assertion that the upload store
+carries an `.htaccess` denying HTTP access was passing because the suite was writing into
+the deployment's own patient-upload directory. The harness redirects uploads to
+`backend/storage/_test_uploads`, where `PortalUploadService` `mkdir()`s the directory and
+nothing puts an `.htaccess` in it. The protection being asserted is a **checked-in file**,
+`backend/storage/patient-uploads/.htaccess`, tracked in git so a fresh deployment gets it —
+so that is what the suite now checks, and it separately asserts that the run is writing to
+the disposable root.
+
+#### A missing seed, found the same way
+
+`test_portal_health_maintenance` asserts that every practice rule has an explicit
+patient-facing decision recorded. It passed on live and failed on a seed-built database:
+**12 items for 13 rules.**
+
+Seed 074's own header states the principle and enumerates twelve. The thirteenth,
+`Adult Weight Screening and Follow-Up`, had no decision — and it is the rule with the
+widest reach: typed `Patient Reminder` with age ≥ 18 as its only criterion, so it matches
+every adult patient. Nothing happened only because `practice_rules.is_patient_reminder` was
+left at 0, which is exactly the "reason living in an unset flag" that seed 074 was written
+to avoid.
+
+**Seed 092** records the decision: **not shown to patients**, because the wording has not
+been read by a clinician (§1.3 already holds M14's item wording open for that), and of the
+thirteen topics this is the one where wording written by a developer is most likely to do
+harm. Applied to both databases and verified. On live it inserted nothing, correctly: the
+rule exists there at id 16 but was **soft-deleted on 1 September 2026**, and the seed
+guards on `deleted_at IS NULL`.
+
+That comparison turned up drift worth recording separately: **a seed-built database and the
+live one do not have the same practice rules.** Seed-built has ids 1–13 including the weight
+rule; live has ids 1, 4–15 including `Cancer Screening: Colon Cancer Screening`, which seed
+018 deliberately does not create ("it already exists as a real, earlier admin-created
+row"). The consequence nobody wrote down is the mirror image of the one just fixed: seed
+074's colon-cancer item matches nothing on a fresh deployment, so the "shown but silent"
+item its header describes is not there either. Not fixed here — seeding that rule means
+authoring a clinical rule the hospital created by hand.
+
+#### Still open in this area
+
+- The successful write paths in `test_portal_appointments` and `test_portal_insurance` are
+  still uncovered. The reason is no longer safety; it is that covering them means asserting
+  on slot safety, desk notifications and applied-coverage side effects.
+- `scratch/` holds its own ad-hoc test scripts. They are not suites, nothing runs them in
+  CI, and `test_suite_safety.php` does not scan them.
 
 The rest of this entry, about the rows that were cleared, stands.
 

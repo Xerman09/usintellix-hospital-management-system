@@ -3,6 +3,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/app/Core/Autoload.php';
 
+// Point this process at the disposable database BEFORE anything connects.
+//
+// Until 21 November this suite ran against whatever backend/.env names, which
+// is the live database -- see docs/TODO.md 3.4. TestDatabase::use() refuses any
+// target that is not clearly a test database, and because it writes
+// $_ENV['DB_DATABASE'] before Env::load() runs (and Env::load() never
+// overwrites a key that is already set), the override survives this suite's own
+// Env::load() call further down.
+require_once __DIR__ . '/lib/test_database.php';
+
+try {
+    TestDatabase::use();
+} catch (Throwable $e) {
+    echo 'REFUSED: ' . $e->getMessage() . "\n";
+    exit(1);
+}
+
 use App\Core\Env;
 use App\Modules\MyChart\Services\PortalDiagnosisGuideService;
 
@@ -142,6 +159,36 @@ check('three of four rows matched, the unseeded one absent', count($many) === 3,
 echo "\n-- Patient filter --\n";
 
 $db = \App\Core\Database::connection();
+
+// A coded problem to act on, created rather than hoped for.
+//
+// This section needed a row that already existed and printed a WARN when none
+// did. Against the live database one always did -- a real patient's recorded
+// diagnosis -- and this is the section the suite calls "the privacy boundary",
+// so it is the last one that should quietly not run. Against a fresh test
+// database there are no coded problems at all, and it stopped running the day
+// the suite moved off live (docs/TODO.md 3.4).
+//
+// I10 because seed 077 authors a guide for it ("High blood pressure"), so the
+// match below is a real match rather than an empty set agreeing with itself.
+$guideFixturePatient = (int) $db->query(
+    "SELECT id FROM patients WHERE deleted_at IS NULL ORDER BY id LIMIT 1"
+)->fetchColumn();
+
+$guideFixtureProblem = null;
+
+if ($guideFixturePatient > 0) {
+    $ins = $db->prepare(
+        "INSERT INTO patient_medical_problems
+            (patient_id, title, coding, verification_status, begin_date, created_at)
+         VALUES (:p, 'ZZTEST High blood pressure', 'I10', 'Confirmed', CURDATE(), NOW())"
+    );
+    $ins->execute(['p' => $guideFixturePatient]);
+    $guideFixtureProblem = (int) $db->lastInsertId();
+}
+
+check('a coded problem exists for the patient filter to act on', $guideFixtureProblem !== null);
+
 $own = $db->query(
     "SELECT p.patient_id, p.title, p.coding
        FROM patient_medical_problems p
@@ -150,7 +197,7 @@ $own = $db->query(
 )->fetch(\PDO::FETCH_ASSOC);
 
 if (!$own) {
-    echo "  [WARN] No coded problem-list row in this database; patient filter not exercised.\n";
+    echo "  [WARN] the fixture problem was not created; patient filter not exercised.\n";
 } else {
     $patientId = (int) $own['patient_id'];
 
@@ -176,6 +223,13 @@ if (!$own) {
         $spoof === [],
         'returned ' . count($spoof) . ' guide(s)'
     );
+}
+
+// Only the row this run created, by id, so a database that already had coded
+// problems is left exactly as it was.
+if ($guideFixtureProblem !== null) {
+    $db->prepare('DELETE FROM patient_medical_problems WHERE id = :id')
+        ->execute(['id' => $guideFixtureProblem]);
 }
 
 check(
