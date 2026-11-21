@@ -56,6 +56,7 @@ import { DepartmentOrgView } from "../modules/department-org/department-org.view
 import { initDepartmentOrg } from "../modules/department-org/department-org.js";
 import { HipaaAuditView } from "../modules/hipaa-audit/hipaa-audit.view.js?v=4";
 import { initHipaaAudit } from "../modules/hipaa-audit/hipaa-audit.js?v=5";
+import { isAuthenticated } from "./session.js?v=6";
 
 const app = document.getElementById("app");
 
@@ -602,6 +603,18 @@ const routes = {
     }
 };
 
+const PUBLIC_ROUTES = new Set([
+    "/login",
+    "/privacy-policy",
+    "/privacy_policy",
+    "/terms-conditions",
+    "/terms_conditions",
+    "/system-documentation",
+    "/system_documentation",
+    "/system-docs",
+    "/docs"
+]);
+
 export function router()
 {
     function render()
@@ -614,6 +627,14 @@ export function router()
             raw = '/' + raw;
         }
         const path = raw.split('?')[0];
+
+        // Guard protected routes against unauthenticated access before DOM rendering
+        if (!PUBLIC_ROUTES.has(path) && !isAuthenticated()) {
+            if (window.location.hash !== "#/login") {
+                window.location.hash = "#/login";
+            }
+            return;
+        }
 
         const route = routes[path];
 
