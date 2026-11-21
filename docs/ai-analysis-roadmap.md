@@ -47,6 +47,46 @@ is rejected, not merged.
 **Size: L.** Nothing before it. Needs an API key — *not* the HIPAA-ready organisation,
 because nothing in this phase sends personal data.
 
+### Getting the key, since this is the only thing AI-1 waits on
+
+1. Sign in at **platform.claude.com** and create an organisation for the hospital — not a
+   personal account, because the key, the billing and later the BAA all attach to the
+   organisation.
+2. Add billing. The API is **prepaid**: you buy credits up front rather than receiving an
+   invoice. Set a spend cap while the figures are still guesses.
+3. **Settings → API keys → Create key.** It begins `sk-ant-` and is shown **once** — copy
+   it then or create another.
+4. Put it in `backend/.env` as `ANTHROPIC_API_KEY`, alongside the `MAIL_*` entries. That
+   file is gitignored and untracked, which was checked. Add the key *names* with empty
+   values to `backend/.env.example` so a fresh deployment knows what it needs.
+5. `backend/config/ai.php` reads them through `Env::get()`, exactly as
+   `backend/config/mail.php` does. The key is never read anywhere else.
+
+Do **not** use a personal Pro or Max subscription's credits for this. The hospital's
+traffic belongs to the hospital's organisation — that is what the BAA will later be
+signed against, and mixing them makes that impossible to unpick.
+
+### What it costs to run
+
+Measured rather than guessed, on the real `billing_claim_denials` table: the grouped
+payload that would be sent for claim-denial-pareto is **1,615 characters, about 460
+tokens**. With a system prompt and per-report instructions, call it 1,700 tokens in and
+600 out.
+
+At Claude Opus 5.5 rates ($4 per million input, $20 per million output) that is **about
+two US cents per generation**, and less once prompt caching is reading the stable part of
+the prompt at the cache rate.
+
+The useful property is that **an aggregate does not grow with patient volume.** Six
+denial categories today; a hospital ten times the size still has a dozen or so. Cost per
+report stays roughly flat as the hospital grows, which is not true of anything that sends
+rows.
+
+Cheaper models exist in the same API and under the same BAA — Claude Sonnet 5.5 at $2/$10,
+Claude Haiku 5.5 at $0.10/$0.50, which would be a fraction of a cent per summary. Whether
+the cheaper ones are good enough here is a measurement to take against the ten saved
+outputs below, not a default to assume.
+
 Ships the whole path end to end with exactly one consumer: **claim-denial-pareto**,
 aggregate figures only. One report, so that everything underneath it is exercised by
 something real rather than designed in the abstract.
