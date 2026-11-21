@@ -64,8 +64,12 @@ class AuditController extends Controller
         }
 
         if (!empty($search)) {
-            $conditions[] = "(l.description LIKE :search OR u.username LIKE :search OR p.first_name LIKE :search OR p.last_name LIKE :search)";
-            $params['search'] = '%' . $search . '%';
+            $conditions[] = "(l.description LIKE :search_desc OR u.username LIKE :search_user OR p.first_name LIKE :search_fn OR p.last_name LIKE :search_ln)";
+            $searchWild = '%' . $search . '%';
+            $params['search_desc'] = $searchWild;
+            $params['search_user'] = $searchWild;
+            $params['search_fn'] = $searchWild;
+            $params['search_ln'] = $searchWild;
         }
 
         $whereClause = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
@@ -402,8 +406,12 @@ class AuditController extends Controller
         }
 
         if (!empty($search)) {
-            $conditions[] = "(l.description LIKE :search OR u.username LIKE :search OR p.first_name LIKE :search OR p.last_name LIKE :search)";
-            $params['search'] = '%' . $search . '%';
+            $conditions[] = "(l.description LIKE :search_desc OR u.username LIKE :search_user OR p.first_name LIKE :search_fn OR p.last_name LIKE :search_ln)";
+            $searchWild = '%' . $search . '%';
+            $params['search_desc'] = $searchWild;
+            $params['search_user'] = $searchWild;
+            $params['search_fn'] = $searchWild;
+            $params['search_ln'] = $searchWild;
             $filterParts[] = "Keyword: '{$search}'";
         }
 
