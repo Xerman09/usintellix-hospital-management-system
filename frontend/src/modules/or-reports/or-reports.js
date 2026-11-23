@@ -1,5 +1,5 @@
 import { fetchOrReportOptions, fetchOrReport } from "./or-reports.service.js?v=4";
-import { mountAiPanel } from '../reports/ai-panel.js?v=1';
+import { mountAiPanel } from '../reports/ai-panel.js?v=2';
 import { openOrCase } from "../or-board/or-case-panel.js?v=7";
 import { todayISO } from "../../core/timezone.js?v=3";
 

@@ -1,5 +1,5 @@
 import { api } from '../../core/api.js?v=10';
-import { mountAiPanel } from './ai-panel.js?v=1';
+import { mountAiPanel } from './ai-panel.js?v=2';
 
 export async function initClaimDenialPareto() {
     setupEventListeners();

@@ -3,6 +3,7 @@ import {
     startStockCount, saveStockCount, stockCountAction
 } from "./stock-counts.service.js?v=4";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
+import { mountAiPanel } from "../reports/ai-panel.js?v=2";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js?v=3";
 
@@ -11,6 +12,11 @@ const HISTORY_LABELS = {
     started: "Count started", submitted: "Submitted for approval", resubmitted: "Resubmitted for approval",
     approved: "Approved — stock corrected", rejected: "Sent back for a recount", cancelled: "Cancelled"
 };
+// Mounted the first time the difference report is opened, not on module
+// load: the report panel starts hidden, and mounting draws a usage figure
+// from the server that most visitors to this screen never see.
+let aiPanelMounted = false;
+
 const TABS = [
     { id: "all", label: "All", filter: () => true },
     { id: "open", label: "In Progress", filter: (c) => ["counting", "rejected"].includes(c.status) },
@@ -727,6 +733,23 @@ async function openReport() {
     $("scRepWarehouse").innerHTML = `<option value="">All locations</option>` + options.warehouses.map((w) => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join("");
     $("scRepReason").innerHTML = `<option value="">All reasons</option>` + options.reasons.map((r) => `<option value="${r.value}">${escapeHtml(r.label)}</option>`).join("");
     showPanel("report");
+
+    if (!aiPanelMounted) {
+        aiPanelMounted = true;
+        mountAiPanel({
+            mountId: "scAiPanel",
+            report: "stock_count_variance",
+            title: "AI analysis of the differences",
+            note: "Reads the gain and loss totals for this period. Counted items and who counted them are never sent.",
+            filters: () => ({
+                date_from: $("scRepFrom")?.value || "",
+                date_to: $("scRepTo")?.value || "",
+                warehouse_id: $("scRepWarehouse")?.value || "",
+                reason: $("scRepReason")?.value || ""
+            })
+        });
+    }
+
     await runReport();
 }
 

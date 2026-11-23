@@ -237,6 +237,9 @@ export function StockCountsView() {
             <button type="button" class="sc-btn small primary" id="scRepRun">Show</button>
         </div>
         <div id="scReportBody"><div class="sc-empty">Loading...</div></div>
+
+        <!-- Outside scReportBody: that is overwritten on every Show. -->
+        <div id="scAiPanel" style="margin-top:16px;"></div>
     </div>
 </div>
 

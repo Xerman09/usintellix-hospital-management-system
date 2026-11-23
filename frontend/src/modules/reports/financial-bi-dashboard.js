@@ -1,5 +1,5 @@
 import { api } from '../../core/api.js?v=10';
-import { mountAiPanel } from './ai-panel.js?v=1';
+import { mountAiPanel } from './ai-panel.js?v=2';
 
 let activeChartType = 'revpab';
 let cachedOverview = null;
@@ -36,6 +36,18 @@ function setupEventListeners() {
         report: 'claim_denial_pareto',
         title: 'AI analysis - denials',
         note: 'Reads the pareto figures. The denied-claims worklist is never sent.',
+        filters: () => ({})
+    });
+
+    // Deliberately NOT `month`. This is the one report in the registry with
+    // `args => 'none'`: getMonthlyTrends takes a month count, not a filter
+    // array, and the server fixes it at six. Sending the selected month would
+    // claim the analysis is of that month when it is of the whole series.
+    mountAiPanel({
+        mountId: 'fbiAiTrends',
+        report: 'financial_monthly_trends',
+        title: 'AI analysis - the monthly series',
+        note: 'Reads the six-month trend series, not the month selected above.',
         filters: () => ({})
     });
     // Month Dropdown Change

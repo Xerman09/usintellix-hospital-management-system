@@ -2,6 +2,7 @@ import { fetchProcurementOptions, fetchProcurementReport } from "./procurement-r
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js?v=3";
+import { mountAiPanel } from "../reports/ai-panel.js?v=2";
 
 const SPEND_GROUPS = { supplier: "Supplier", item: "Item", department: "Department", location: "Storage location", month: "Month" };
 
@@ -14,6 +15,45 @@ const filters = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/* ---------------------------------------------------------------
+ * AI analysis, per tab
+ *
+ * One panel, re-mounted for whichever tab is showing, because only one
+ * tab's figures are on screen at a time. `spend` and `price` have no
+ * registered report -- no allowlist was written for their shapes -- so
+ * the panel hides for those rather than offering an analysis of
+ * something nobody has checked.
+ * ------------------------------------------------------------- */
+
+const AI_REPORT_FOR_TAB = {
+    open: "procurement_open_orders",
+    performance: "procurement_supplier_performance",
+    diffs: "procurement_price_differences"
+};
+
+function refreshAiPanel() {
+    const mount = $("pqAiPanel");
+    if (!mount) return;
+
+    const report = AI_REPORT_FOR_TAB[activeTab];
+
+    if (!report) {
+        mount.innerHTML = "";
+        return;
+    }
+
+    mountAiPanel({
+        mountId: "pqAiPanel",
+        report,
+        note: "Reads the totals for this tab. Supplier and order rows are never sent.",
+        // Exactly what run() sends, read at click time, so the analysis is of
+        // the figures on screen rather than the ones the tab opened with.
+        filters: () => Object.fromEntries(
+            tab().fields.map((key) => [key, filters[key] === true ? 1 : filters[key]])
+        )
+    });
+}
 
 /* ---------------------------------------------------------------
  * Tabs: which filters each uses, how it draws, and its CSV
@@ -58,6 +98,7 @@ export async function initProcurementReports() {
 
     renderTabs();
     renderFilters();
+    refreshAiPanel();
     await run();
 }
 
@@ -71,6 +112,7 @@ function renderTabs() {
         activeTab = btn.dataset.pqTab;
         renderTabs();
         renderFilters();
+        refreshAiPanel();
         await run();
     }));
 }

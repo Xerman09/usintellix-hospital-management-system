@@ -1138,6 +1138,8 @@ export function DrugInventoryView() {
                 </div>
             </div>
 
+            <div id="diNarcoticsAiPanel" style="margin-bottom:16px;"></div>
+
             <!-- Sub-Navigation Tabs within Narcotics Vault -->
             <div style="display:flex; gap:8px; border-bottom:1px solid var(--border-color); margin-bottom:14px; padding-bottom:8px;">
                 <button type="button" class="di-btn active" id="diNvTabLedger" data-nv-tab="ledger" style="font-weight:600;">

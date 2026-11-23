@@ -1,5 +1,5 @@
 import { api } from '../../core/api.js?v=10';
-import { mountAiPanel } from './ai-panel.js?v=1';
+import { mountAiPanel } from './ai-panel.js?v=2';
 
 // This screen reports one year and has no year selector -- the fetch below
 // asks for 2026 outright. The panel sends the same year, so the analysis is of
@@ -8,17 +8,44 @@ import { mountAiPanel } from './ai-panel.js?v=1';
 const AHSR_REPORTING_YEAR = 2026;
 
 export function initRegulatoryAhsrExport() {
-    // The three tables on this screen -- morbidity, mortality, surgical and
-    // obstetric output -- are registered reports with no panel. Four Analyse
-    // buttons on one screen is a worse screen than one, and the summary is
-    // what a person reads first. They remain reachable through POST
-    // /ai/analyse for anyone who wants them, and a panel is a later decision
-    // about this screen's layout rather than about the feature.
+    // FOUR REPORTS, ONE BUTTON.
+    //
+    // This screen shows four registered reports at once: the statutory
+    // figures and the three tables below them. AI-5 mounted a panel for the
+    // first and left the other three reachable only by calling POST
+    // /ai/analyse by hand, on the grounds that four Analyse buttons is a
+    // worse screen than one. That was right about the buttons and wrong about
+    // the outcome -- three reports that work, are allowlisted and are tested
+    // sat where no member of staff could reach them.
+    //
+    // A chooser is what was wanted. One button, and the reader says which
+    // table. Changing the chooser clears any answer on screen, because an
+    // answer about morbidity is wrong the moment the chooser says mortality.
     mountAiPanel({
         mountId: 'ahsrAiPanel',
-        report: 'ahsr_kpis',
-        title: 'AI analysis of the statutory figures',
-        note: 'Reads the twenty-one annual return figures above. Nothing patient-level is sent.',
+        title: 'AI analysis',
+        reports: [
+            {
+                key: 'ahsr_kpis',
+                label: 'The statutory figures',
+                note: 'Reads the twenty-one annual return figures above. Nothing patient-level is sent.'
+            },
+            {
+                key: 'ahsr_morbidity_top10',
+                label: 'Top ten causes of morbidity',
+                note: 'Reads the ten rows and their age and sex counts. No patient is identified by a count.'
+            },
+            {
+                key: 'ahsr_mortality_top10',
+                label: 'Top ten causes of death',
+                note: 'Reads the ten rows and their age and sex counts. No patient is identified by a count.'
+            },
+            {
+                key: 'ahsr_surgical_obstetric',
+                label: 'Surgical and obstetric output',
+                note: 'Reads the procedure and delivery counts. No case is sent.'
+            }
+        ],
         filters: () => ({ year: AHSR_REPORTING_YEAR })
     });
 

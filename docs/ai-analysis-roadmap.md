@@ -10,6 +10,10 @@ cannot start until counsel answers.
 **Numbering:** AI-1 … AI-9. (`§A0` in `docs/ai-analysis-plan.md` is the provider
 decision, not a phase.)
 
+AI-5a is not a tenth phase. It is the work four phases each left behind: eleven reports
+that were registered and had no screen. It is numbered where it happened rather than
+folded into AI-5, because the reason it was needed is that no phase was checking.
+
 ---
 
 ## The rule the whole thing rests on
@@ -379,8 +383,10 @@ happened to land — so it is excluded from that check rather than asserted agai
 ### Still open
 
 - Three Tier 1 financial reports await data to observe, as above.
-- The shared panel is mounted on the pareto screen and the financial BI dashboard. The
-  AR aging and doctor commission screens have registered reports and no panel yet.
+- ~~The shared panel is mounted on the pareto screen and the financial BI dashboard. The
+  AR aging and doctor commission screens have registered reports and no panel yet.~~
+  Doctor commissions got its panel in AI-5a. AR aging never will in this form: AI-5 found
+  that `getAgingMatrix` re-ages every account before reporting, and de-registered it.
 - Still nobody has judged an answer. Six reports can now be analysed and none ever has
   been.
 
@@ -447,9 +453,13 @@ guessing at.
 - `ErReportService::report` and `LabReportService::report` take two required arguments
   each, and `compute30DayDailyConsumption` takes a drug id — it is a per-drug calculation
   rather than a report. All three skipped rather than guessed at.
-- The pharmacy dashboard, procurement reports and stock-count screens have registered
-  reports and no panel. Both of those screens re-render their whole body on load, so a
-  panel needs to sit outside it, the way the theatre one now does.
+- ~~The pharmacy dashboard, procurement reports and stock-count screens have registered
+  reports and no panel.~~ Procurement and stock counts got theirs in AI-5a, and the
+  warning about re-rendering was the right one — both mount outside the body their Show
+  button overwrites. The pharmacy dashboard was never in the count: as this phase's own
+  "branches rejected" note says, `pharmacy_dashboard::overview` is not registered at all,
+  because its figures live three levels down in nested maps and need a shape transform of
+  their own. A screen with no registered report cannot be missing a panel.
 - Seventeen reports can be analysed. None ever has been.
 
 ---
@@ -622,14 +632,16 @@ without the write.
   phrasing. It cannot happen before there is an answer to read.
 - **Still nobody has judged an answer.** Twenty-two reports can be analysed; none ever
   has. This is now the oldest open item in the project and the one the next phase is worth
-  the least without.
+  the least without. (AI-5a made all twenty-two reachable from a screen, which changes
+  nothing about this: reachable and answered are different things.)
 - One capability, `ai_analysis`, gates every report. The cross-cutting note in this
   document says "a capability per surface"; the implementation has one. Today only admin
   is granted it, so the divergence is theoretical — but a clinician who can analyse
   theatre figures would also be able to analyse the mortality return, and that is a
   decision nobody has taken.
-- Three AHSR table reports are registered with no panel: four Analyse buttons on one
-  screen is a worse screen. They are reachable through `POST /ai/analyse`.
+- ~~Three AHSR table reports are registered with no panel: four Analyse buttons on one
+  screen is a worse screen.~~ Still true about the buttons; wrong about what to do. AI-5a
+  put all four behind one chooser.
 - `getWardBreakdown` and the three Tier 1 financial reports still await data to observe.
 
 ---
@@ -655,6 +667,134 @@ rather than assumed:
 
 **What stays out:** incident log, critical TAT, HAI-SSI, readmission-mortality and
 surgical-safety *list* reports. They carry `patient_name` and belong to AI-6.
+
+---
+
+## AI-5a — The eleven panels nobody could reach — **DONE** (23 November 2026)
+
+**Twenty-two reports registered, eleven panels mounted.** That was the state after AI-5,
+and the number appears nowhere in this document before now because nobody had counted it.
+Each phase mounted panels for the reports it happened to be looking at and recorded the
+ones it left under "Still open", and across four phases those leftovers accumulated into
+half the feature. Every one of the eleven worked: registered, allowlisted, write-checked,
+observed against real rows, tested. None could be reached by a member of staff.
+
+The eleven and where they now live:
+
+| Report | Screen |
+|---|---|
+| `financial_monthly_trends` | Financial BI dashboard — a fourth panel beside the other three |
+| `doctor_commission_metrics` | Doctor commissions |
+| `census_daily` | Census reports |
+| `narcotics_vault_stats` | Drug inventory, narcotics vault tab |
+| `procurement_open_orders`, `procurement_supplier_performance`, `procurement_price_differences` | Procurement reports — one panel following the tab |
+| `stock_count_variance` | Stock counts, difference report |
+| `ahsr_morbidity_top10`, `ahsr_mortality_top10`, `ahsr_surgical_obstetric` | AHSR export — behind a chooser |
+
+### The AHSR decision, reversed
+
+AI-5 left three of these out with a reason written into the code: four Analyse buttons on
+one screen is a worse screen than one, and a panel is "a later decision about this
+screen's layout rather than about the feature". The reasoning about buttons was right. The
+outcome was not — three finished reports sat where nobody could get at them, and the
+comment saying so was the only trace.
+
+The thing that was actually wanted is a chooser. `mountAiPanel` now takes `reports`
+instead of `report` and draws a select: one Analyse button, and the reader says which
+table. Changing the selection clears whatever is on screen, because an answer about the
+morbidity table is wrong the moment the chooser says mortality, and leaving it under a new
+heading is the one way this panel could state a figure about the wrong report.
+
+**The chooser is for screens that show several reports at once, and nothing else.** On a
+tabbed screen only one tab's figures are visible, so a chooser there could analyse a table
+the reader cannot see. Those screens re-mount the panel with the tab's own report key, as
+the theatre reports screen has done since AI-4 and procurement now does.
+
+### Two filter decisions that could have been quietly wrong
+
+`financial_monthly_trends` is the one report in the registry with `args => 'none'` —
+`getMonthlyTrends` takes a month count, not a filter array, and the server fixes it at six.
+The screen it sits on has a month selector, and sending that month would have produced a
+panel claiming to analyse November beside figures covering six months. It sends nothing,
+and the note says the series rather than the month.
+
+`doctor_commission_metrics` and `narcotics_vault_stats` take no filters either: both
+getters are declared with no parameters and return a position that is current by
+definition. Their notes say so rather than implying a period that was never applied.
+
+### The check that would have caught this four phases ago
+
+`tests/test_ai_analysis.php` section 9 reads the frontend and asserts four things:
+
+1. **Every registered report is named by a screen that mounts a panel.** This is the one
+   that was failing silently for four phases, and it had no test because registering a
+   report and shipping it to the people who need it are two jobs and only the first one
+   was being checked.
+2. **Every screen that calls `mountAiPanel` imports it.** Added last, after it caught a
+   bug in this phase's own work — see below.
+3. **Every `mountId` exists as an element.** `mountAiPanel` opens with
+   `if (!mount) return;`, so a typo in a mount id is a panel that never appears, with no
+   error and nothing in the console. Of all the ways this work could have looked finished
+   while doing nothing, that is the quietest.
+4. **No screen offers a report that is not registered**, so a renamed or de-registered
+   report cannot leave a dead button behind.
+
+Its first run reported two violations that were not violations: a looser pattern read
+`report:` wherever it appeared, and both tabbed screens use that property name for their
+own purposes — `state = { report: "utilization" }` on the theatre screen, `report:
+"spend"` in procurement's tab list. Neither is an AI report. The fix was to paren-match
+each `mountAiPanel(...)` call and read only inside it, and the lookalike is now held as a
+test of its own so nobody simplifies it back. It also reported `ai-panel.js` itself,
+whose documentation comment necessarily contains a worked example of every pattern the
+scan hunts for; excluded by name, with the reason recorded, the same way
+`test_suite_safety.php` excludes itself.
+
+### The check caught this phase's own bug
+
+The stock-count screen called `mountAiPanel` and did not import it.
+
+Nothing else was going to find that. `php -l` does not read JavaScript. A per-file syntax
+check parses a file without resolving a single name, so it passed. The browser harness
+below imported the module without complaint, because there is no bad import to fail —
+there is no import at all. The panel would have thrown a `ReferenceError` the first time
+somebody opened the difference report and clicked nothing else, which is to say: in front
+of a user, weeks later, on a screen that had been reported as done.
+
+The import check was written after the diff was read and the call was spotted by eye. That
+is the uncomfortable part — the check exists because of a review, not the other way round,
+and it is in the suite now so that the next one does not need the review.
+
+**225 tests in the analysis suite**, up from 206.
+
+### What a static scan cannot tell you
+
+That a panel is wired to something is not that a panel appears.
+`scratch/panel_wiring_check.html` is the browser half: it imports all sixteen modules
+touched here and exercises the chooser — the select is drawn, the note follows the
+selection, a result belonging to the previous selection is cleared, and the
+single-report form draws no chooser at all. 28 assertions, all passing, run by hand
+against the local server.
+
+It is in `scratch/` rather than `tests/` because this project has no `package.json` and no
+JavaScript test runner, so there is nowhere in `tests/` for it to live and nothing would
+run it. That is an honest gap, not a solved problem: the chooser's behaviour is covered by
+a file somebody has to remember to open.
+
+### Still open
+
+- **Nobody has judged an answer.** Unchanged, and now the only thing standing between
+  this feature and being useful. Twenty-two reports are reachable from eleven screens by
+  anyone with the `ai_analysis` capability — and `ANTHROPIC_API_KEY` in `backend/.env` is
+  still empty, so what every one of those panels can do today is explain why it cannot
+  answer: "switched off" where `allow_ai_analysis` is still at its default of 0, and a
+  provider failure where it is not. The panels are the half of this that was missing;
+  they are not the half that was blocking.
+- **The clinical sign-off still has not happened**, for the same reason as in AI-5: there
+  is no answer to read.
+- The panel notes on the nine new screens are mine, like the prompts. They say what is
+  sent and what is not, and that claim is true — it is the allowlist, which is tested.
+  Whether the wording reads well to a ward clerk or a procurement officer has not been
+  checked by one.
 
 ---
 

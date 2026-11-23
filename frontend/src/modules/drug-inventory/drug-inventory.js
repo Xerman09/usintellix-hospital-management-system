@@ -14,6 +14,7 @@ import {
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js?v=3";
 import { custodianHint } from "../../core/custodian.js";
+import { mountAiPanel } from "../reports/ai-panel.js?v=2";
 
 const EMPTY_OPTIONS = {
     warehouses: [], facilities: [], dosage_forms: [], routes: [], units: [], categories: [], suppliers: [],
@@ -167,6 +168,7 @@ function showView(view) {
             loadNarcoticsItems();
             loadNarcoticsMovements();
             loadShiftAudits();
+            mountNarcoticsAiPanel();
         }
     }
 }
@@ -3303,6 +3305,25 @@ let allVaultItems = [];
 let allVaultMovements = [];
 let allShiftAudits = [];
 let activeNvTab = "ledger";
+
+// Mounted the first time the vault is opened, and once only: showView()
+// runs on every click of the tab, and mounting asks the server for the
+// day's spend. getVaultStats takes no filters -- the position is current by
+// definition.
+let narcoticsAiMounted = false;
+
+function mountNarcoticsAiPanel() {
+    if (narcoticsAiMounted) return;
+    narcoticsAiMounted = true;
+
+    mountAiPanel({
+        mountId: "diNarcoticsAiPanel",
+        report: "narcotics_vault_stats",
+        title: "AI analysis of the vault position",
+        note: "Reads the five figures above. No movement, witness or patient is sent.",
+        filters: () => ({})
+    });
+}
 
 function setupNarcoticsVault() {
     // Toolbar and Quick Buttons

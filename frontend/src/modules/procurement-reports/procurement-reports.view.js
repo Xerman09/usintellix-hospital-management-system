@@ -85,6 +85,10 @@ export function ProcurementReportsView() {
     <div class="pq-tabs" role="tablist" id="pqTabs"></div>
     <div class="pq-filters" id="pqFilters"></div>
     <div id="pqBody"><div class="pq-empty">Loading...</div></div>
+
+    <!-- Outside pqBody on purpose: run() overwrites that on every Show, and a
+         panel inside it would be destroyed mid-analysis. -->
+    <div id="pqAiPanel" style="margin-top:16px;"></div>
 </div>
     `;
 }

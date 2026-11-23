@@ -931,6 +931,335 @@ check('and no report query ran for it',
     }
 }
 
+// ==========================================================================
+// 9. EVERY REGISTERED REPORT IS REACHABLE FROM A SCREEN.
+//
+// This section exists because for most of this feature's life half of it was
+// unreachable. AI-3 through AI-5 registered 22 reports and mounted 11 panels;
+// the other 11 worked, were allowlisted, were tested here, and could be
+// reached only by somebody willing to POST /ai/analyse by hand. Nothing said
+// so. Registering a report and shipping it to the people who need it are two
+// jobs, and only the first one had a test.
+//
+// Three checks, in the order they would catch a mistake:
+//
+//   a. Every key in REPORTS is named by a screen that mounts a panel.
+//   b. Every mountId a screen passes exists as an id in the markup --
+//      mountAiPanel() does `if (!mount) return;`, so a typo there is a panel
+//      that silently never appears. No error, no console warning, nothing.
+//   c. Every report key a screen offers is actually registered, so a renamed
+//      or de-registered report cannot leave a dead button behind.
+//
+// Static reading of the frontend, no browser. It cannot tell whether a panel
+// LOOKS right; it can tell whether it is wired to anything.
+// ==========================================================================
+echo "\n-- 9. Every report is reachable from a screen --\n";
+
+/**
+ * The argument text of each mountAiPanel(...) call in one file.
+ *
+ * Paren-matched rather than regex-matched, and the reason is a failure this
+ * check had on its first run: a looser pattern read `report:` wherever it
+ * appeared, and both tabbed screens use that property name for their own
+ * purposes -- or-reports keeps `state = { report: "utilization" }` and
+ * procurement's tab list has `report: "spend"`. Neither is an AI report and
+ * neither is registered, so the check reported two violations that were not
+ * violations. A scan that reads the wrong text will be switched off.
+ *
+ * @return list<string>
+ */
+function aiPanelCallBodies(string $src): array
+{
+    $bodies = [];
+    $offset = 0;
+
+    while (($at = strpos($src, 'mountAiPanel(', $offset)) !== false) {
+        $i = $at + strlen('mountAiPanel(');
+        $depth = 1;
+        $len = strlen($src);
+
+        while ($i < $len && $depth > 0) {
+            $ch = $src[$i];
+
+            if ($ch === '(' || $ch === '{' || $ch === '[') {
+                $depth++;
+            } elseif ($ch === ')' || $ch === '}' || $ch === ']') {
+                $depth--;
+            }
+
+            $i++;
+        }
+
+        $bodies[] = substr($src, $at, $i - $at);
+        $offset = $i;
+    }
+
+    return $bodies;
+}
+
+/**
+ * The quoted values of any `const AI_REPORT...= { ... }` map.
+ *
+ * A TABBED screen cannot name its report inside the call -- it passes a
+ * variable, because the key depends on which tab is showing. Both such
+ * screens hold the keys in a map called AI_REPORT_FOR_TAB, so check (c)
+ * reads maps whose name begins AI_REPORT. A future tabbed screen that calls
+ * its map something else will not be read by check (c); it will still be
+ * covered by (a), which searches the whole file.
+ *
+ * @return list<string>
+ */
+function aiReportMapValues(string $src): array
+{
+    if (!preg_match_all('/const\s+AI_REPORT[A-Z_]*\s*=\s*\{(.*?)\};/s', $src, $maps)) {
+        return [];
+    }
+
+    $values = [];
+
+    foreach ($maps[1] as $body) {
+        preg_match_all('/[\'"]([a-z0-9_]+)[\'"]/', $body, $found);
+        $values = array_merge($values, $found[1]);
+    }
+
+    return $values;
+}
+
+$frontendRoot = dirname(__DIR__) . '/frontend/src';
+
+/** @var array<string, string> relative path => source */
+$frontend = [];
+
+if (is_dir($frontendRoot)) {
+    $walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+        $frontendRoot,
+        FilesystemIterator::SKIP_DOTS
+    ));
+
+    foreach ($walk as $file) {
+        if ($file->isFile() && strtolower($file->getExtension()) === 'js') {
+            $frontend[str_replace('\\', '/', substr($file->getPathname(), strlen($frontendRoot) + 1))]
+                = (string) file_get_contents($file->getPathname());
+        }
+    }
+}
+
+check('the frontend was readable', count($frontend) > 100, (string) count($frontend));
+
+// The files that mount a panel. A report key mentioned anywhere else -- a
+// comment in a doc, a string in an unrelated module -- does not make a report
+// reachable, so only these are searched.
+//
+// ai-panel.js is the panel itself, not a screen, and its documentation
+// comment necessarily contains worked examples of every pattern this section
+// hunts for: a mountId that belongs to no element and a reports list. It was
+// the first thing the check reported. Excluded by name, for that reason.
+$mountingFiles = [];
+
+foreach ($frontend as $name => $src) {
+    if (str_contains($src, 'mountAiPanel') && !str_ends_with($name, 'reports/ai-panel.js')) {
+        $mountingFiles[$name] = $src;
+    }
+}
+
+// Eleven screens as of AI-5a, and the number is written down rather than
+// left loose: a threshold of ">= 7" would have passed throughout the four
+// phases when half the reports had nowhere to live.
+check('the eleven screens that mount panels are all here',
+    count($mountingFiles) >= 11, (string) count($mountingFiles));
+
+check('and the panel component itself is not counted as one',
+    !array_key_exists('modules/reports/ai-panel.js', $mountingFiles));
+
+// -- a0. a screen that calls mountAiPanel must import it --------------------
+//
+// Caught exactly this, on the commit that added these checks: the stock-count
+// screen called mountAiPanel and had no import for it. Nothing else noticed.
+// `php -l` does not read JavaScript; a per-file syntax check parses the file
+// without resolving a single name; and the module imports cleanly, because
+// there is no bad import to fail -- there is no import at all. The panel would
+// have thrown a ReferenceError the first time somebody opened the difference
+// report, and only then.
+//
+// The import carries a ?v= cache-buster, so the path is matched loosely and
+// only the binding and the file name are required.
+$missingImport = [];
+
+foreach ($mountingFiles as $name => $src) {
+    $imports = (bool) preg_match(
+        '/import\s*\{[^}]*\bmountAiPanel\b[^}]*\}\s*from\s*[\'"][^\'"]*ai-panel\.js/',
+        $src
+    );
+
+    if (!$imports) {
+        $missingImport[] = $name;
+    }
+}
+
+check('EVERY screen that calls mountAiPanel imports it',
+    $missingImport === [],
+    implode(', ', $missingImport));
+
+// -- a. every registered report is named by one of them ---------------------
+//
+// Whole-file, not call bodies: a tabbed screen names its reports in a map and
+// passes a variable to the call.
+$unreachable = [];
+
+foreach (array_keys(AiReports::REPORTS) as $key) {
+    $found = false;
+
+    foreach ($mountingFiles as $src) {
+        if (str_contains($src, "'{$key}'") || str_contains($src, "\"{$key}\"")) {
+            $found = true;
+            break;
+        }
+    }
+
+    if (!$found) {
+        $unreachable[] = $key;
+    }
+}
+
+check('EVERY registered report is named by a screen that mounts a panel',
+    $unreachable === [],
+    count($unreachable) . ' are not: ' . implode(', ', $unreachable));
+
+// -- b. every mountId has somewhere to mount --------------------------------
+//
+// The element is searched for across every frontend file, not just the
+// mounting one, because the markup usually lives in a sibling .view.js.
+$orphanMounts = [];
+$mountIds = [];
+
+foreach ($mountingFiles as $name => $src) {
+    foreach (aiPanelCallBodies($src) as $body) {
+        if (!preg_match('/mountId:\s*[\'"]([A-Za-z0-9_]+)[\'"]/', $body, $m)) {
+            continue;
+        }
+
+        $id = $m[1];
+        $mountIds[$id] = $name;
+        $hasElement = false;
+
+        foreach ($frontend as $candidate) {
+            if (str_contains($candidate, "id=\"{$id}\"") || str_contains($candidate, "id='{$id}'")) {
+                $hasElement = true;
+                break;
+            }
+        }
+
+        if (!$hasElement) {
+            $orphanMounts[] = "{$id} ({$name})";
+        }
+    }
+}
+
+check('the mount ids were found', count($mountIds) >= 7, (string) count($mountIds));
+
+check('EVERY mountId exists as an element -- mountAiPanel returns silently if not',
+    $orphanMounts === [],
+    implode(', ', $orphanMounts));
+
+// -- c. no screen offers a report that is not registered ---------------------
+//
+// From the call bodies -- `report: 'key'`, and `key: 'x'` inside a chooser's
+// reports list -- plus any AI_REPORT map, which is how a tabbed screen names
+// them.
+$unknownFromScreens = [];
+$offered = [];
+
+foreach ($mountingFiles as $name => $src) {
+    $keys = aiReportMapValues($src);
+
+    foreach (aiPanelCallBodies($src) as $body) {
+        preg_match_all('/(?:report|key):\s*[\'"]([a-z0-9_]+)[\'"]/', $body, $m);
+        $keys = array_merge($keys, $m[1]);
+    }
+
+    foreach (array_unique($keys) as $key) {
+        $offered[$key] = true;
+
+        if (!AiReports::knows($key)) {
+            $unknownFromScreens[] = "{$key} ({$name})";
+        }
+    }
+}
+
+check('NO screen offers a report that is not registered',
+    $unknownFromScreens === [],
+    implode(', ', $unknownFromScreens));
+
+// The two directions are not the same statement, and both matter: (a) says
+// nothing registered is stranded, this says the screens between them offer the
+// whole registry rather than most of it.
+check('and the screens between them offer every registered report',
+    count(array_intersect_key($offered, AiReports::REPORTS)) === count(AiReports::REPORTS),
+    count($offered) . ' offered, ' . count(AiReports::REPORTS) . ' registered');
+
+// -- the detectors, exercised ----------------------------------------------
+//
+// All of the above pass, which is the problem: a scan that finds nothing looks
+// the same as a scan that cannot find anything. Each is run against a
+// synthetic violation and a synthetic clean case.
+$orphanSample = "mountAiPanel({ mountId: 'xxOrphanPanel', report: 'claim_denial_pareto' });";
+
+$orphanBodies = aiPanelCallBodies($orphanSample);
+
+check('the call reader finds a call', count($orphanBodies) === 1);
+
+check('check b fires on a mountId with no element',
+    preg_match('/mountId:\s*[\'"]([A-Za-z0-9_]+)[\'"]/', $orphanBodies[0], $om) === 1
+    && $om[1] === 'xxOrphanPanel'
+    && !str_contains(implode('', $frontend), 'id="xxOrphanPanel"'));
+
+$unknownSample = "mountAiPanel({ mountId: 'cdpAiPanel', report: 'zz_not_a_report' });";
+
+preg_match_all('/(?:report|key):\s*[\'"]([a-z0-9_]+)[\'"]/', aiPanelCallBodies($unknownSample)[0], $uk);
+
+check('check c fires on an unregistered report key',
+    in_array('zz_not_a_report', $uk[1], true) && !AiReports::knows('zz_not_a_report'));
+
+check('and check c does not fire on a registered one',
+    AiReports::knows(array_key_first(AiReports::REPORTS)));
+
+$importPattern = '/import\s*\{[^}]*\bmountAiPanel\b[^}]*\}\s*from\s*[\'"][^\'"]*ai-panel\.js/';
+
+check('check a0 fires on a screen that calls mountAiPanel without importing it',
+    !preg_match($importPattern, 'mountAiPanel({ mountId: "x", report: "y" });'));
+
+check('and does not fire on one that imports it, cache-buster and all',
+    (bool) preg_match($importPattern, 'import { mountAiPanel } from "../reports/ai-panel.js?v=2";'));
+
+check('nor on one that imports it alongside others',
+    (bool) preg_match($importPattern, 'import { api, mountAiPanel } from "./ai-panel.js";'));
+
+// The chooser form, new in this phase, and the tab map -- the two shapes the
+// plain `report:` pattern does not cover on its own.
+$chooserSample = "mountAiPanel({ mountId: 'ahsrAiPanel', reports: [{ key: 'ahsr_kpis', label: 'x' }] });";
+
+preg_match_all('/(?:report|key):\s*[\'"]([a-z0-9_]+)[\'"]/', aiPanelCallBodies($chooserSample)[0], $cs);
+
+check('check c reads a chooser list', in_array('ahsr_kpis', $cs[1], true));
+
+check('check c reads a tab map',
+    aiReportMapValues("const AI_REPORT_FOR_TAB = {\n  open: \"procurement_open_orders\"\n};")
+    === ['procurement_open_orders']);
+
+// And the false positive that made the paren matching necessary, held as a
+// test so nobody simplifies it back.
+$lookalike = "let state = { report: \"utilization\" };\nmountAiPanel({ mountId: 'orrAiPanel', report });";
+
+$lookalikeKeys = [];
+
+foreach (aiPanelCallBodies($lookalike) as $body) {
+    preg_match_all('/(?:report|key):\s*[\'"]([a-z0-9_]+)[\'"]/', $body, $lm);
+    $lookalikeKeys = array_merge($lookalikeKeys, $lm[1]);
+}
+
+check('a `report:` property OUTSIDE a mountAiPanel call is not read as a report key',
+    $lookalikeKeys === [], implode(', ', $lookalikeKeys));
+
 echo "\n==================================================\n";
 echo "  {$pass} passed, {$fail} failed\n";
 echo "==================================================\n";

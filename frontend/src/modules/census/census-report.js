@@ -1,4 +1,5 @@
 import { api } from "../../core/api.js?v=10";
+import { mountAiPanel } from "../reports/ai-panel.js?v=2";
 import { showToast } from "../../core/toast.js";
 
 /*
@@ -267,7 +268,8 @@ function render(root, d) {
         </div>
         <h2>${d.group === "day" ? "By day" : "By month"}</h2><div class="crp-wrap">${seriesTable(d)}</div>
         ${d.by_ward.length > 1 || !d.ward_id ? `<h2>By ward</h2><div class="crp-wrap">${wardTable(d)}</div>` : ""}`
-        : `<div class="crp-empty">No census saved for this period yet. Each day's census is saved after midnight.</div>`}`;
+        : `<div class="crp-empty">No census saved for this period yet. Each day's census is saved after midnight.</div>`}
+        <div id="crpAiPanel" style="margin-top:16px"></div>`;
     bindTips(root, d);
     const f = root.querySelector("[data-f]");
     f.querySelector("#crpGroup").onchange = (ev) => {
@@ -280,6 +282,22 @@ function render(root, d) {
         load();
     };
     root.querySelector("[data-print]").onclick = () => printReport(d);
+
+    // Re-mounted on every Show, because render() rebuilds the whole screen.
+    // That is the right behaviour rather than a compromise: the figures have
+    // just changed, so an answer about the previous period would be wrong.
+    mountAiPanel({
+        mountId: "crpAiPanel",
+        report: "census_daily",
+        title: "AI analysis of this period",
+        note: "Reads the occupancy, stay and admission figures above. No patient row is sent.",
+        filters: () => ({
+            from: document.getElementById("crpFrom")?.value || "",
+            to: document.getElementById("crpTo")?.value || "",
+            group: document.getElementById("crpGroup")?.value || "month",
+            ward_id: document.getElementById("crpWard")?.value || ""
+        })
+    });
 }
 
 function printReport(d) {

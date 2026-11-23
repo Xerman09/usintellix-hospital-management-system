@@ -1,6 +1,6 @@
 import { api } from '../../core/api.js?v=10';
 import { todayISO } from '../../core/timezone.js?v=3';
-import { mountAiPanel } from './ai-panel.js?v=1';
+import { mountAiPanel } from './ai-panel.js?v=2';
 
 let cachedScorecard = null;
 let cachedDeliveries = [];

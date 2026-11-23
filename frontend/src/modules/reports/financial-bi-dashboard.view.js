@@ -680,6 +680,7 @@ export function FinancialBiDashboardView() {
     <div id="fbiAiOverview" style="margin-top:16px;"></div>
     <div id="fbiAiCostCentres" style="margin-top:16px;"></div>
     <div id="fbiAiDenials" style="margin-top:16px;"></div>
+    <div id="fbiAiTrends" style="margin-top:16px;"></div>
 </div>
 `;
 }

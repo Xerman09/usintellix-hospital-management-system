@@ -1,4 +1,5 @@
 import { api } from "../../core/api.js?v=10";
+import { mountAiPanel } from "../reports/ai-panel.js?v=2";
 
 // State
 let state = {
@@ -175,10 +176,23 @@ function renderRoot() {
             <div class="dc-tab-content" id="dcTabContent">
                 ${renderCurrentTab()}
             </div>
+
+            <div id="dcAiPanel" style="margin-top:16px;"></div>
         </div>
     `;
 
     bindRootEvents();
+
+    // renderRoot() runs again on every tab switch, so the panel is re-mounted
+    // with the tiles it reads. getCommissionMetrics takes no filters -- the
+    // figures are hospital-wide and to date, which is what the note says.
+    mountAiPanel({
+        mountId: "dcAiPanel",
+        report: "doctor_commission_metrics",
+        title: "AI analysis of the commission position",
+        note: "Reads the six totals above. No doctor is named and no ledger row is sent.",
+        filters: () => ({})
+    });
 }
 
 function renderCurrentTab() {

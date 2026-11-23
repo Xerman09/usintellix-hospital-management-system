@@ -17,16 +17,51 @@
  *
  * The filters are a function rather than a value so the panel always sends what
  * is on screen now, not what was on screen when the page loaded.
+ *
+ * SEVERAL REPORTS ON ONE SCREEN. Pass `reports` instead of `report` and the
+ * panel grows a chooser:
+ *
+ *     mountAiPanel({
+ *         mountId: 'ahsrAiPanel',
+ *         reports: [
+ *             { key: 'ahsr_kpis', label: 'The statutory figures' },
+ *             { key: 'ahsr_mortality_top10', label: 'Leading causes of death' }
+ *         ],
+ *         filters: () => ({ year: 2026 })
+ *     });
+ *
+ * This exists because of the AHSR screen, which shows four registered reports
+ * at once. The alternative was four panels with four Analyse buttons, and that
+ * was judged a worse screen than one -- so for a year the other three were
+ * reachable only by calling POST /ai/analyse by hand. A chooser is the thing
+ * that was actually wanted: one button, and the reader says which table.
+ *
+ * For a TABBED screen, where only one report's figures are visible at a time,
+ * do not use this. Re-mount the panel with the tab's own report key, as
+ * or-reports and procurement-reports do -- a chooser there could analyse a
+ * table the reader cannot see.
  */
 
 import { api } from '../../core/api.js?v=10';
 
-export function mountAiPanel({ mountId, report, filters = () => ({}), title = 'AI analysis', note = '' }) {
+export function mountAiPanel({ mountId, report, reports = null, filters = () => ({}), title = 'AI analysis', note = '' }) {
     const mount = document.getElementById(mountId);
     if (!mount) return;
 
+    // One list from here down, whichever form the caller used. A single-entry
+    // list draws no chooser, so the common case is untouched.
+    const choices = (Array.isArray(reports) && reports.length > 0)
+        ? reports.filter((r) => r && r.key)
+        : (report ? [{ key: report, label: title }] : []);
+
+    if (choices.length === 0) return;
+
+    let chosen = choices[0].key;
+
     const ids = {
         run: `${mountId}_run`,
+        pick: `${mountId}_pick`,
+        note: `${mountId}_note`,
         usage: `${mountId}_usage`,
         busy: `${mountId}_busy`,
         message: `${mountId}_message`,
@@ -48,12 +83,19 @@ export function mountAiPanel({ mountId, report, filters = () => ({}), title = 'A
                     </svg>
                     ${escapeAi(title)}
                 </h3>
-                <span style="font-size:12px; color:#64748b;">
-                    ${escapeAi(note || 'Reads the aggregate figures on this screen. Patient-level rows are never sent.')}
+                <span style="font-size:12px; color:#64748b;" id="${ids.note}">
+                    ${escapeAi(noteFor(chosen))}
                 </span>
             </div>
             <div style="padding:14px 16px;">
                 <div id="${ids.run}_wrap">
+                    ${choices.length > 1 ? `
+                        <label for="${ids.pick}" style="font-size:12px; color:#475569; margin-right:6px;">Analyse</label>
+                        <select id="${ids.pick}" style="font-size:13px; padding:6px 8px; border:1px solid #cbd5e1;
+                                border-radius:6px; margin-right:10px; max-width:320px;">
+                            ${choices.map((c) => `<option value="${escapeAi(c.key)}">${escapeAi(c.label || c.key)}</option>`).join('')}
+                        </select>
+                    ` : ''}
                     <button class="cdp-btn cdp-btn-primary" id="${ids.run}">Analyse these figures</button>
                     <span id="${ids.usage}" style="font-size:12px; color:#64748b; margin-left:12px;"></span>
                 </div>
@@ -80,6 +122,20 @@ export function mountAiPanel({ mountId, report, filters = () => ({}), title = 'A
     // refreshes itself is the most expensive habit this feature could acquire.
     document.getElementById(ids.run)?.addEventListener('click', () => run());
 
+    // Changing the chooser does NOT run anything. It clears what is on screen,
+    // because an answer about the morbidity table is wrong the moment the
+    // chooser says mortality, and leaving it visible under a new heading is
+    // the one way this panel could state a figure about the wrong report.
+    document.getElementById(ids.pick)?.addEventListener('change', (event) => {
+        chosen = event.target.value;
+
+        const label = document.getElementById(ids.note);
+        if (label) label.textContent = noteFor(chosen);
+
+        toggle(ids.result, false);
+        toggle(ids.message, false);
+    });
+
     refreshUsage();
 
     async function run() {
@@ -93,7 +149,7 @@ export function mountAiPanel({ mountId, report, filters = () => ({}), title = 'A
         try {
             res = await api('/ai/analyse', {
                 method: 'POST',
-                body: JSON.stringify({ report, filters: filters() || {} })
+                body: JSON.stringify({ report: chosen, filters: filters() || {} })
             });
         } catch (err) {
             res = null;
@@ -190,6 +246,16 @@ export function mountAiPanel({ mountId, report, filters = () => ({}), title = 'A
         });
 
         wrap.style.display = '';
+    }
+
+    // A per-report note if the caller gave one, else the panel's own, else the
+    // sentence that is true of every report here.
+    function noteFor(key) {
+        const entry = choices.find((c) => c.key === key);
+
+        return entry?.note
+            || note
+            || 'Reads the aggregate figures on this screen. Patient-level rows are never sent.';
     }
 
     function toggle(id, visible) {

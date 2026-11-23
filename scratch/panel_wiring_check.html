@@ -1,0 +1,148 @@
+<!doctype html>
+<!--
+    AI panel wiring check -- run by hand, in a browser.
+
+        1. Copy this file into frontend/ (it needs to sit beside src/).
+        2. Open http://localhost/ims/usintellix-hospital-management-system/frontend/panel_wiring_check.html
+        3. Read the PASS/FAIL list at the top of the page.
+
+    WHY THIS IS NOT A SUITE. There is no package.json in this project and no
+    JavaScript test runner, so there is nowhere for it to live in tests/ and
+    nothing in CI would run it. tests/test_ai_analysis.php section 9 holds the
+    part that CAN be checked without a browser: that every registered report is
+    named by a screen, that every mountId exists as an element, and that no
+    screen offers an unregistered report. What it cannot check is whether a
+    panel RENDERS, which is this file's job.
+
+    It covers two things:
+
+      a. Every module touched when the eleven missing panels were mounted still
+         imports cleanly. A bad import path or a duplicate binding shows up
+         here and nowhere else -- php -l does not read JavaScript and the
+         static scan does not execute it.
+
+      b. The report chooser, added so the AHSR screen could reach its three
+         other tables without growing four Analyse buttons. It asserts the
+         select is drawn, the note follows the selection, a result from the
+         previously selected report is cleared, and -- the regression that
+         matters -- that the single-report form draws no chooser at all.
+
+    It does not sign in, so /ai/usage answers 401 and the usage label stays
+    empty. That is expected and is not what this file is testing.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI panel wiring check</title>
+</head>
+<body>
+<h1>AI panel wiring check</h1>
+<pre id="out">running…</pre>
+
+<!-- The mount points the real screens provide. -->
+<div id="chooserMount"></div>
+<div id="singleMount"></div>
+
+<script type="module">
+const out = document.getElementById('out');
+const lines = [];
+const say = (ok, what, extra = '') => {
+    lines.push(`${ok ? '[PASS]' : '[FAIL]'} ${what}${extra ? ' -- ' + extra : ''}`);
+    out.textContent = lines.join('\n');
+};
+
+// 1. Every module touched in this phase must import cleanly.
+const modules = [
+    './src/modules/reports/ai-panel.js?v=2',
+    './src/modules/reports/financial-bi-dashboard.js',
+    './src/modules/reports/financial-bi-dashboard.view.js',
+    './src/modules/reports/regulatory-ahsr-export.js',
+    './src/modules/reports/claim-denial-pareto.js',
+    './src/modules/reports/clinical-quality-dashboard.js',
+    './src/modules/reports/clinical-safety-scorecard.js',
+    './src/modules/or-reports/or-reports.js',
+    './src/modules/procurement-reports/procurement-reports.js',
+    './src/modules/procurement-reports/procurement-reports.view.js',
+    './src/modules/stock-counts/stock-counts.js',
+    './src/modules/stock-counts/stock-counts.view.js',
+    './src/modules/census/census-report.js',
+    './src/modules/doctor-commissions/doctor-commissions.js',
+    './src/modules/drug-inventory/drug-inventory.js',
+    './src/modules/drug-inventory/drug-inventory.view.js'
+];
+
+let panel = null;
+
+for (const path of modules) {
+    try {
+        const mod = await import(path);
+        if (path.includes('ai-panel')) panel = mod;
+        say(true, `imports: ${path.replace('./src/modules/', '')}`);
+    } catch (err) {
+        say(false, `imports: ${path.replace('./src/modules/', '')}`, String(err));
+    }
+}
+
+if (!panel?.mountAiPanel) {
+    say(false, 'mountAiPanel was exported');
+} else {
+    // 2. The chooser form -- the new code in this phase.
+    panel.mountAiPanel({
+        mountId: 'chooserMount',
+        title: 'AI analysis',
+        reports: [
+            { key: 'ahsr_kpis', label: 'The statutory figures', note: 'note one' },
+            { key: 'ahsr_morbidity_top10', label: 'Top ten causes of morbidity', note: 'note two' },
+            { key: 'ahsr_mortality_top10', label: 'Top ten causes of death' },
+            { key: 'ahsr_surgical_obstetric', label: 'Surgical and obstetric output' }
+        ],
+        filters: () => ({ year: 2026 })
+    });
+
+    const select = document.getElementById('chooserMount_pick');
+    say(!!select, 'the chooser renders a select');
+    say(select?.options.length === 4, 'with one option per report', String(select?.options.length));
+    say(select?.value === 'ahsr_kpis', 'the first report is selected', String(select?.value));
+    say(!!document.getElementById('chooserMount_run'), 'and still exactly one Analyse button');
+
+    const note = document.getElementById('chooserMount_note');
+    say(note?.textContent.trim() === 'note one', 'the note is the chosen report’s', note?.textContent.trim());
+
+    // Changing it must update the note and clear any result.
+    const result = document.getElementById('chooserMount_result');
+    const message = document.getElementById('chooserMount_message');
+    result.style.display = '';
+    message.style.display = '';
+    select.value = 'ahsr_morbidity_top10';
+    select.dispatchEvent(new Event('change'));
+
+    say(note?.textContent.trim() === 'note two', 'changing it updates the note', note?.textContent.trim());
+    say(result.style.display === 'none', 'and clears a result that belonged to the other report');
+    say(message.style.display === 'none', 'and clears a message too');
+
+    // A report with no note of its own falls back to the panel's default.
+    select.value = 'ahsr_mortality_top10';
+    select.dispatchEvent(new Event('change'));
+    say(note?.textContent.includes('Patient-level rows are never sent'),
+        'a report with no note of its own gets the default', note?.textContent.trim());
+
+    // 3. The single-report form must be unchanged: no select at all.
+    panel.mountAiPanel({
+        mountId: 'singleMount',
+        report: 'census_daily',
+        title: 'AI analysis of this period',
+        note: 'single note',
+        filters: () => ({})
+    });
+
+    say(!document.getElementById('singleMount_pick'), 'the single-report form draws NO chooser');
+    say(!!document.getElementById('singleMount_run'), 'and still has its button');
+    say(document.getElementById('singleMount_note')?.textContent.trim() === 'single note',
+        'and keeps its own note');
+}
+
+out.textContent = lines.join('\n') + `\n\n${lines.filter((l) => l.startsWith('[PASS]')).length} passed, `
+    + `${lines.filter((l) => l.startsWith('[FAIL]')).length} failed`;
+</script>
+</body>
+</html>
