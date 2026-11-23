@@ -1,4 +1,5 @@
 import { api } from '../../core/api.js?v=10';
+import { mountAiPanel } from './ai-panel.js?v=2';
 import { logReportRun } from './report-history.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=42';
 import { todayISO } from "../../core/timezone.js?v=3";
@@ -6,6 +7,20 @@ import { todayISO } from "../../core/timezone.js?v=3";
 let currentRecords = [];
 
 export async function initHAISSI() {
+    // Reads the aggregate KPI strip, not the detail table below it. That is
+    // the whole of this report's privacy story: the detail rows carry
+    // patient_name, and they live in a branch the registry does not send.
+    mountAiPanel({
+        mountId: 'haiAiPanel',
+        report: 'safety_hai_surveillance',
+        title: 'AI analysis of the infection figures',
+        note: 'Reads the ten counts above. The case list below, which names patients, is never sent.',
+        filters: () => ({
+            date_from: document.getElementById('haiDateFrom')?.value || '',
+            date_to: document.getElementById('haiDateTo')?.value || '',
+            department: document.getElementById('haiDeptFilter')?.value || '',
+        })
+    });
     setupEventListeners();
     setupPatientPicker();
     setupDeviceFill();

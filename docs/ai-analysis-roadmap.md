@@ -798,21 +798,137 @@ a file somebody has to remember to open.
 
 ---
 
-## AI-6 — Tier 2: dropping the name columns
+## AI-6 — Tier 2: dropping the name columns — **DONE** (24 November 2026)
 
-**Size: S, plus a decision.** After AI-5.
+**Six reports registered, one name dropped, and the phase's premise was wrong about five
+of the eight.**
 
-Eight reports whose only identifier is a single `patient_name` or employee-name column,
-carried for display: the five quality and safety lists, two inventory reports, and
-`StockLevelService::lowStock`.
-
-Dropping that column from what is *sent* makes each of them Tier 1. The work is trivial.
-It is a phase of its own because the decision is not: somebody should say out loud that
-these reports are being analysed with the names removed, rather than a column quietly
+Tier 2 described eight reports as "one column away": a single `patient_name` or employee
+name carried for display, which dropping from the payload would make each of them Tier 1.
+The phase existed for the decision rather than the work — somebody should say out loud
+that these reports are analysed with the names removed, rather than a column quietly
 disappearing from a projection.
 
-**Staff are data subjects too.** The employee-name cases are the same decision in a lower
-key, not a lesser one.
+The probe found the decision was only needed once.
+
+### The name was in a branch that was never going to be sent
+
+For the five quality and safety reports — incident log, critical result turnaround, HAI
+surveillance, readmission and mortality, surgical safety checklist — `patient_name` lives
+in `records` (or `incidents`): the detail list the screen draws its table from. What an
+analysis of those screens actually wants is `kpis`, and `kpis` is one aggregate row with
+no name in it at all.
+
+So five of the eight needed no decision and no column dropped. They needed somebody to
+look at **which branch they were about**, which is the question this registry was built
+around and which the Tier 2 list had not asked. The build list's framing was not wrong
+about the column; it was reading the report as one thing rather than as branches.
+
+That reframing is worth keeping in mind for Tier 3. "This report contains patient data" and
+"every branch of this report contains patient data" are different claims, and only the
+second one blocks a phase.
+
+### What `kpis` being observable means, when `records` is not
+
+None of the five has any rows in the test database, so none of their `records` branches
+could be observed — and an unobservable shape is a guess, which is why the three Tier 1
+financial reports are still absent four phases later.
+
+`kpis` is different, and the difference is worth stating because it will come up again.
+It is a single SELECT of COUNT and SUM aggregates, so it returns its keys whether or not
+anything matched. Several values come back NULL on an empty window; a NULL is a real value
+from a real call, not a missing field. A list branch with no rows returns nothing to read
+at all. Keys observed from an empty aggregate are observed; keys inferred from an empty
+list are invented.
+
+### The one real Tier 2 decision: `custodian_name`
+
+`StockLevelService::lowStock` returns a list of storage locations, and one column is
+`custodian_name` — the member of staff answerable for that location.
+
+**It is dropped.** An analysis of what a location is short of does not need to know who is
+responsible for it, and putting a person's name beside a shortage invites a reading about
+that person which the figures do not support. Staff are data subjects too, so this is the
+same decision as a patient name in a lower key, not a lesser one.
+
+`name` **stays**, and is not the same kind of column: it is the location's own name, "Main
+Pharmacy". Without it the model can say three locations are low and not which.
+
+### Dropping it and recording that it was dropped are two things
+
+The first version of the shape helper assembled a fresh row with the custodian simply not
+in it. The payload was correct and the record was not.
+
+`AiPayload::project` reports what it refuses in `dropped`, and `AiGuardService` writes that
+list to the run ledger on every call. A row built without the column never reaches the
+allowlist — so the ledger said nothing had been withheld from the one report in this phase
+that withholds a person's name. A record that cannot show the omission is worse than no
+record, because it reads as evidence there was nothing to omit.
+
+The helper now passes the row through whole, minus only the two nested values `project()`
+would drop anyway, and the allowlist refuses `custodian_name` and `id` by name. Every run
+records `dropped: id, custodian_name`. The test asserts the drop **and** the recording,
+separately, and also asserts that the service still returns the column — so the test
+cannot start passing because the drop stopped being real work.
+
+### Two reports still cannot be registered
+
+`getInventoryActivityReport` and `getInventoryTransactionsReport` return an **empty array**
+on the test database — not an empty branch, no branches at all. There is no shape to read,
+so an allowlist for either could only be written off its SQL. Both are asserted *absent*,
+with the reason, rather than left to be noticed again.
+
+`getInventoryActivityReport` also emits `Undefined array key "by"` on every call with no
+`by` filter: `$filters['by'] ?? 'product'` decides the ternary and then the true branch
+reads `$filters['by']` directly. Harmless, pre-existing, and not this phase's to fix —
+noted because the probe is what surfaced it.
+
+### A matcher that cried wolf twice
+
+Section 10 asserts that no Tier 2 allowlist names anything person-shaped. Getting that
+assertion to be true *and* meaningful took three versions.
+
+Matching `patient_` as a substring flagged `inpatient_mortalities` — a count of deaths
+among inpatients, with no patient in it. Anchoring `patient_` to the start of the field
+fixed that and still flagged `patient_days`, which counts patient-days. The morphology of
+a column name is not the signal: `patient_name` names a person and `patient_days` counts
+them, and both start the same way.
+
+The rule is what it always was in plain words. A field names a person if it says `name`,
+or one of the few other words that only ever belong to a person, or **is** one of the
+identifier columns — which are listed outright, because `patient_id` identifies somebody
+and `warehouse_id` does not, and no pattern tells those apart either.
+
+This is the third time in two phases the same trap has been walked into: the probe with
+`patient_days`, AI-5a's panel scan with `report:`, and this. A matcher built from what a
+name *looks like* gets loosened or deleted the first time it cries wolf, and then it
+protects nothing. Both directions are now asserted — the six real columns it must fire on,
+and the eight counts it must not.
+
+### Panels
+
+Six, on six screens, and each sits **above** the detail table rather than below it, because
+the figures it reads are the KPI strip at the top. Each note says what is not sent in the
+same breath as what is: "Reads the ten counts above. The case list below, which names
+patients, is never sent."
+
+**28 reports registered, all 28 reachable from a screen**, across seventeen screens. The
+AI suite is at 278 tests, up from 225.
+
+### Still open
+
+- **Nobody has judged an answer**, and the browser check for this phase made the state
+  plain: every panel now renders "AI analysis is switched off for this hospital", because
+  `allow_ai_analysis` is still 0 and `ANTHROPIC_API_KEY` is still empty. Twenty-eight
+  reports, seventeen screens, zero answers.
+- The two inventory reports, above.
+- `getHAIReport` returns a populated `icu_devices` map — device-days and ratios — that is
+  not registered. It is a second branch of a report that already has one, and the registry
+  takes one branch per key, so it needs its own key and its own ask. Small, deliberate,
+  not done.
+- The five aggregate reports' `records` branches remain unregistered and unobservable. If
+  Question 4 clears, they are Tier 3 work through `DeidentificationService` rather than
+  Tier 2 work here.
 
 ---
 

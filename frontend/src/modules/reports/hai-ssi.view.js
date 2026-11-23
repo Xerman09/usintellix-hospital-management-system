@@ -498,6 +498,8 @@ export function HAISSIView() {
 
     <div class="hai-icu" id="haiIcuDevices" aria-live="polite"></div>
 
+    <div id="haiAiPanel" style="margin:0 0 14px"></div>
+
     <div class="hai-filter-row">
         <input type="date" id="haiDateFrom" title="Date From" />
         <input type="date" id="haiDateTo" title="Date To" />

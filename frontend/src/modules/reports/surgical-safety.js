@@ -1,4 +1,5 @@
 import { api } from '../../core/api.js?v=10';
+import { mountAiPanel } from './ai-panel.js?v=2';
 import { logReportRun } from './report-history.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=42';
 import { todayISO } from "../../core/timezone.js?v=3";
@@ -6,6 +7,19 @@ import { todayISO } from "../../core/timezone.js?v=3";
 let currentRecords = [];
 
 export async function initSurgicalSafety() {
+    // Reads the aggregate KPI strip, not the detail table below it. That is
+    // the whole of this report's privacy story: the detail rows carry
+    // patient_name, and they live in a branch the registry does not send.
+    mountAiPanel({
+        mountId: 'sscAiPanel',
+        report: 'safety_surgical_checklist',
+        title: 'AI analysis of the checklist figures',
+        note: 'Reads the twelve counts and rates above. The case list below, which names patients and surgeons, is never sent.',
+        filters: () => ({
+            date_from: document.getElementById('sscDateFrom')?.value || '',
+            date_to: document.getElementById('sscDateTo')?.value || '',
+        })
+    });
     setupEventListeners();
     setupPatientPicker();
     await fetchReport();

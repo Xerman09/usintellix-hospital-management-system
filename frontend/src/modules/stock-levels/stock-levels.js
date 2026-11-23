@@ -1,6 +1,7 @@
 import { fetchStockLevelOptions, fetchLocationLevels, saveLocationLevels, copyLocationLevels, fetchLowStock, saveReorderPolicies, evaluateReorderThresholds } from "./stock-levels.service.js?v=5";
 import { formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { mountAiPanel } from "../reports/ai-panel.js?v=2";
 import { todayISO } from "../../core/timezone.js?v=3";
 import { getUser } from "../../core/session.js?v=5";
 
@@ -29,6 +30,22 @@ export async function initStockLevels() {
     errors = {};
     policyCurrent = null;
     policyDrafts = new Map();
+
+    // The location select is the only filter lowStock() reads, and it is
+    // read at click time so the analysis matches the location on screen.
+    //
+    // The custodian of each location is NOT sent. lowStock() returns
+    // custodian_name on every row; the registry's shape helper passes the row
+    // to the allowlist, which refuses that column by name and records the
+    // refusal in the run ledger. Who is answerable for a location is not
+    // something an analysis of what it is short of needs to know.
+    mountAiPanel({
+        mountId: "slAiPanel",
+        report: "stock_levels_low",
+        title: "AI analysis of the shortages",
+        note: "Reads the per-location counts. The item list and the custodian's name are not sent.",
+        filters: () => ({ warehouse_id: document.getElementById("slLowLocation")?.value || "" })
+    });
 
     $("slTabs").querySelectorAll("[data-sl-tab]").forEach((btn) => btn.addEventListener("click", () => showTab(btn.dataset.slTab)));
     $("slLowLocation").addEventListener("change", loadLow);

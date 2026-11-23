@@ -13,7 +13,9 @@ use App\Modules\Reports\Services\ClinicalQualityAnalyticsService;
 use App\Modules\Reports\Services\ClinicalQualityScorecardService;
 use App\Modules\Reports\Services\FinancialBusinessIntelligenceService;
 use App\Modules\Reports\Services\RegulatoryAhsrExportService;
+use App\Modules\Reports\Services\ReportService;
 use App\Modules\StockCounts\Services\StockCountService;
+use App\Modules\StockLevels\Services\StockLevelService;
 
 /**
  * Which reports may be analysed, how the server builds each one, and what it
@@ -337,7 +339,164 @@ class AiReports
             'asks' => 'Say how surgical and obstetric volume splits between elective and emergency, and what '
                 . 'the mix suggests about theatre and delivery-room load.',
         ],
+
+        // ---------------- AI-6: the Tier 2 reports -------------------------
+        //
+        // Eight reports were listed as "one column away": a single
+        // `patient_name` or employee name carried for display, which dropping
+        // from the payload would make each of them Tier 1
+        // (docs/ai-analysis-build-list.md). The probe found the premise was
+        // only true for one of them.
+        //
+        // THE NAME IS IN A BRANCH THAT IS NOT SENT. For the five quality and
+        // safety reports the name lives in `records` (or `incidents`), the
+        // detail list the screen draws its table from. What an analysis wants
+        // is `kpis`, and `kpis` is a single aggregate row with no name in it
+        // at all. So five of the eight needed no decision and no column
+        // dropped -- they needed somebody to look at which branch they were
+        // about.
+        //
+        // That the `records` branches have no rows in the test database is
+        // beside the point here, but it is why they are not registered as a
+        // second report each: an unobservable shape is a guess (AI-2).
+        //
+        // `kpis` IS observable even with no rows, and the difference matters.
+        // It is one SELECT of COUNT and SUM aggregates, so it returns its keys
+        // whether or not anything matched; several values come back NULL on an
+        // empty window, which is a real value and not a missing field. A list
+        // branch with no rows returns nothing to read, which is why the three
+        // Tier 1 financial reports are still absent.
+
+        'safety_incident_log' => [
+            'label' => 'Incident log',
+            'source' => [ReportService::class, 'getIncidentLogReport'],
+            'branch' => 'kpis',
+            'asks' => 'Say what the mix of incident types and the number of open investigations suggest about '
+                . 'reporting and follow-up. A near miss reported is a system working, not a failure -- do not '
+                . 'read a high near-miss count as a bad sign on its own.',
+        ],
+
+        'safety_critical_tat' => [
+            'label' => 'Critical result turnaround',
+            'source' => [ReportService::class, 'getCriticalTATReport'],
+            'branch' => 'kpis',
+            'asks' => 'Say whether critical results are being acknowledged in time, and what the gap between '
+                . 'the median and the 90th percentile says about the slow tail.',
+        ],
+
+        'safety_hai_surveillance' => [
+            'label' => 'Healthcare-associated infections',
+            'source' => [ReportService::class, 'getHAIReport'],
+            'branch' => 'kpis',
+            'asks' => 'Summarise the infection counts and bundle compliance. These are counts over a window, '
+                . 'not a rate per device-day -- do not convert them into one.',
+        ],
+
+        'safety_readmission_mortality' => [
+            'label' => 'Readmission and mortality',
+            'source' => [ReportService::class, 'getReadmissionMortalityReport'],
+            'branch' => 'kpis',
+            'asks' => 'Say what the readmission and mortality figures show, and whether medication '
+                . 'reconciliation and follow-up calls are keeping up with discharges. Say plainly if the '
+                . 'numbers are too small to carry a conclusion.',
+        ],
+
+        'safety_surgical_checklist' => [
+            'label' => 'Surgical safety checklist',
+            'source' => [ReportService::class, 'getSurgicalSafetyReport'],
+            'branch' => 'kpis',
+            'asks' => 'Say which part of the checklist is least complete -- site marking, antibiotic timing or '
+                . 'the counts -- and what that suggests about where the process breaks. You have counts, not '
+                . 'cases: do not speculate about individual operations.',
+        ],
+
+        // THE ONE REPORT THIS PHASE IS ACTUALLY ABOUT.
+        //
+        // `lowStock` returns a list of storage locations, and one of its
+        // columns is `custodian_name`: the member of staff answerable for that
+        // location. Dropping it is the decision the Tier 2 list said somebody
+        // should take out loud rather than let a column quietly vanish from a
+        // projection, and this is the entry where it is taken.
+        //
+        // It is dropped. An analysis of which locations are running low does
+        // not need to know who is responsible for them, and naming a person
+        // beside a shortage invites a reading about that person which the
+        // figures do not support. Staff are data subjects too -- an employee
+        // name is personal data even where it is not health data -- so this is
+        // the same decision as a patient name in a lower key, not a lesser
+        // one.
+        //
+        // `name` STAYS, and is not the same kind of column: it is the
+        // location's own name, "Main Pharmacy". Without it the model can say
+        // three locations are low and not which.
+        'stock_levels_low' => [
+            'label' => 'Low and out-of-stock levels by location',
+            'source' => [StockLevelService::class, 'lowStock'],
+            'branch' => 'locations',
+            'shape' => 'flattenLowStockLocations',
+            'asks' => 'Say which locations are running short and how widely, and whether the pattern looks '
+                . 'like a few items everywhere or many items in one place.',
+        ],
     ];
+
+    /**
+     * Low-stock locations, flattened, with the custodian left behind.
+     *
+     * Two things happen here and they are different in kind.
+     *
+     * The FLATTENING is mechanical: each location carries a nested `counts`
+     * map (tracked, out, low, ok, over, no_level) and project() drops nested
+     * values, so without this a report about stock levels would arrive with
+     * no levels in it. `items` is dropped rather than lifted -- it is the
+     * per-item detail the screen draws its table from, and an analysis of
+     * which locations are short does not need it.
+     *
+     * The OMISSION is a decision, and it is left to the ALLOWLIST rather than
+     * made here. See the registry entry above for why the custodian does not
+     * go; this paragraph is about where it is stopped.
+     *
+     * The first version of this function built a fresh row with the custodian
+     * simply not in it. That worked and was wrong: project() records what it
+     * refuses in `dropped`, AiGuardService writes that list to the ledger on
+     * every run, and a row assembled without the column never reaches the
+     * allowlist -- so the ledger said nothing was withheld from the one report
+     * in this phase that withholds a person's name. A record that cannot show
+     * the omission is worse than no record, because it reads as proof there
+     * was nothing to omit.
+     *
+     * So the row is passed through whole, minus only the two nested values
+     * that project() would drop anyway, and `custodian_name` and `id` are
+     * refused by name in AiPayload. Every run now records that it happened.
+     *
+     * @param array $rows The `locations` branch of lowStock().
+     */
+    public static function flattenLowStockLocations(array $rows): array
+    {
+        $out = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $counts = $row['counts'] ?? [];
+
+            // Named rather than looped, so adding a count to the service does
+            // not silently add a field to the payload.
+            foreach (['tracked', 'out', 'low', 'ok', 'over', 'no_level'] as $count) {
+                $row[$count] = is_array($counts) ? ($counts[$count] ?? null) : null;
+            }
+
+            // Lifted, so they no longer need to be carried; `items` is the
+            // per-item detail the screen's table is drawn from and is not
+            // lifted at all.
+            unset($row['counts'], $row['items']);
+
+            $out[] = $row;
+        }
+
+        return $out;
+    }
 
     /**
      * The aging matrix keeps its aging inside a nested `buckets` map, and

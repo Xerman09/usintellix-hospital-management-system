@@ -1,4 +1,5 @@
 import { api } from "../../core/api.js?v=10";
+import { mountAiPanel } from "./ai-panel.js?v=2";
 import { logReportRun } from "./report-history.js";
 import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=42";
 
@@ -6,6 +7,20 @@ let currentRecords = [];
 let availableDepts = [];
 
 export async function initCriticalTAT() {
+    // Reads the aggregate KPI strip, not the detail table below it. That is
+    // the whole of this report's privacy story: the detail rows carry
+    // patient_name, and they live in a branch the registry does not send.
+    mountAiPanel({
+        mountId: "ctatAiPanel",
+        report: "safety_critical_tat",
+        title: "AI analysis of the turnaround figures",
+        note: "Reads the twelve counts and times above. The result list below, which names patients, is never sent.",
+        filters: () => ({
+            date_from: document.getElementById("ctatDateFrom")?.value || "",
+            date_to: document.getElementById("ctatDateTo")?.value || "",
+            department: document.getElementById("ctatDeptFilter")?.value || "",
+        })
+    });
     setupEventListeners();
     setupPatientPicker();
     await fetchCriticalTAT();

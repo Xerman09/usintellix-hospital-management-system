@@ -52,6 +52,8 @@ export function IncidentLogView() {
                 </div>
             </div>
 
+            <div id="ilAiPanel" style="margin-bottom: 20px;"></div>
+
             <!-- Filters Bar -->
             <div class="il-filters-box no-print" style="background: #ffffff; padding: 16px 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                 <form id="ilFilterForm" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;">

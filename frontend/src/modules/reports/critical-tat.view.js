@@ -482,6 +482,8 @@ export function CriticalTATView() {
         </div>
     </div>
 
+    <div id="ctatAiPanel" style="margin:0 0 14px"></div>
+
     <!-- How fast, per test -->
     <details class="ctat-bytest" id="ctatByTestWrap" style="margin:0 0 14px">
         <summary style="cursor:pointer;font-weight:700;padding:6px 0">By test — how fast critical results were acknowledged</summary>

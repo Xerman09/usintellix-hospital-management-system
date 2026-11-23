@@ -464,6 +464,98 @@ class AiPayload
             'complication_or_ssi_rate_pct',
         ],
 
+        // ---------------- AI-6: the Tier 2 reports -------------------------
+        //
+        // Five aggregate rows with no person in them, and one list with a
+        // person deliberately left out. Every key below was read off a real
+        // call to the getter, not off its SQL.
+
+        'safety_incident_log' => [
+            'total_incidents',
+            'medication_errors',
+            'slips_falls',
+            'near_misses',
+            'open_investigations',
+            'sentinel_events',
+        ],
+
+        'safety_critical_tat' => [
+            'total_records',
+            'compliant_count',
+            'breach_count',
+            'pending_ack',
+            'escalated_count',
+            'avg_tat_minutes',
+            'read_back_done',
+            'compliance_rate',
+            'median_tat',
+            'p90_tat',
+            'auto_count',
+            'open_unacknowledged',
+        ],
+
+        'safety_hai_surveillance' => [
+            'total_cases',
+            'ssi_count',
+            'device_associated_count',
+            'mrsa_count',
+            'cdi_count',
+            'severe_count',
+            'bundle_compliant',
+            'active_cases',
+            'correct_prophylaxis',
+            'bundle_compliance_rate',
+        ],
+
+        'safety_readmission_mortality' => [
+            'total_discharges',
+            'unplanned_readmissions',
+            'preventable_readmissions',
+            'inpatient_mortalities',
+            'post_discharge_mortalities',
+            'total_mortalities',
+            'med_rec_completed',
+            'followup_calls_completed',
+            'readmission_rate',
+            'mortality_rate',
+            'med_rec_rate',
+            'followup_rate',
+        ],
+
+        'safety_surgical_checklist' => [
+            'total_cases',
+            'fully_compliant_cases',
+            'site_marking_compliant',
+            'site_marking_required_count',
+            'antibiotic_timely_count',
+            'antibiotic_given_count',
+            'counts_accurate',
+            'near_misses_count',
+            'compliance_rate',
+            'marking_rate',
+            'antibiotic_rate',
+            'counts_rate',
+        ],
+
+        // `custodian_name` IS ABSENT ON PURPOSE. The service returns it on
+        // every location row; AiReports::flattenLowStockLocations does not
+        // carry it through, and it is not named here either. Two files, one
+        // decision, stated twice -- which is what this allowlist is for, and
+        // the reason a report has to pass both. `name` is the location's own
+        // name and stays.
+        'stock_levels_low' => [
+            'name',
+            'code',
+            'location_type',
+            'is_active',
+            'tracked',
+            'out',
+            'low',
+            'ok',
+            'over',
+            'no_level',
+        ],
+
         // Two entries lived here until AI-2 and were removed.
         //
         // `financial_executive_overview` and `ar_aging_matrix` were written

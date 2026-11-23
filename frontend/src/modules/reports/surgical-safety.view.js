@@ -478,6 +478,8 @@ export function SurgicalSafetyView() {
         </div>
     </div>
 
+    <div id="sscAiPanel" style="margin:0 0 14px"></div>
+
     <div class="ssc-filter-row">
         <input type="date" id="sscDateFrom" title="Surgery Date From" />
         <input type="date" id="sscDateTo" title="Surgery Date To" />

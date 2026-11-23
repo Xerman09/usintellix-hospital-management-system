@@ -115,6 +115,9 @@ export function StockLevelsView() {
             </div>
         </div>
         <div id="slLowBody"><div class="sl-empty">Loading...</div></div>
+
+        <!-- Outside slLowBody: renderLow() overwrites that on every refresh. -->
+        <div id="slAiPanel" style="margin-top:16px"></div>
     </div>
 
     <div id="slSetPanel" hidden>

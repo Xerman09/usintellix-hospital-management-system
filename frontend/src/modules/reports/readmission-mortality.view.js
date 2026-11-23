@@ -478,6 +478,8 @@ export function ReadmissionMortalityView() {
         </div>
     </div>
 
+    <div id="rmAiPanel" style="margin:0 0 14px"></div>
+
     <div class="rm-filter-row">
         <input type="date" id="rmDateFrom" title="Discharge Date From" />
         <input type="date" id="rmDateTo" title="Discharge Date To" />

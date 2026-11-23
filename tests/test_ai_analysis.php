@@ -497,6 +497,14 @@ $identifierish = [
     'birthdate', 'date_of_birth', 'dob', 'mrn', 'email', 'phone', 'mobile_phone',
     'address_line', 'employee_id', 'employee_no', 'user_id', 'created_by', 'updated_by',
     'assigned_to', 'assigned_to_name', 'encounter_id', 'full_name',
+
+    // Added in AI-6, which is the phase about employee names. A member of
+    // staff is a data subject too, so the names they appear under belong on
+    // the same list as a patient's rather than on a shorter one of their own.
+    'custodian_name', 'counted_by', 'counted_by_name', 'approved_by', 'approved_by_name',
+    'recorded_by', 'recorded_by_name', 'performed_by', 'performed_by_name',
+    'operating_surgeon', 'surgeon_name', 'doctor_name', 'provider_name', 'staff_name',
+    'transferred_by', 'destroyed_by', 'witness_name',
 ];
 
 check('there is more than one report registered by now', count(AiReports::REPORTS) >= 6,
@@ -1062,11 +1070,12 @@ foreach ($frontend as $name => $src) {
     }
 }
 
-// Eleven screens as of AI-5a, and the number is written down rather than
-// left loose: a threshold of ">= 7" would have passed throughout the four
-// phases when half the reports had nowhere to live.
-check('the eleven screens that mount panels are all here',
-    count($mountingFiles) >= 11, (string) count($mountingFiles));
+// Seventeen screens: eleven after AI-5a, six more in AI-6. The number is
+// written down rather than left loose, because a threshold of ">= 7" would
+// have passed throughout the four phases when half the reports had nowhere
+// to live.
+check('the seventeen screens that mount panels are all here',
+    count($mountingFiles) >= 17, (string) count($mountingFiles));
 
 check('and the panel component itself is not counted as one',
     !array_key_exists('modules/reports/ai-panel.js', $mountingFiles));
@@ -1259,6 +1268,222 @@ foreach (aiPanelCallBodies($lookalike) as $body) {
 
 check('a `report:` property OUTSIDE a mountAiPanel call is not read as a report key',
     $lookalikeKeys === [], implode(', ', $lookalikeKeys));
+
+// ==========================================================================
+// 10. AI-6: THE TIER 2 REPORTS, AND THE ONE NAME THAT IS DROPPED.
+//
+// Tier 2 was eight reports described as "one column away": a single
+// patient_name or employee name carried for display, which dropping would
+// make each of them Tier 1. The probe found that for five of the eight the
+// name is in a branch that was never going to be sent -- `records`, the detail
+// list the screen's table is drawn from -- while the branch worth analysing,
+// `kpis`, is one aggregate row with no name in it.
+//
+// So there are two different things to assert, and conflating them is how this
+// would rot:
+//
+//   a. The five aggregate reports send the `kpis` branch and NOT `records`.
+//      If somebody later registers the detail branch "for completeness", the
+//      patient names come with it.
+//   b. `stock_levels_low` really does drop `custodian_name`, in both files
+//      that have a say, AND records the drop in what the ledger is given.
+// ==========================================================================
+echo "\n-- 10. The Tier 2 reports, and the dropped custodian --\n";
+
+$tier2Aggregates = [
+    'safety_incident_log' => 'getIncidentLogReport',
+    'safety_critical_tat' => 'getCriticalTATReport',
+    'safety_hai_surveillance' => 'getHAIReport',
+    'safety_readmission_mortality' => 'getReadmissionMortalityReport',
+    'safety_surgical_checklist' => 'getSurgicalSafetyReport',
+];
+
+foreach ($tier2Aggregates as $key => $method) {
+    $report = AiReports::REPORTS[$key] ?? null;
+
+    check("{$key}: is registered", is_array($report));
+
+    if (!is_array($report)) {
+        continue;
+    }
+
+    check("{$key}: reads {$method}", ($report['source'][1] ?? '') === $method,
+        (string) ($report['source'][1] ?? ''));
+
+    // The assertion this section exists for.
+    check("{$key}: sends the kpis branch, NOT the detail list",
+        ($report['branch'] ?? null) === 'kpis',
+        var_export($report['branch'] ?? null, true));
+}
+
+// And the detail branches are not registered under any key. Checked by
+// looking at every report's branch rather than by naming these five, so a
+// sixth report added later cannot sneak one in.
+$detailBranches = ['records', 'incidents', 'surgeons', 'items'];
+$registeredDetail = [];
+
+foreach (AiReports::REPORTS as $key => $report) {
+    if (in_array($report['branch'] ?? null, $detailBranches, true)) {
+        $registeredDetail[] = $key . ' -> ' . $report['branch'];
+    }
+}
+
+check('NO report sends a detail branch -- records, incidents, surgeons or items',
+    $registeredDetail === [], implode(', ', $registeredDetail));
+
+// -- the custodian -----------------------------------------------------------
+
+check('stock_levels_low is registered', AiReports::knows('stock_levels_low'));
+
+check('and it declares the flattening shape',
+    (AiReports::REPORTS['stock_levels_low']['shape'] ?? '') === 'flattenLowStockLocations');
+
+check('the allowlist does NOT name custodian_name',
+    !in_array('custodian_name', AiPayload::ALLOWLIST['stock_levels_low'] ?? [], true));
+
+check('nor the location id, which identifies nothing but adds nothing either',
+    !in_array('id', AiPayload::ALLOWLIST['stock_levels_low'] ?? [], true));
+
+check('but it DOES name the location\'s own name, or the model cannot say which location',
+    in_array('name', AiPayload::ALLOWLIST['stock_levels_low'] ?? [], true));
+
+// The service still returns the column -- if it stopped, this test would pass
+// for the wrong reason and the drop would no longer be being exercised.
+$rawLocations = (new \App\Modules\StockLevels\Services\StockLevelService())->lowStock([])['locations'] ?? [];
+
+check('the service still returns custodian_name, so the drop is real work',
+    $rawLocations !== [] && array_key_exists('custodian_name', (array) $rawLocations[0]),
+    $rawLocations === [] ? 'no locations at all' : implode(', ', array_keys((array) $rawLocations[0])));
+
+$lowBuilt = AiReports::build('stock_levels_low', []);
+
+$lowKeys = [];
+
+foreach ($lowBuilt['rows'] as $row) {
+    foreach (array_keys($row) as $k) {
+        $lowKeys[$k] = true;
+    }
+}
+
+check('and the built payload does not carry it', !isset($lowKeys['custodian_name']),
+    implode(', ', array_keys($lowKeys)));
+
+// THE REGRESSION THAT MATTERS, and it was a real bug in this phase.
+//
+// The first version of flattenLowStockLocations assembled a fresh row with the
+// custodian simply absent. The payload was correct and the record was not:
+// project() reports what it refuses in `dropped`, AiGuardService writes that to
+// the run ledger, and a row built without the column never reaches the
+// allowlist -- so the ledger said nothing had been withheld from the one
+// report in this phase that withholds a person's name.
+check('THE DROP IS RECORDED, not just performed -- the ledger must be able to show it',
+    in_array('custodian_name', $lowBuilt['dropped'], true),
+    implode(', ', $lowBuilt['dropped']));
+
+// -- and nothing person-shaped crept into the five aggregate allowlists ------
+//
+// The generic section above checks the built payload. This checks the
+// ALLOWLIST, which is the declaration -- a field can be absent from a payload
+// today because the window was empty and present tomorrow.
+// THE WORD THAT MATTERS IS "name", NOT "patient", and arriving at that took
+// two wrong versions worth recording.
+//
+// The first list matched `patient_` as a substring and flagged
+// `inpatient_mortalities` -- a count of deaths among inpatients, with no
+// patient in it. Anchoring `patient_` to the start of the field fixed that one
+// and still flagged `patient_days`, which counts patient-days. The morphology
+// of the column name is simply not the signal: `patient_name` names a person
+// and `patient_days` counts them, and both start the same way.
+//
+// So the rule is what it always was in plain words. A field names a person if
+// it says `name`, or says one of the few other words that only ever belong to
+// a person, or IS one of the identifier columns -- which are listed outright,
+// because `patient_id` identifies somebody and `warehouse_id` does not, and no
+// pattern tells those apart either.
+//
+// This is the same trap the probe for this phase fell into with `patient_days`
+// and the panel scan in AI-5a fell into with `report:`. A matcher built from
+// what a name looks like will be loosened or deleted the first time it cries
+// wolf, and then it protects nothing.
+$personIdentifiers = ['patient_id', 'patient_no', 'encounter_id', 'employee_id', 'user_id'];
+$personWords = ['name', 'surgeon', 'custodian', 'mrn', 'birth', 'dob', '_by'];
+
+$namesAPerson = static function (string $field) use ($personIdentifiers, $personWords): bool {
+    $lower = strtolower($field);
+
+    if (in_array($lower, $personIdentifiers, true)) {
+        return true;
+    }
+
+    foreach ($personWords as $word) {
+        if (str_contains($lower, $word)) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+$suspicious = [];
+
+foreach (array_keys($tier2Aggregates) as $key) {
+    foreach (AiPayload::ALLOWLIST[$key] ?? [] as $field) {
+        if ($namesAPerson($field)) {
+            $suspicious[] = "{$key}.{$field}";
+        }
+    }
+}
+
+check('no Tier 2 aggregate allowlist names anything person-shaped',
+    $suspicious === [], implode(', ', $suspicious));
+
+// The matcher has to be able to fire, or the line above means nothing. These
+// are the real column names from the detail branches that were NOT registered.
+$wouldFire = [];
+
+foreach (['patient_name', 'operating_surgeon', 'custodian_name', 'recorded_by',
+          'patient_id', 'employee_id'] as $field) {
+    if ($namesAPerson($field)) {
+        $wouldFire[] = $field;
+    }
+}
+
+check('and the matcher fires on the six real columns it is guarding against',
+    count($wouldFire) === 6, implode(', ', $wouldFire));
+
+// The other half: the counts that merely read like people. Without this the
+// matcher could be tightened to nothing and still look like it worked.
+$falsePositives = [];
+
+foreach (['inpatient_mortalities', 'patient_days', 'ventilated_patients', 'total_discharges',
+          'near_misses', 'sentinel_events', 'warehouse_id', 'total_records'] as $field) {
+    if ($namesAPerson($field)) {
+        $falsePositives[] = $field;
+    }
+}
+
+check('and NOT on the counts that merely read like people',
+    $falsePositives === [], implode(', ', $falsePositives));
+
+// -- the two reports this phase could not register ---------------------------
+//
+// getInventoryActivityReport and getInventoryTransactionsReport are the
+// remaining Tier 2 entries. Both return an EMPTY ARRAY on the test database --
+// not an empty branch, no branches at all -- so there is no shape to read and
+// an allowlist for them could only have been written off their SQL. That is
+// the mistake AI-2 caught and this is the assertion that keeps them out until
+// somebody can observe them.
+foreach (['getInventoryActivityReport', 'getInventoryTransactionsReport'] as $notYet) {
+    $registered = false;
+
+    foreach (AiReports::REPORTS as $report) {
+        if (($report['source'][1] ?? '') === $notYet) {
+            $registered = true;
+        }
+    }
+
+    check("{$notYet} is NOT registered -- its shape cannot be observed", !$registered);
+}
 
 echo "\n==================================================\n";
 echo "  {$pass} passed, {$fail} failed\n";

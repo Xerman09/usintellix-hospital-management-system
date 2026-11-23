@@ -170,21 +170,34 @@ A near miss worth recording: `CensusService::sheet` exposes `patient_name` and
 classes, similar names, very different contents.
 ## Tier 2 — one column away
 
+**Settled in AI-6 (24 November 2026), and the premise above was wrong about five of the
+eight.** For the five quality and safety reports the name is in the `records` detail
+branch, not in the aggregate `kpis` branch an analysis wants, so nothing had to be dropped
+— the registry sends `kpis` and `records` is not registered. Only `lowStock` was really
+one column away, and `custodian_name` is dropped there, refused by name in the allowlist
+so the run ledger records the omission on every call. The two inventory reports return an
+empty array on the test database and remain unregistered, because an unobservable shape
+can only be guessed at.
+
+The original framing follows, because the lesson in it is the one worth keeping: "this
+report contains a name" and "every branch of this report contains a name" are different
+claims, and only the second blocks anything.
+
 These are summary reports whose only identifier is a single `patient_name` or employee
 name column, carried for display. Drop it from the allowlist and the rest is Tier 1. They
 are listed separately rather than merged because dropping a column from what is *sent* is
 a deliberate act that someone should sign off, not a silent omission.
 
-| Module | Method | The one column |
-|---|---|---|
-| `Reports` · ReportService | `getIncidentLogReport` | `patient_name` |
-| `Reports` · ReportService | `getCriticalTATReport` | `patient_name` |
-| `Reports` · ReportService | `getHAIReport` | `patient_name` |
-| `Reports` · ReportService | `getReadmissionMortalityReport` | `patient_name` |
-| `Reports` · ReportService | `getSurgicalSafetyReport` | `patient_name` |
-| `Reports` · ReportService | `getInventoryActivityReport` | employee first/last name |
-| `Reports` · ReportService | `getInventoryTransactionsReport` | employee first/last name |
-| `StockLevels` · StockLevelService | `lowStock` | employee first/last name |
+| Module | Method | The one column | Outcome in AI-6 |
+|---|---|---|---|
+| `Reports` · ReportService | `getIncidentLogReport` | `patient_name` | registered, `kpis` branch — nothing dropped |
+| `Reports` · ReportService | `getCriticalTATReport` | `patient_name` | registered, `kpis` branch — nothing dropped |
+| `Reports` · ReportService | `getHAIReport` | `patient_name` | registered, `kpis` branch — nothing dropped |
+| `Reports` · ReportService | `getReadmissionMortalityReport` | `patient_name` | registered, `kpis` branch — nothing dropped |
+| `Reports` · ReportService | `getSurgicalSafetyReport` | `patient_name` | registered, `kpis` branch — nothing dropped |
+| `Reports` · ReportService | `getInventoryActivityReport` | employee first/last name | **not registered** — returns an empty array, no shape to observe |
+| `Reports` · ReportService | `getInventoryTransactionsReport` | employee first/last name | **not registered** — same |
+| `StockLevels` · StockLevelService | `lowStock` | `custodian_name` | registered, **and the name is dropped** |
 
 Staff are data subjects too. An employee name is personal data even though it is not
 health data, so these are the same decision in a lower key.
@@ -232,7 +245,8 @@ The phases are in `docs/ai-analysis-roadmap.md`; this is the summary.
 4. Tier 1 clinical quality — same mechanism, but it is the first tier where a wrong
    summary reaches a clinical audience, so it goes after the plumbing has been wrong a few
    times and been caught.
-5. Tier 2, once somebody signs off on dropping the name columns.
+5. ~~Tier 2, once somebody signs off on dropping the name columns.~~ Done in AI-6. One
+   name was dropped, five reports turned out not to need it, two could not be observed.
 6. Tier 3 and 4 only after counsel.
 
 ## Excluded entirely

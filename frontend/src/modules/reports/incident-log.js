@@ -1,4 +1,5 @@
 import { api } from "../../core/api.js?v=10";
+import { mountAiPanel } from "./ai-panel.js?v=2";
 import { logReportRun } from "./report-history.js";
 import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=42";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js?v=3";
@@ -7,6 +8,20 @@ let currentIncidents = [];
 let availableDepartments = [];
 
 export async function initIncidentLog() {
+    // Reads the aggregate KPI strip, not the detail table below it. That is
+    // the whole of this report's privacy story: the detail rows carry
+    // patient_name, and they live in a branch the registry does not send.
+    mountAiPanel({
+        mountId: "ilAiPanel",
+        report: "safety_incident_log",
+        title: "AI analysis of the incident figures",
+        note: "Reads the six counts above. The incident list below, which names patients, is never sent.",
+        filters: () => ({
+            date_from: document.getElementById("ilDateFrom")?.value || "",
+            date_to: document.getElementById("ilDateTo")?.value || "",
+            department: document.getElementById("ilDeptFilter")?.value || "",
+        })
+    });
     setupEventListeners();
     setupPatientPicker();
     await fetchIncidentLog();
